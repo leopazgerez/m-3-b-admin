@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Topbar from "@/components/layout/Topbar";
 import { useStore } from "@/lib/store";
 import { Sale } from "@/lib/types";
@@ -25,16 +26,6 @@ export default function VentasPage() {
   const [method, setMethod] = useState("");
   const [amount, setAmount] = useState("");
   const [status, setStatus] = useState<"Completada" | "Pendiente" | "Cancelada">("Completada");
-
-  const openCreateModal = () => {
-    setEditingSale(null);
-    setClientName("");
-    setProductName(products[0]?.name || "");
-    setMethod(saleTypes[0] || "Efectivo");
-    setAmount(products[0]?.price.toString() || "18500");
-    setStatus("Completada");
-    setIsModalOpen(true);
-  };
 
   const openEditModal = (s: Sale) => {
     setEditingSale(s);
@@ -119,27 +110,29 @@ export default function VentasPage() {
             ))}
           </div>
 
-          <button
-            onClick={openCreateModal}
+          <Link
+            href="/ventas/nueva"
             className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs self-start sm:self-auto cursor-pointer shrink-0"
           >
             <Plus className="w-4 h-4" />
             <span>Nueva venta</span>
-          </button>
+          </Link>
         </div>
 
         {/* List View */}
         <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden">
-          <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
-            <div className="w-16">ID</div>
-            <div className="flex-1">CLIENTE</div>
-            <div className="flex-1">PRODUCTO O SERVICIO</div>
-            <div className="w-28">FECHA</div>
-            <div className="w-36">MÉTODO</div>
-            <div className="w-28 text-right">TOTAL</div>
-            <div className="w-28 pl-4">ESTADO</div>
-            <div className="w-20 text-center">ACCIONES</div>
-          </div>
+          <div className="overflow-x-auto">
+            <div className="min-w-[800px]">
+              <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
+                <div className="w-16">ID</div>
+                <div className="flex-1">CLIENTE</div>
+                <div className="flex-1">PRODUCTO O SERVICIO</div>
+                <div className="w-28">FECHA</div>
+                <div className="w-36">MÉTODO</div>
+                <div className="w-28 text-right">TOTAL</div>
+                <div className="w-28 pl-4">ESTADO</div>
+                <div className="w-20 text-center">ACCIONES</div>
+              </div>
 
           <div className="divide-y divide-[#F7F3EC]">
             {filtered.length === 0 ? (
@@ -217,6 +210,8 @@ export default function VentasPage() {
                 </div>
               ))
             )}
+            </div>
+            </div>
           </div>
         </div>
       </main>
@@ -303,7 +298,7 @@ export default function VentasPage() {
             </label>
             <select
               value={status}
-              onChange={(e) => setStatus(e.target.value as any)}
+              onChange={(e) => setStatus(e.target.value as "Completada" | "Pendiente" | "Cancelada")}
               className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
             >
               <option value="Completada">Completada</option>

@@ -19,6 +19,13 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Mates Triple B — Panel de Gestión",
   description: "Panel de administración y control comercial de Mates Triple B",
+  icons: {
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
+  },
 };
 
 export default function RootLayout({
@@ -28,6 +35,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={`${sora.variable} ${inter.variable} h-full antialiased`}>
+      <head>
+        <link rel="icon" href="/favicon.png" type="image/png" />
+      </head>
       <body className="min-h-full flex flex-col bg-[#F7F3EC] text-[#231E1A] font-body">
         {children}
       </body>

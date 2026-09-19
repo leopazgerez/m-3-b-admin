@@ -37,6 +37,7 @@ export default function ProductosPage() {
   const [subtitle, setSubtitle] = useState("");
   const [sku, setSku] = useState("");
   const [category, setCategory] = useState("");
+  const [listPrice, setListPrice] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
 
@@ -54,6 +55,7 @@ export default function ProductosPage() {
     setSubtitle("");
     setSku("");
     setCategory(productCategories[0] || "Mates");
+    setListPrice("");
     setPrice("");
     setStock("");
     setIsModalOpen(true);
@@ -65,6 +67,7 @@ export default function ProductosPage() {
     setSubtitle(p.subtitle);
     setSku(p.sku);
     setCategory(p.category);
+    setListPrice(p.listPrice !== undefined ? p.listPrice.toString() : "");
     setPrice(p.price.toString());
     setStock(p.stock.toString());
     setIsModalOpen(true);
@@ -76,6 +79,8 @@ export default function ProductosPage() {
 
     const numStock = parseInt(stock) || 0;
     const status = numStock === 0 ? "Agotado" : numStock <= 10 ? "Bajo stock" : "En stock";
+    const parsedListPrice = listPrice ? parseFloat(listPrice) : undefined;
+    const parsedSalePrice = parseFloat(price);
 
     if (editingProduct) {
       updateProduct(editingProduct.id, {
@@ -83,7 +88,8 @@ export default function ProductosPage() {
         subtitle: subtitle || "Artesanal Mates Triple B",
         sku,
         category: category || productCategories[0] || "Mates",
-        price: parseFloat(price),
+        listPrice: parsedListPrice,
+        price: parsedSalePrice,
         stock: numStock,
         status,
       });
@@ -93,7 +99,8 @@ export default function ProductosPage() {
         subtitle: subtitle || "Artesanal Mates Triple B",
         sku,
         category: category || productCategories[0] || "Mates",
-        price: parseFloat(price),
+        listPrice: parsedListPrice,
+        price: parsedSalePrice,
         stock: numStock,
         status,
       });
@@ -126,7 +133,11 @@ export default function ProductosPage() {
       // Check if native BarcodeDetector API is supported
       if ("BarcodeDetector" in window) {
         try {
-          const barcodeDetector = new (window as any).BarcodeDetector({
+          type BarcodeDetectorType = new (opts?: { formats: string[] }) => {
+            detect: (target: ImageBitmapSource) => Promise<Array<{ rawValue: string }>>;
+          };
+          const BarcodeDetectorClass = (window as unknown as { BarcodeDetector: BarcodeDetectorType }).BarcodeDetector;
+          const barcodeDetector = new BarcodeDetectorClass({
             formats: ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "qr_code"],
           });
 
@@ -142,17 +153,22 @@ export default function ProductosPage() {
                     stopCamera();
                   }, 800);
                 }
-              } catch (err) {}
+              } catch {
+                // Ignore detection frame error
+              }
             }
           }, 300);
-        } catch {}
+        } catch {
+          // Barcode detector not supported or errored
+        }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Camera access error:", err);
+      const isNotAllowed = err instanceof DOMException && err.name === "NotAllowedError";
       setCameraError(
-        err.name === "NotAllowedError"
+        isNotAllowed
           ? "Permiso de cámara denegado. Habilita los permisos en tu navegador."
-          : err.message || "No se pudo iniciar la cámara."
+          : err instanceof Error ? err.message : "No se pudo iniciar la cámara."
       );
     }
   };
@@ -239,100 +255,110 @@ export default function ProductosPage() {
 
         {/* Table Card (List Format) */}
         <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden">
-          {/* Header Row */}
-          <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
-            <div className="flex-1">PRODUCTO</div>
-            <div className="w-36">CÓDIGO / SKU</div>
-            <div className="w-36">CATEGORÍA</div>
-            <div className="w-28">PRECIO</div>
-            <div className="w-20">STOCK</div>
-            <div className="w-32">ESTADO</div>
-            <div className="w-20 text-center">ACCIONES</div>
-          </div>
-
-          {/* Body Rows */}
-          <div className="divide-y divide-[#F7F3EC]">
-            {filteredProducts.length === 0 ? (
-              <div className="p-12 text-center text-[#7A6F63] text-sm">
-                No se encontraron productos con los filtros seleccionados.
+          <div className="overflow-x-auto">
+            <div className="min-w-[760px]">
+              {/* Header Row */}
+              <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
+                <div className="flex-1">PRODUCTO</div>
+                <div className="w-32">CÓDIGO / SKU</div>
+                <div className="w-28">CATEGORÍA</div>
+                <div className="w-24 text-right">P. LISTA</div>
+                <div className="w-28 text-right">P. VENTA</div>
+                <div className="w-16 text-center">STOCK</div>
+                <div className="w-28 pl-2">ESTADO</div>
+                <div className="w-20 text-center">ACCIONES</div>
               </div>
-            ) : (
-              filteredProducts.map((p) => (
-                <div
-                  key={p.id}
-                  className="px-6 py-3.5 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
-                >
-                  {/* Product Info */}
-                  <div className="flex-1 flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-lg bg-[#EADBC6] flex items-center justify-center text-[#9C5A2E] shrink-0">
-                      <Coffee className="w-5 h-5" />
+
+              {/* Body Rows */}
+              <div className="divide-y divide-[#F7F3EC]">
+                {filteredProducts.length === 0 ? (
+                  <div className="p-12 text-center text-[#7A6F63] text-sm">
+                    No se encontraron productos con los filtros seleccionados.
+                  </div>
+                ) : (
+                  filteredProducts.map((p) => (
+                    <div
+                      key={p.id}
+                      className="px-6 py-3.5 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
+                    >
+                      {/* Product Info */}
+                      <div className="flex-1 flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-lg bg-[#EADBC6] flex items-center justify-center text-[#9C5A2E] shrink-0">
+                          <Coffee className="w-5 h-5" />
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-semibold text-[#231E1A] truncate text-sm">
+                            {p.name}
+                          </span>
+                          <span className="text-[11px] text-[#A89C8C] truncate">
+                            {p.subtitle}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* SKU / Código */}
+                      <div className="w-32 text-[#7A6F63] font-mono text-xs flex items-center gap-1.5">
+                        <ScanBarcode className="w-3.5 h-3.5 text-[#A89C8C]" />
+                        <span>{p.sku}</span>
+                      </div>
+
+                      {/* Category */}
+                      <div className="w-28 text-[#7A6F63]">
+                        <span className="bg-[#FBF8F2] border border-[#E7DFD2] px-2 py-0.5 rounded-md text-xs">
+                          {p.category}
+                        </span>
+                      </div>
+
+                      {/* List Price */}
+                      <div className="w-24 text-right text-[#7A6F63] text-xs font-medium">
+                        {p.listPrice ? `$${p.listPrice.toLocaleString("es-AR")}` : "—"}
+                      </div>
+
+                      {/* Sale Price */}
+                      <div className="w-28 text-right font-bold text-[#231E1A] text-sm">
+                        ${p.price.toLocaleString("es-AR")}
+                      </div>
+
+                      {/* Stock */}
+                      <div className="w-16 text-center font-medium text-[#231E1A]">{p.stock}</div>
+
+                      {/* Status */}
+                      <div className="w-28 pl-2">
+                        <Badge
+                          variant={
+                            p.status === "En stock"
+                              ? "success"
+                              : p.status === "Bajo stock"
+                              ? "warning"
+                              : "danger"
+                          }
+                        >
+                          {p.status}
+                        </Badge>
+                      </div>
+
+                      {/* Actions (Editar / Eliminar con ConfirmDeleteModal) */}
+                      <div className="w-20 flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => openEditModal(p)}
+                          title="Editar producto"
+                          className="text-[#A89C8C] hover:text-[#9C5A2E] p-1.5 rounded-lg hover:bg-[#EADBC6]/40 transition-colors cursor-pointer"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setDeletingProduct(p)}
+                          title="Eliminar producto"
+                          className="text-[#A89C8C] hover:text-[#C0492F] p-1.5 rounded-lg hover:bg-[#F7E3DD]/40 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-semibold text-[#231E1A] truncate text-sm">
-                        {p.name}
-                      </span>
-                      <span className="text-[11px] text-[#A89C8C] truncate">
-                        {p.subtitle}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* SKU / Código */}
-                  <div className="w-36 text-[#7A6F63] font-mono text-xs flex items-center gap-1.5">
-                    <ScanBarcode className="w-3.5 h-3.5 text-[#A89C8C]" />
-                    <span>{p.sku}</span>
-                  </div>
-
-                  {/* Category */}
-                  <div className="w-36 text-[#7A6F63]">
-                    <span className="bg-[#FBF8F2] border border-[#E7DFD2] px-2 py-0.5 rounded-md text-xs">
-                      {p.category}
-                    </span>
-                  </div>
-
-                  {/* Price */}
-                  <div className="w-28 font-semibold text-[#231E1A] text-sm">
-                    ${p.price.toLocaleString("es-AR")}
-                  </div>
-
-                  {/* Stock */}
-                  <div className="w-20 font-medium text-[#231E1A]">{p.stock}</div>
-
-                  {/* Status */}
-                  <div className="w-32">
-                    <Badge
-                      variant={
-                        p.status === "En stock"
-                          ? "success"
-                          : p.status === "Bajo stock"
-                          ? "warning"
-                          : "danger"
-                      }
-                    >
-                      {p.status}
-                    </Badge>
-                  </div>
-
-                  {/* Actions (Editar / Eliminar con ConfirmDeleteModal) */}
-                  <div className="w-20 flex items-center justify-center gap-1">
-                    <button
-                      onClick={() => openEditModal(p)}
-                      title="Editar producto"
-                      className="text-[#A89C8C] hover:text-[#9C5A2E] p-1.5 rounded-lg hover:bg-[#EADBC6]/40 transition-colors cursor-pointer"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => setDeletingProduct(p)}
-                      title="Eliminar producto"
-                      className="text-[#A89C8C] hover:text-[#C0492F] p-1.5 rounded-lg hover:bg-[#F7E3DD]/40 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </main>
@@ -371,7 +397,7 @@ export default function ProductosPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="font-medium text-[#231E1A] block mb-1">
                 Código
@@ -414,34 +440,62 @@ export default function ProductosPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="font-medium text-[#231E1A] block mb-1">
-                Precio de venta ($)
+                Precio de lista ($)
               </label>
               <input
                 type="number"
-                required
-                placeholder="19500"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                placeholder="Ej. 12500"
+                value={listPrice}
+                onChange={(e) => setListPrice(e.target.value)}
                 className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
               />
+              <span className="text-[10px] text-[#A89C8C] mt-0.5 block">Costo base o lista</span>
             </div>
 
             <div>
               <label className="font-medium text-[#231E1A] block mb-1">
-                Stock disponible
+                Precio de venta ($) <span className="text-[#C0492F]">*</span>
               </label>
               <input
                 type="number"
                 required
-                placeholder="20"
-                value={stock}
-                onChange={(e) => setStock(e.target.value)}
+                placeholder="Ej. 19500"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
                 className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
               />
+              <span className="text-[10px] text-[#A89C8C] mt-0.5 block">Precio al consumidor</span>
             </div>
+          </div>
+
+          {/* Margen comercial en vivo */}
+          {listPrice && price && Number(listPrice) > 0 && Number(price) > 0 && (
+            <div className="bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl p-2.5 flex items-center justify-between text-xs">
+              <span className="text-[#7A6F63] font-medium">Margen sobre lista:</span>
+              <span className="font-semibold text-[#3E8E5A]">
+                +{Math.round(((Number(price) - Number(listPrice)) / Number(listPrice)) * 100)}%
+                <span className="font-normal text-[#7A6F63] ml-1">
+                  (+${(Number(price) - Number(listPrice)).toLocaleString("es-AR")} ganancia)
+                </span>
+              </span>
+            </div>
+          )}
+
+          <div>
+            <label className="font-medium text-[#231E1A] block mb-1">
+              Stock disponible <span className="text-[#C0492F]">*</span>
+            </label>
+            <input
+              type="number"
+              required
+              placeholder="20"
+              value={stock}
+              onChange={(e) => setStock(e.target.value)}
+              className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
+            />
           </div>
 
           <div className="flex items-center justify-end gap-3 pt-3 mt-2 border-t border-[#F7F3EC]">

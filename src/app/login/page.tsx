@@ -27,22 +27,12 @@ export default function LoginPage() {
 
         {/* Brand Header */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-[#9C5A2E] flex items-center justify-center shadow-lg">
-            <svg
-              className="w-6 h-6 text-[#F5EAD6]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M17 8h1a4 4 0 0 1 0 8h-1" />
-              <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" />
-              <line x1="6" y1="2" x2="6" y2="4" />
-              <line x1="10" y1="2" x2="10" y2="4" />
-              <line x1="14" y1="2" x2="14" y2="4" />
-            </svg>
+          <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center shadow-lg p-0.5 border border-[#322A23] overflow-hidden">
+            <img
+              src="/favicon.png"
+              alt="Mates Triple B"
+              className="w-full h-full object-contain rounded-lg"
+            />
           </div>
           <span className="font-heading font-bold text-lg tracking-tight text-[#F5EAD6]">
             Mates Triple B
@@ -73,11 +63,12 @@ export default function LoginPage() {
         <div className="w-full max-w-md bg-white rounded-2xl border border-[#E7DFD2] p-8 shadow-xs flex flex-col gap-6">
           {/* Mobile Brand Logo */}
           <div className="lg:hidden flex items-center gap-3 pb-2 border-b border-[#F7F3EC]">
-            <div className="w-9 h-9 rounded-full bg-[#9C5A2E] flex items-center justify-center text-[#F5EAD6]">
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M17 8h1a4 4 0 0 1 0 8h-1" />
-                <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" />
-              </svg>
+            <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-2xs p-0.5 border border-[#E7DFD2] overflow-hidden">
+              <img
+                src="/favicon.png"
+                alt="Mates Triple B"
+                className="w-full h-full object-contain rounded-md"
+              />
             </div>
             <span className="font-heading font-bold text-base text-[#231E1A]">
               Mates Triple B

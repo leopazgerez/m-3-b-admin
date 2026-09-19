@@ -53,22 +53,12 @@ export default function Sidebar() {
     <aside className="w-[264px] bg-[#211C18] text-[#C9BCA9] flex flex-col h-screen shrink-0 p-6 select-none border-r border-[#322A23]">
       {/* Brand Header */}
       <div className="flex items-center gap-3 pb-6 pt-2">
-        <div className="w-10 h-10 rounded-full bg-[#9C5A2E] flex items-center justify-center shrink-0 shadow-md">
-          <svg
-            className="w-5 h-5 text-[#F5EAD6]"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M17 8h1a4 4 0 0 1 0 8h-1" />
-            <path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z" />
-            <line x1="6" y1="2" x2="6" y2="4" />
-            <line x1="10" y1="2" x2="10" y2="4" />
-            <line x1="14" y1="2" x2="14" y2="4" />
-          </svg>
+        <div className="w-10 h-10 rounded-xl overflow-hidden bg-white flex items-center justify-center shrink-0 shadow-md border border-[#322A23] p-0.5">
+          <img
+            src="/favicon.png"
+            alt="Mates Triple B"
+            className="w-full h-full object-contain rounded-lg"
+          />
         </div>
         <div className="flex flex-col">
           <span className="font-heading font-bold text-[15px] text-[#F5EAD6] tracking-tight">
