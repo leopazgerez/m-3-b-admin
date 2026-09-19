@@ -6,7 +6,7 @@ const githubRepoName = process.env.GITHUB_REPOSITORY
   : "";
 
 let rawBasePath = process.env.NEXT_PUBLIC_BASE_PATH;
-if (rawBasePath === undefined && isGithubActions) {
+if ((!rawBasePath || rawBasePath.trim() === "") && isGithubActions) {
   rawBasePath = githubRepoName;
 }
 
@@ -22,6 +22,11 @@ const formatBasePath = (path?: string): string | undefined => {
 const basePath = formatBasePath(rawBasePath);
 
 const nextConfig: NextConfig = {
+  // Expose basePath reliably to client-side bundles
+  env: {
+    NEXT_PUBLIC_BASE_PATH: basePath || "",
+  },
+
   // Enables static HTML export for GitHub Pages
   output: "export",
 

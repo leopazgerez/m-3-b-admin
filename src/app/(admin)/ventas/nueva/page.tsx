@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Topbar from "@/components/layout/Topbar";
 import { useStore } from "@/lib/store";
 import { Product, SaleItem, Client } from "@/lib/types";
+import { getAssetPath } from "@/lib/assets";
 import {
   ScanBarcode,
   ShoppingCart,
@@ -1137,7 +1138,7 @@ export default function NuevaVentaPosPage() {
             <div className="p-6 flex flex-col gap-4 text-xs font-mono bg-[#FBF8F2] border-b border-[#E7DFD2]">
               <div className="text-center pb-3 border-b border-dashed border-[#D5C9B7] flex flex-col items-center">
                 <img
-                  src="/favicon.png"
+                  src={getAssetPath("/favicon.png")}
                   alt="Mates Triple B"
                   className="w-10 h-10 rounded-full object-contain mb-1.5 border border-[#D5C9B7] bg-white p-0.5"
                 />

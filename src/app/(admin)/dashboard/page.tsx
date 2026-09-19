@@ -11,6 +11,7 @@ import StockAlertsCard from "@/components/dashboard/StockAlertsCard";
 import { monthlyBalances } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { DollarSign, Receipt, TrendingUp, Package, Plus } from "lucide-react";
+import { getAssetPath } from "@/lib/assets";
 
 export default function DashboardPage() {
   const { sales, products } = useStore();
@@ -26,7 +27,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-white border border-[#E7DFD2] p-1 shadow-2xs flex items-center justify-center shrink-0">
               <img
-                src="/favicon.png"
+                src={getAssetPath("/favicon.png")}
                 alt="Mates Triple B"
                 className="w-full h-full object-contain rounded-xl"
               />

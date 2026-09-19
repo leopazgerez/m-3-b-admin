@@ -18,6 +18,7 @@ import {
   ReceiptText,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { getAssetPath } from "@/lib/assets";
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -55,7 +56,7 @@ export default function Sidebar() {
       <div className="flex items-center gap-3 pb-6 pt-2">
         <div className="w-10 h-10 rounded-xl overflow-hidden bg-white flex items-center justify-center shrink-0 shadow-md border border-[#322A23] p-0.5">
           <img
-            src="/favicon.png"
+            src={getAssetPath("/favicon.png")}
             alt="Mates Triple B"
             className="w-full h-full object-contain rounded-lg"
           />

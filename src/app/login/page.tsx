@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { getAssetPath } from "@/lib/assets";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,7 +30,7 @@ export default function LoginPage() {
         <div className="relative z-10 flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center shadow-lg p-0.5 border border-[#322A23] overflow-hidden">
             <img
-              src="/favicon.png"
+              src={getAssetPath("/favicon.png")}
               alt="Mates Triple B"
               className="w-full h-full object-contain rounded-lg"
             />
@@ -65,7 +66,7 @@ export default function LoginPage() {
           <div className="lg:hidden flex items-center gap-3 pb-2 border-b border-[#F7F3EC]">
             <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-2xs p-0.5 border border-[#E7DFD2] overflow-hidden">
               <img
-                src="/favicon.png"
+                src={getAssetPath("/favicon.png")}
                 alt="Mates Triple B"
                 className="w-full h-full object-contain rounded-md"
               />
