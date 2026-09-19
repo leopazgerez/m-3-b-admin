@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+:root {
+  --brand: #9C5A2E;
+  --brand-dark: #7A3F1F;
+  --brand-soft: #EADBC6;
+  --accent: #C87941;
+  --sidebar-bg: #211C18;
+  --sidebar-hover: #322A23;
+  --sidebar-text: #C9BCA9;
+  --sidebar-text-active: #F5EAD6;
+  --app-bg: #F7F3EC;
+  --surface: #FFFFFF;
+  --surface-alt: #FBF8F2;
+  --text-primary: #231E1A;
+  --text-secondary: #7A6F63;
+  --text-muted: #A89C8C;
+  --border-color: #E7DFD2;
+  --success: #3E8E5A;
+  --success-soft: #E3F1E8;
+  --danger: #C0492F;
+  --danger-soft: #F7E3DD;
+  --warning: #D98A2B;
+  --warning-soft: #FBEFD9;
+  --info: #3B6EA5;
+}
+
+@theme {
+  --color-brand: var(--brand);
+  --color-brand-dark: var(--brand-dark);
+  --color-brand-soft: var(--brand-soft);
+  --color-accent: var(--accent);
+  --color-sidebar-bg: var(--sidebar-bg);
+  --color-sidebar-hover: var(--sidebar-hover);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-text-active: var(--sidebar-text-active);
+  --color-app-bg: var(--app-bg);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border-subtle: var(--border-color);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+
+  --font-heading: var(--font-sora), sans-serif;
+  --font-body: var(--font-inter), sans-serif;
+}
+
+body {
+  background-color: var(--app-bg);
+  color: var(--text-primary);
+  font-family: var(--font-inter), sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, h5, h6, .font-heading {
+  font-family: var(--font-sora), sans-serif;
+}
