@@ -90,7 +90,7 @@ export default function VentasPage() {
         onSearch={setSearchTerm}
       />
 
-      <main className="p-8 flex flex-col gap-6 max-w-7xl w-full">
+      <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full">
         {/* Filters and CTA bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
@@ -118,20 +118,19 @@ export default function VentasPage() {
             <span>Nueva venta</span>
           </Link>
         </div>
-
         {/* List View */}
-        <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <div className="min-w-[800px]">
+        <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">
+          <div className="overflow-x-auto w-full">
+            <div className="min-w-[840px]">
               <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
-                <div className="w-16">ID</div>
-                <div className="flex-1">CLIENTE</div>
-                <div className="flex-1">PRODUCTO O SERVICIO</div>
-                <div className="w-28">FECHA</div>
-                <div className="w-36">MÉTODO</div>
-                <div className="w-28 text-right">TOTAL</div>
-                <div className="w-28 pl-4">ESTADO</div>
-                <div className="w-20 text-center">ACCIONES</div>
+                <div className="w-16 shrink-0">ID</div>
+                <div className="flex-1 min-w-[160px]">CLIENTE</div>
+                <div className="flex-1 min-w-[160px]">PRODUCTO O SERVICIO</div>
+                <div className="w-28 shrink-0">FECHA</div>
+                <div className="w-36 shrink-0">MÉTODO</div>
+                <div className="w-28 shrink-0 text-right">TOTAL</div>
+                <div className="w-28 shrink-0 pl-4">ESTADO</div>
+                <div className="w-20 shrink-0 text-center">ACCIONES</div>
               </div>
 
           <div className="divide-y divide-[#F7F3EC]">
@@ -145,11 +144,11 @@ export default function VentasPage() {
                   key={s.id}
                   className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
                 >
-                  <div className="w-16 font-mono text-xs text-[#A89C8C]">
+                  <div className="w-16 shrink-0 font-mono text-xs text-[#A89C8C]">
                     #{String(idx + 1).padStart(4, "0")}
                   </div>
 
-                  <div className="flex-1 flex items-center gap-3 min-w-0">
+                  <div className="flex-1 min-w-[160px] flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-[#EADBC6] text-[#7A3F1F] flex items-center justify-center font-bold text-xs shrink-0">
                       {s.clientInitials}
                     </div>
@@ -158,25 +157,25 @@ export default function VentasPage() {
                     </span>
                   </div>
 
-                  <div className="flex-1 text-[#7A6F63] font-medium truncate">
+                  <div className="flex-1 min-w-[160px] text-[#7A6F63] font-medium truncate">
                     {s.productName}
                   </div>
 
-                  <div className="w-28 text-[#7A6F63] flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-[#A89C8C]" />
+                  <div className="w-28 shrink-0 text-[#7A6F63] flex items-center gap-1.5 whitespace-nowrap">
+                    <Calendar className="w-3.5 h-3.5 text-[#A89C8C] shrink-0" />
                     <span>{s.date}</span>
                   </div>
 
-                  <div className="w-36 text-[#7A6F63] flex items-center gap-1.5">
-                    <CreditCard className="w-3.5 h-3.5 text-[#A89C8C]" />
-                    <span>{s.method}</span>
+                  <div className="w-36 shrink-0 text-[#7A6F63] flex items-center gap-1.5 truncate">
+                    <CreditCard className="w-3.5 h-3.5 text-[#A89C8C] shrink-0" />
+                    <span className="truncate">{s.method}</span>
                   </div>
 
-                  <div className="w-28 text-right font-bold text-[#231E1A] text-sm">
+                  <div className="w-28 shrink-0 text-right font-bold text-[#231E1A] text-sm whitespace-nowrap">
                     ${s.amount.toLocaleString("es-AR")}
                   </div>
 
-                  <div className="w-28 pl-4">
+                  <div className="w-28 shrink-0 pl-4">
                     <Badge
                       variant={
                         s.status === "Completada"
@@ -191,7 +190,7 @@ export default function VentasPage() {
                   </div>
 
                   {/* Actions (Editar / Eliminar) */}
-                  <div className="w-20 flex items-center justify-center gap-1">
+                  <div className="w-20 shrink-0 flex items-center justify-center gap-1">
                     <button
                       onClick={() => openEditModal(s)}
                       title="Editar venta"
@@ -210,7 +209,7 @@ export default function VentasPage() {
                 </div>
               ))
             )}
-            </div>
+          </div>
             </div>
           </div>
         </div>

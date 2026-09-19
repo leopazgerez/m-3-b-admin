@@ -27,25 +27,25 @@ export default function EgresosSubmenuPage() {
         onSearch={setSearchTerm}
       />
 
-      <main className="p-8 flex flex-col gap-6 max-w-7xl w-full">
+      <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full">
         {/* Navigation & Summary */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2 bg-white border border-[#E7DFD2] p-1.5 rounded-xl shadow-2xs">
+          <div className="flex items-center gap-2 bg-white border border-[#E7DFD2] p-1.5 rounded-xl shadow-2xs overflow-x-auto max-w-full">
             <Link
               href="/gastos"
-              className="px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors"
+              className="px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap"
             >
               Todos los movimientos
             </Link>
             <Link
               href="/gastos/ingresos"
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap"
             >
               <span>Ingresos</span>
             </Link>
             <Link
               href="/gastos/egresos"
-              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#9C5A2E] text-white shadow-xs"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#9C5A2E] text-white shadow-xs whitespace-nowrap"
             >
               <ArrowDownRight className="w-3.5 h-3.5 text-white" />
               <span>Egresos</span>
@@ -68,47 +68,51 @@ export default function EgresosSubmenuPage() {
         </div>
 
         {/* List Table */}
-        <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden">
-          <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
-            <div className="flex-1">CONCEPTO / DESCRIPCIÓN</div>
-            <div className="w-40">RUBRO / PROVEEDOR</div>
-            <div className="w-28">FECHA</div>
-            <div className="w-32 text-right">MONTO EGRESADO</div>
-            <div className="w-28 pl-4">ESTADO</div>
-          </div>
-
-          <div className="divide-y divide-[#F7F3EC]">
-            {egresos.length === 0 ? (
-              <div className="p-12 text-center text-[#7A6F63] text-sm">
-                No hay egresos registrados con los criterios actuales.
+        <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">
+          <div className="overflow-x-auto w-full">
+            <div className="min-w-[700px]">
+              <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
+                <div className="flex-1 min-w-[180px]">CONCEPTO / DESCRIPCIÓN</div>
+                <div className="w-40 shrink-0">RUBRO / PROVEEDOR</div>
+                <div className="w-28 shrink-0">FECHA</div>
+                <div className="w-32 shrink-0 text-right">MONTO EGRESADO</div>
+                <div className="w-28 shrink-0 pl-4">ESTADO</div>
               </div>
-            ) : (
-              egresos.map((m) => (
-                <div
-                  key={m.id}
-                  className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
-                >
-                  <div className="flex-1 font-semibold text-[#231E1A] text-sm">
-                    {m.desc}
+
+              <div className="divide-y divide-[#F7F3EC]">
+                {egresos.length === 0 ? (
+                  <div className="p-12 text-center text-[#7A6F63] text-sm">
+                    No hay egresos registrados con los criterios actuales.
                   </div>
-                  <div className="w-40 text-[#7A6F63]">
-                    <span className="bg-[#F7E3DD] text-[#C0492F] font-medium px-2.5 py-1 rounded-md text-xs">
-                      {m.cat}
-                    </span>
-                  </div>
-                  <div className="w-28 text-[#7A6F63] flex items-center gap-1.5">
-                    <Calendar className="w-3.5 h-3.5 text-[#A89C8C]" />
-                    <span>{m.date}</span>
-                  </div>
-                  <div className="w-32 text-right font-bold text-sm text-[#C0492F]">
-                    -${m.amount.toLocaleString("es-AR")}
-                  </div>
-                  <div className="w-28 pl-4">
-                    <Badge variant="success">{m.status}</Badge>
-                  </div>
-                </div>
-              ))
-            )}
+                ) : (
+                  egresos.map((m) => (
+                    <div
+                      key={m.id}
+                      className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
+                    >
+                      <div className="flex-1 min-w-[180px] font-semibold text-[#231E1A] text-sm truncate">
+                        {m.desc}
+                      </div>
+                      <div className="w-40 shrink-0 text-[#7A6F63]">
+                        <span className="bg-[#F7E3DD] text-[#C0492F] font-medium px-2.5 py-1 rounded-md text-xs whitespace-nowrap">
+                          {m.cat}
+                        </span>
+                      </div>
+                      <div className="w-28 shrink-0 text-[#7A6F63] flex items-center gap-1.5 whitespace-nowrap">
+                        <Calendar className="w-3.5 h-3.5 text-[#A89C8C] shrink-0" />
+                        <span>{m.date}</span>
+                      </div>
+                      <div className="w-32 shrink-0 text-right font-bold text-sm text-[#C0492F] whitespace-nowrap">
+                        -${m.amount.toLocaleString("es-AR")}
+                      </div>
+                      <div className="w-28 shrink-0 pl-4">
+                        <Badge variant="success">{m.status}</Badge>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </main>

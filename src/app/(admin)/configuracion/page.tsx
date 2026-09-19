@@ -27,30 +27,30 @@ export default function ConfiguracionPage() {
         subtitle="Ajustes del sistema y datos generales del negocio"
       />
 
-      <main className="p-8 flex flex-col gap-6 max-w-4xl w-full">
+      <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-4xl w-full">
         {/* Navigation Bar between Config Submenus */}
-        <div className="flex items-center gap-2 bg-white border border-[#E7DFD2] p-1.5 rounded-xl shadow-2xs w-fit">
+        <div className="flex items-center gap-2 bg-white border border-[#E7DFD2] p-1.5 rounded-xl shadow-2xs overflow-x-auto max-w-full">
           <Link
             href="/configuracion"
-            className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#9C5A2E] text-white shadow-xs"
+            className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#9C5A2E] text-white shadow-xs whitespace-nowrap"
           >
             General
           </Link>
           <Link
             href="/configuracion/producto"
-            className="px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors"
+            className="px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap"
           >
             Producto (Categorías)
           </Link>
           <Link
             href="/configuracion/venta"
-            className="px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors"
+            className="px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap"
           >
             Venta (Tipos)
           </Link>
           <Link
             href="/configuracion/gastos"
-            className="px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors"
+            className="px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap"
           >
             Gastos (Tipos)
           </Link>

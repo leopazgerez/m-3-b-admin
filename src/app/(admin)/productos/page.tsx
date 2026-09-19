@@ -223,7 +223,7 @@ export default function ProductosPage() {
         onSearch={setSearchTerm}
       />
 
-      <main className="p-8 flex flex-col gap-6 max-w-7xl w-full">
+      <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full">
         {/* Actions bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Categories Filter */}
@@ -254,19 +254,19 @@ export default function ProductosPage() {
         </div>
 
         {/* Table Card (List Format) */}
-        <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <div className="min-w-[760px]">
+        <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">
+          <div className="overflow-x-auto w-full">
+            <div className="min-w-[820px]">
               {/* Header Row */}
               <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
-                <div className="flex-1">PRODUCTO</div>
-                <div className="w-32">CÓDIGO / SKU</div>
-                <div className="w-28">CATEGORÍA</div>
-                <div className="w-24 text-right">P. LISTA</div>
-                <div className="w-28 text-right">P. VENTA</div>
-                <div className="w-16 text-center">STOCK</div>
-                <div className="w-28 pl-2">ESTADO</div>
-                <div className="w-20 text-center">ACCIONES</div>
+                <div className="flex-1 min-w-[200px]">PRODUCTO</div>
+                <div className="w-32 shrink-0">CÓDIGO / SKU</div>
+                <div className="w-28 shrink-0">CATEGORÍA</div>
+                <div className="w-24 shrink-0 text-right">P. LISTA</div>
+                <div className="w-28 shrink-0 text-right">P. VENTA</div>
+                <div className="w-16 shrink-0 text-center">STOCK</div>
+                <div className="w-28 shrink-0 pl-2">ESTADO</div>
+                <div className="w-20 shrink-0 text-center">ACCIONES</div>
               </div>
 
               {/* Body Rows */}
@@ -282,11 +282,11 @@ export default function ProductosPage() {
                       className="px-6 py-3.5 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
                     >
                       {/* Product Info */}
-                      <div className="flex-1 flex items-center gap-3 min-w-0">
+                      <div className="flex-1 min-w-[200px] flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-[#EADBC6] flex items-center justify-center text-[#9C5A2E] shrink-0">
                           <Coffee className="w-5 h-5" />
                         </div>
-                        <div className="flex flex-col min-w-0">
+                        <div className="flex flex-col min-w-0 flex-1">
                           <span className="font-semibold text-[#231E1A] truncate text-sm">
                             {p.name}
                           </span>
@@ -297,33 +297,35 @@ export default function ProductosPage() {
                       </div>
 
                       {/* SKU / Código */}
-                      <div className="w-32 text-[#7A6F63] font-mono text-xs flex items-center gap-1.5">
-                        <ScanBarcode className="w-3.5 h-3.5 text-[#A89C8C]" />
+                      <div className="w-32 shrink-0 text-[#7A6F63] font-mono text-xs flex items-center gap-1.5">
+                        <ScanBarcode className="w-3.5 h-3.5 text-[#A89C8C] shrink-0" />
                         <span>{p.sku}</span>
                       </div>
 
                       {/* Category */}
-                      <div className="w-28 text-[#7A6F63]">
-                        <span className="bg-[#FBF8F2] border border-[#E7DFD2] px-2 py-0.5 rounded-md text-xs">
+                      <div className="w-28 shrink-0 text-[#7A6F63]">
+                        <span className="bg-[#FBF8F2] border border-[#E7DFD2] px-2 py-0.5 rounded-md text-xs whitespace-nowrap">
                           {p.category}
                         </span>
                       </div>
 
                       {/* List Price */}
-                      <div className="w-24 text-right text-[#7A6F63] text-xs font-medium">
+                      <div className="w-24 shrink-0 text-right text-[#7A6F63] text-xs font-medium whitespace-nowrap">
                         {p.listPrice ? `$${p.listPrice.toLocaleString("es-AR")}` : "—"}
                       </div>
 
                       {/* Sale Price */}
-                      <div className="w-28 text-right font-bold text-[#231E1A] text-sm">
+                      <div className="w-28 shrink-0 text-right font-bold text-[#231E1A] text-sm whitespace-nowrap">
                         ${p.price.toLocaleString("es-AR")}
                       </div>
 
                       {/* Stock */}
-                      <div className="w-16 text-center font-medium text-[#231E1A]">{p.stock}</div>
+                      <div className="w-16 shrink-0 text-center font-medium text-[#231E1A] whitespace-nowrap">
+                        {p.stock}
+                      </div>
 
                       {/* Status */}
-                      <div className="w-28 pl-2">
+                      <div className="w-28 shrink-0 pl-2">
                         <Badge
                           variant={
                             p.status === "En stock"
@@ -338,7 +340,7 @@ export default function ProductosPage() {
                       </div>
 
                       {/* Actions (Editar / Eliminar con ConfirmDeleteModal) */}
-                      <div className="w-20 flex items-center justify-center gap-1">
+                      <div className="w-20 shrink-0 flex items-center justify-center gap-1">
                         <button
                           onClick={() => openEditModal(p)}
                           title="Editar producto"

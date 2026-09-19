@@ -21,7 +21,7 @@ export default function DashboardPage() {
     <>
       <Topbar title="Dashboard" />
 
-      <main className="p-8 flex flex-col gap-6 max-w-7xl w-full">
+      <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full">
         {/* Header Section with Timeframe & CTA */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
@@ -33,7 +33,7 @@ export default function DashboardPage() {
               />
             </div>
             <div className="flex flex-col">
-              <h2 className="font-heading font-bold text-2xl text-[#231E1A] tracking-tight">
+              <h2 className="font-heading font-bold text-xl sm:text-2xl text-[#231E1A] tracking-tight">
                 Resumen del negocio
               </h2>
               <p className="text-xs text-[#7A6F63]">
@@ -42,14 +42,14 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
             {/* Segmented Control */}
-            <div className="flex items-center bg-white border border-[#E7DFD2] p-1 rounded-xl shadow-2xs">
+            <div className="flex items-center bg-white border border-[#E7DFD2] p-1 rounded-xl shadow-2xs overflow-x-auto max-w-full">
               {(["Hoy", "Semana", "Mes", "Año"] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPeriod(p)}
-                  className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  className={`px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
                     period === p
                       ? "bg-[#9C5A2E] text-white font-semibold shadow-xs"
                       : "text-[#7A6F63] hover:text-[#231E1A]"
@@ -63,7 +63,7 @@ export default function DashboardPage() {
             {/* Primary Action */}
             <Link
               href="/ventas/nueva"
-              className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs cursor-pointer"
+              className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs cursor-pointer whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               <span>Nueva venta</span>
@@ -112,15 +112,23 @@ export default function DashboardPage() {
         </div>
 
         {/* Charts Row */}
-        <div className="flex flex-col lg:flex-row items-stretch gap-5">
-          <BalanceChart data={monthlyBalances} />
-          <CategoryDonut />
+        <div className="flex flex-col lg:flex-row items-stretch gap-5 min-w-0 w-full">
+          <div className="flex-1 min-w-0 w-full">
+            <BalanceChart data={monthlyBalances} />
+          </div>
+          <div className="w-full lg:w-[380px] shrink-0 min-w-0">
+            <CategoryDonut />
+          </div>
         </div>
 
         {/* Bottom Row */}
-        <div className="flex flex-col lg:flex-row items-stretch gap-5">
-          <RecentSalesTable sales={sales} />
-          <StockAlertsCard />
+        <div className="flex flex-col lg:flex-row items-stretch gap-5 min-w-0 w-full">
+          <div className="flex-1 min-w-0 w-full">
+            <RecentSalesTable sales={sales} />
+          </div>
+          <div className="w-full lg:w-[380px] shrink-0 min-w-0">
+            <StockAlertsCard />
+          </div>
         </div>
       </main>
     </>

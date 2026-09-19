@@ -6,14 +6,14 @@ export default function CategoryDonut() {
   const total = "$4,82M";
 
   return (
-    <div className="bg-white rounded-2xl border border-[#E7DFD2] p-5 flex flex-col justify-between shrink-0 w-[380px] shadow-xs h-full min-h-[260px]">
-      <h3 className="font-heading font-bold text-base text-[#231E1A]">
+    <div className="bg-white rounded-2xl border border-[#E7DFD2] p-4 sm:p-5 flex flex-col justify-between w-full lg:w-[380px] min-w-0 shadow-xs h-full min-h-[260px]">
+      <h3 className="font-heading font-bold text-base text-[#231E1A] mb-2">
         Ventas por categoría
       </h3>
 
-      <div className="flex items-center gap-5 py-2">
+      <div className="flex flex-col sm:flex-row items-center gap-5 py-2">
         {/* Ring */}
-        <div className="relative w-32 h-32 shrink-0 flex items-center justify-center">
+        <div className="relative w-28 h-28 sm:w-32 sm:h-32 shrink-0 flex items-center justify-center">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
             {/* Segment 1: Mates 45% (#9C5A2E) */}
             <circle
@@ -63,7 +63,7 @@ export default function CategoryDonut() {
 
           {/* Center text */}
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <span className="font-heading font-bold text-lg text-[#231E1A] tracking-tight leading-none">
+            <span className="font-heading font-bold text-base sm:text-lg text-[#231E1A] tracking-tight leading-none">
               {total}
             </span>
             <span className="text-[10px] text-[#A89C8C] uppercase tracking-wider">
@@ -73,17 +73,17 @@ export default function CategoryDonut() {
         </div>
 
         {/* Categories List */}
-        <div className="flex flex-col gap-2.5 flex-1 text-xs">
+        <div className="flex flex-col gap-2.5 w-full min-w-0 text-xs">
           {categoryBreakdown.map((cat) => (
-            <div key={cat.name} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div key={cat.name} className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
                 <span
                   className="w-2.5 h-2.5 rounded-full shrink-0"
                   style={{ backgroundColor: cat.color }}
                 />
-                <span className="text-[#7A6F63] font-medium">{cat.name}</span>
+                <span className="text-[#7A6F63] font-medium truncate">{cat.name}</span>
               </div>
-              <span className="font-bold text-[#231E1A]">{cat.percentage}%</span>
+              <span className="font-bold text-[#231E1A] shrink-0">{cat.percentage}%</span>
             </div>
           ))}
         </div>

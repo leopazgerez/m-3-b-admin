@@ -70,19 +70,19 @@ export default function ClientesPage() {
         onSearch={setSearchTerm}
       />
 
-      <main className="p-4 sm:p-8 flex flex-col gap-6 max-w-7xl w-full">
+      <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full min-w-0">
         {/* Table / List View */}
-        <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <div className="min-w-[700px]">
+        <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">
+          <div className="overflow-x-auto w-full">
+            <div className="min-w-[760px]">
               {/* Header Row */}
               <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
-                <div className="flex-1">CLIENTE</div>
-                <div className="w-56">CONTACTO (EMAIL)</div>
-                <div className="w-40">TELÉFONO</div>
-                <div className="w-28 text-center">PEDIDOS</div>
-                <div className="w-32 text-right">TOTAL GASTADO</div>
-                <div className="w-10"></div>
+                <div className="flex-1 min-w-[200px]">CLIENTE</div>
+                <div className="w-56 shrink-0">CONTACTO (EMAIL)</div>
+                <div className="w-40 shrink-0">TELÉFONO</div>
+                <div className="w-28 shrink-0 text-center">PEDIDOS</div>
+                <div className="w-32 shrink-0 text-right">TOTAL GASTADO</div>
+                <div className="w-10 shrink-0"></div>
               </div>
 
               {/* List Rows */}
@@ -98,54 +98,54 @@ export default function ClientesPage() {
                       className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
                     >
                       {/* Name & Avatar */}
-                      <div className="flex-1 flex items-center gap-3 min-w-0">
+                      <div className="flex-1 min-w-[200px] flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-[#EADBC6] text-[#7A3F1F] flex items-center justify-center font-bold text-sm shrink-0">
                           {c.initials}
                         </div>
-                        <div className="flex flex-col min-w-0">
+                        <div className="flex flex-col min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-semibold text-[#231E1A] text-sm truncate">
                               {c.name}
                             </span>
                             {c.dni && (
-                              <span className="text-[10px] bg-[#FBF8F2] border border-[#E7DFD2] text-[#7A6F63] px-1.5 py-0.5 rounded font-mono">
+                              <span className="text-[10px] bg-[#FBF8F2] border border-[#E7DFD2] text-[#7A6F63] px-1.5 py-0.5 rounded font-mono shrink-0">
                                 DNI {c.dni}
                               </span>
                             )}
                           </div>
-                          <span className="text-[11px] text-[#A89C8C] flex items-center gap-1">
-                            <UserCheck className="w-3 h-3 text-[#3E8E5A]" />
+                          <span className="text-[11px] text-[#A89C8C] flex items-center gap-1 truncate">
+                            <UserCheck className="w-3 h-3 text-[#3E8E5A] shrink-0" />
                             Última compra: {c.lastPurchase}
                           </span>
                         </div>
                       </div>
 
                       {/* Email */}
-                      <div className="w-56 text-[#7A6F63] flex items-center gap-1.5 truncate">
+                      <div className="w-56 shrink-0 text-[#7A6F63] flex items-center gap-1.5 truncate">
                         <Mail className="w-3.5 h-3.5 text-[#A89C8C] shrink-0" />
                         <span className="truncate">{c.email}</span>
                       </div>
 
                       {/* Phone */}
-                      <div className="w-40 text-[#7A6F63] flex items-center gap-1.5 font-mono text-xs">
+                      <div className="w-40 shrink-0 text-[#7A6F63] flex items-center gap-1.5 font-mono text-xs">
                         <Phone className="w-3.5 h-3.5 text-[#A89C8C] shrink-0" />
                         <span>{c.phone}</span>
                       </div>
 
                       {/* Orders */}
-                      <div className="w-28 text-center font-medium text-[#231E1A]">
+                      <div className="w-28 shrink-0 text-center font-medium text-[#231E1A]">
                         <span className="bg-[#FBF8F2] border border-[#E7DFD2] px-2.5 py-1 rounded-full text-xs">
                           {c.orders} pedidos
                         </span>
                       </div>
 
                       {/* Total Spent */}
-                      <div className="w-32 text-right font-bold text-[#231E1A] text-sm">
+                      <div className="w-32 shrink-0 text-right font-bold text-[#231E1A] text-sm">
                         ${c.spent.toLocaleString("es-AR")}
                       </div>
 
                       {/* Action */}
-                      <div className="w-10 flex items-center justify-end">
+                      <div className="w-10 shrink-0 flex items-center justify-end">
                         <ChevronRight className="w-4 h-4 text-[#A89C8C]" />
                       </div>
                     </div>

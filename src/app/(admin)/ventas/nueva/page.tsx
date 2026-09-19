@@ -449,7 +449,7 @@ export default function NuevaVentaPosPage() {
         subtitle="Caja de cobro y registro rápido de ventas estilo supermercado"
       />
 
-      <main className="p-6 md:p-8 flex flex-col gap-6 max-w-7xl w-full">
+      <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full">
         {/* Navigation & Header Actions */}
         <div className="flex items-center justify-between gap-4">
           <Link
