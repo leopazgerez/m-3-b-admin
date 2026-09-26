@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import Topbar from "@/components/layout/Topbar";
 import { useStore } from "@/lib/store";
-import { Mail, Phone, ShoppingBag, ChevronRight, UserCheck } from "lucide-react";
+import { Mail, Phone, ChevronRight, UserCheck } from "lucide-react";
 import { useState } from "react";
 
 export default function ClientesPage() {
@@ -93,9 +94,10 @@ export default function ClientesPage() {
                   </div>
                 ) : (
                   filtered.map((c) => (
-                    <div
+                    <Link
                       key={c.id || c.name}
-                      className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
+                      href={`/clientes/detalle?id=${encodeURIComponent(c.id)}`}
+                      className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors cursor-pointer"
                     >
                       {/* Name & Avatar */}
                       <div className="flex-1 min-w-[200px] flex items-center gap-3">
@@ -148,7 +150,7 @@ export default function ClientesPage() {
                       <div className="w-10 shrink-0 flex items-center justify-end">
                         <ChevronRight className="w-4 h-4 text-[#A89C8C]" />
                       </div>
-                    </div>
+                    </Link>
                   ))
                 )}
               </div>

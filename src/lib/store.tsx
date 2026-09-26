@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Product, Sale, Expense, Client } from "./types";
+import { Product, Sale, Expense, Client, ClientPayment } from "./types";
 import { initialProducts, initialSales, initialClients } from "./data";
 import { initialMovements } from "@/app/(admin)/gastos/page";
 
@@ -10,6 +10,7 @@ interface StoreContextType {
   sales: Sale[];
   clients: Client[];
   expenses: Expense[];
+  clientPayments: ClientPayment[];
   productCategories: string[];
   saleTypes: string[];
   expenseTypes: string[];
@@ -25,6 +26,9 @@ interface StoreContextType {
   addClient: (client: Omit<Client, "id">) => Client;
   updateClient: (id: string, client: Partial<Client>) => void;
   deleteClient: (id: string) => void;
+  // Payment actions
+  registerPayment: (payment: Omit<ClientPayment, "id">) => void;
+  settleTotalClientDebt: (clientId: string, clientName: string, method: string) => void;
   // Configuration actions
   addProductCategory: (category: string) => void;
   deleteProductCategory: (category: string) => void;
@@ -50,11 +54,16 @@ const initialExpenses: Expense[] = initialMovements.map((m) => ({
   status: m.status as "Pagado" | "Pendiente",
 }));
 
+// Bump this string whenever you change initialProducts, initialSales or initialClients
+// so that cached localStorage data is replaced with the fresh seed on next load.
+const DATA_VERSION = "2026-09-26-v2";
+
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [sales, setSales] = useState<Sale[]>(initialSales);
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses);
+  const [clientPayments, setClientPayments] = useState<ClientPayment[]>([]);
   const [productCategories, setProductCategories] = useState<string[]>(defaultProductCategories);
   const [saleTypes, setSaleTypes] = useState<string[]>(defaultSaleTypes);
   const [expenseTypes, setExpenseTypes] = useState<string[]>(defaultExpenseTypes);
@@ -64,29 +73,45 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
-        const savedProds = localStorage.getItem("mates_admin_products");
-        if (savedProds) {
-          const parsed: Product[] = JSON.parse(savedProds);
-          // Backfill listPrice for older cached items if missing
-          const normalized = parsed.map((p) => ({
-            ...p,
-            listPrice:
-              p.listPrice !== undefined
-                ? p.listPrice
-                : initialProducts.find((ip) => ip.id === p.id)?.listPrice ?? Math.round(p.price * 0.7),
-          }));
-          setProducts(normalized);
+        // ── Data versioning: reset seed data when DATA_VERSION changes ──────
+        const cachedVersion = localStorage.getItem("mates_admin_data_version");
+        if (cachedVersion !== DATA_VERSION) {
+          // Clear only the seed collections; preserve user config & payments
+          localStorage.removeItem("mates_admin_products");
+          localStorage.removeItem("mates_admin_sales");
+          localStorage.removeItem("mates_admin_clients");
+          localStorage.removeItem("mates_admin_client_payments");
+          localStorage.setItem("mates_admin_data_version", DATA_VERSION);
+          // State is already initialised with initial* values — nothing more to do here
+        } else {
+          // ── Normal hydration from cache ─────────────────────────────────
+          const savedProds = localStorage.getItem("mates_admin_products");
+          if (savedProds) {
+            const parsed: Product[] = JSON.parse(savedProds);
+            const normalized = parsed.map((p) => ({
+              ...p,
+              listPrice:
+                p.listPrice !== undefined
+                  ? p.listPrice
+                  : initialProducts.find((ip) => ip.id === p.id)?.listPrice ?? Math.round(p.price * 0.7),
+            }));
+            setProducts(normalized);
+          }
+
+          const savedSales = localStorage.getItem("mates_admin_sales");
+          if (savedSales) setSales(JSON.parse(savedSales));
+
+          const savedClients = localStorage.getItem("mates_admin_clients");
+          if (savedClients) setClients(JSON.parse(savedClients));
+
+          const savedExpenses = localStorage.getItem("mates_admin_expenses");
+          if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
+
+          const savedPayments = localStorage.getItem("mates_admin_client_payments");
+          if (savedPayments) setClientPayments(JSON.parse(savedPayments));
         }
 
-        const savedSales = localStorage.getItem("mates_admin_sales");
-        if (savedSales) setSales(JSON.parse(savedSales));
-
-        const savedClients = localStorage.getItem("mates_admin_clients");
-        if (savedClients) setClients(JSON.parse(savedClients));
-
-        const savedExpenses = localStorage.getItem("mates_admin_expenses");
-        if (savedExpenses) setExpenses(JSON.parse(savedExpenses));
-
+        // Config keys are always loaded regardless of data version
         const savedCategories = localStorage.getItem("mates_admin_categories");
         if (savedCategories) setProductCategories(JSON.parse(savedCategories));
 
@@ -129,6 +154,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("mates_admin_expenses", JSON.stringify(expenses));
     }
   }, [expenses, isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem("mates_admin_client_payments", JSON.stringify(clientPayments));
+    }
+  }, [clientPayments, isLoaded]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -228,6 +259,91 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setClients((prev) => prev.filter((c) => c.id !== id));
   };
 
+  // Payment actions
+  const registerPayment = (newPayment: Omit<ClientPayment, "id">) => {
+    const payment: ClientPayment = {
+      ...newPayment,
+      id: `pay-${Date.now()}`,
+    };
+    setClientPayments((prev) => [payment, ...prev]);
+
+    if (newPayment.saleId) {
+      // ── Payment tied to a specific sale ──────────────────────────────────
+      setSales((prev) =>
+        prev.map((s) => {
+          if (s.id !== newPayment.saleId) return s;
+          const alreadyPaid = s.paidAmount ?? 0;
+          const newPaid = Math.min(s.amount, alreadyPaid + newPayment.amount);
+          return {
+            ...s,
+            paidAmount: newPaid,
+            status: newPaid >= s.amount ? "Completada" : s.status,
+          };
+        })
+      );
+    } else {
+      // ── General payment: distribute across pending sales chronologically ──
+      // This keeps KPI cards in sync (totalPaid / totalDebt derive from sales).
+      let remaining = newPayment.amount;
+      setSales((prev) => {
+        const result = prev.map((s) => {
+          if (remaining <= 0) return s;
+          const isClientSale =
+            s.clientId === newPayment.clientId ||
+            s.clientName.toLowerCase() === newPayment.clientName.toLowerCase();
+          if (!isClientSale || s.status !== "Pendiente") return s;
+
+          const alreadyPaid = s.paidAmount ?? 0;
+          const stillOwed = s.amount - alreadyPaid;
+          const toApply = Math.min(remaining, stillOwed);
+          remaining -= toApply;
+          const newPaid = alreadyPaid + toApply;
+          return {
+            ...s,
+            paidAmount: newPaid,
+            status: newPaid >= s.amount ? ("Completada" as const) : s.status,
+          };
+        });
+        return result;
+      });
+    }
+  };
+
+  const settleTotalClientDebt = (clientId: string, clientName: string, method: string) => {
+    // Compute pending sales for this client
+    const clientSales = sales.filter(
+      (s) =>
+        (s.clientId === clientId || s.clientName.toLowerCase() === clientName.toLowerCase()) &&
+        s.status === "Pendiente"
+    );
+    const debtAmount = clientSales.reduce((acc, s) => acc + (s.amount - (s.paidAmount ?? 0)), 0);
+    if (debtAmount <= 0) return;
+
+    // Mark all pending sales as Completada
+    setSales((prev) =>
+      prev.map((s) => {
+        const isClientSale =
+          s.clientId === clientId || s.clientName.toLowerCase() === clientName.toLowerCase();
+        if (isClientSale && s.status === "Pendiente") {
+          return { ...s, paidAmount: s.amount, status: "Completada" as const };
+        }
+        return s;
+      })
+    );
+
+    // Register a single payment entry for the full amount
+    const payment: ClientPayment = {
+      id: `pay-${Date.now()}`,
+      clientId,
+      clientName,
+      date: "Hoy",
+      amount: debtAmount,
+      method,
+      notes: "Cancelación total de deuda",
+    };
+    setClientPayments((prev) => [payment, ...prev]);
+  };
+
   // Config actions
   const addProductCategory = (cat: string) => {
     if (!productCategories.includes(cat)) {
@@ -266,6 +382,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         sales,
         clients,
         expenses,
+        clientPayments,
         productCategories,
         saleTypes,
         expenseTypes,
@@ -278,6 +395,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addClient,
         updateClient,
         deleteClient,
+        registerPayment,
+        settleTotalClientDebt,
         addProductCategory,
         deleteProductCategory,
         addSaleType,

@@ -41,7 +41,19 @@ export interface Sale {
   date: string;
   method: string;
   amount: number;
+  paidAmount?: number; // Monto ya abonado (para ventas fiadas / pagos parciales)
   status: "Completada" | "Pendiente" | "Cancelada";
+}
+
+export interface ClientPayment {
+  id: string;
+  clientId: string;
+  clientName: string;
+  date: string;
+  amount: number;
+  method: string; // Efectivo, Transferencia, Mercado Pago, etc.
+  saleId?: string; // Si cancela una venta puntual
+  notes?: string;
 }
 
 export interface Expense {
