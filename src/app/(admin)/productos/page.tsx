@@ -21,14 +21,11 @@ import {
   Boxes,
   PackagePlus,
   Calendar,
-  ArrowRight,
   TrendingUp,
   Tag,
   Truck,
   ExternalLink,
   Layers,
-  ChevronDown,
-  ChevronUp,
   Palette,
   Sparkles,
 } from "lucide-react";
@@ -73,10 +70,6 @@ export default function ProductosPage() {
   const [newVariantName, setNewVariantName] = useState("");
   const [newVariantSku, setNewVariantSku] = useState("");
   const [newVariantStock, setNewVariantStock] = useState("");
-
-  // Table Expanded state for variants drawer
-  const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
-
   // Barcode Camera Scanner Modal State
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerTarget, setScannerTarget] = useState<"product" | "variant">("product");
@@ -86,12 +79,7 @@ export default function ProductosPage() {
   const streamRef = useRef<MediaStream | null>(null);
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const toggleExpand = (productId: string) => {
-    setExpandedProducts((prev) => ({
-      ...prev,
-      [productId]: !prev[productId],
-    }));
-  };
+
 
   const handleAddVariant = () => {
     if (!newVariantName.trim()) return;
@@ -384,7 +372,7 @@ export default function ProductosPage() {
         {/* Table Card (List Format) */}
         <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">
           <div className="overflow-x-auto w-full">
-            <div className="min-w-[900px]">
+            <div className="min-w-[760px]">
               {/* Header Row */}
               <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
                 <div className="flex-1 min-w-[200px]">PRODUCTO</div>
@@ -392,9 +380,7 @@ export default function ProductosPage() {
                 <div className="w-24 shrink-0">CATEGORÍA</div>
                 <div className="w-24 shrink-0 text-right">P. LISTA</div>
                 <div className="w-24 shrink-0 text-right">P. VENTA</div>
-                <div className="w-24 shrink-0 text-right">MARGEN</div>
-                <div className="w-28 shrink-0 text-center">STOCK ACTUAL</div>
-                <div className="w-28 shrink-0 text-center">ACCIONES</div>
+                <div className="w-24 shrink-0 text-center">ACCIONES</div>
               </div>
 
               {/* Body Rows */}
@@ -405,15 +391,6 @@ export default function ProductosPage() {
                   </div>
                 ) : (
                   filteredProducts.map((p) => {
-                    const margin =
-                      p.listPrice && p.price > 0 && p.listPrice > 0
-                        ? Math.round(((p.price - p.listPrice) / p.listPrice) * 100)
-                        : null;
-                    const profit =
-                      p.listPrice && p.price > 0 && p.listPrice > 0
-                        ? p.price - p.listPrice
-                        : null;
-
                     return (
                       <div key={p.id} className="flex flex-col">
                         <div className="px-6 py-3.5 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors">
@@ -426,69 +403,14 @@ export default function ProductosPage() {
                               <Coffee className="w-5 h-5" />
                             </div>
                             <div className="flex flex-col min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-semibold text-[#231E1A] truncate text-sm group-hover:text-[#9C5A2E] transition-colors">
-                                  {p.name}
+                              <span className="font-semibold text-[#231E1A] truncate text-sm group-hover:text-[#9C5A2E] transition-colors">
+                                {p.name}
+                              </span>
+                              {p.supplier && (
+                                <span className="text-[11px] text-[#9C5A2E] font-medium truncate flex items-center gap-1 mt-0.5">
+                                  <Truck className="w-3 h-3 shrink-0" />
+                                  <span>{p.supplier}</span>
                                 </span>
-                                {p.hasVariants && p.variants && p.variants.length > 0 && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleExpand(p.id);
-                                    }}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EADBC6]/60 hover:bg-[#EADBC6] text-[#9C5A2E] text-[10px] font-bold transition-colors cursor-pointer shrink-0"
-                                    title="Ver detalle de modelos y colores"
-                                  >
-                                    <Layers className="w-2.5 h-2.5" />
-                                    <span>{p.variants.length} modelos</span>
-                                    <ChevronDown
-                                      className={`w-2.5 h-2.5 transition-transform duration-200 ${
-                                        expandedProducts[p.id] ? "rotate-180" : ""
-                                      }`}
-                                    />
-                                  </button>
-                                )}
-                              </div>
-
-                              <div className="flex items-center gap-1.5 text-[11px] text-[#A89C8C] truncate mt-0.5">
-                                <span className="truncate">{p.subtitle}</span>
-                                {p.supplier && (
-                                  <>
-                                    <span>·</span>
-                                    <span className="text-[#9C5A2E] font-medium truncate flex items-center gap-1">
-                                      <Truck className="w-3 h-3 shrink-0" />
-                                      {p.supplier}
-                                    </span>
-                                  </>
-                                )}
-                              </div>
-
-                              {/* Models mini-chips preview */}
-                              {p.hasVariants && p.variants && p.variants.length > 0 && (
-                                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                  {p.variants.slice(0, 3).map((v) => (
-                                    <span
-                                      key={v.id}
-                                      className={`text-[10px] px-2 py-0.5 rounded-md border flex items-center gap-1 ${
-                                        v.stock === 0
-                                          ? "bg-[#F7E3DD] border-[#F2BDB3] text-[#C0492F]"
-                                          : v.stock <= (p.minStock || 10) / 2
-                                          ? "bg-[#FBEFD9] border-[#F4DCB0] text-[#D98A2B]"
-                                          : "bg-[#FBF8F2] border-[#E7DFD2] text-[#7A6F63]"
-                                      }`}
-                                    >
-                                      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
-                                      <span>{v.name}:</span>
-                                      <strong className="font-sans font-bold">{v.stock}u.</strong>
-                                    </span>
-                                  ))}
-                                  {p.variants.length > 3 && (
-                                    <span className="text-[10px] text-[#A89C8C] font-medium">
-                                      +{p.variants.length - 3} más
-                                    </span>
-                                  )}
-                                </div>
                               )}
                             </div>
                           </div>
@@ -516,54 +438,8 @@ export default function ProductosPage() {
                             ${p.price.toLocaleString("es-AR")}
                           </div>
 
-                          {/* Commercial Margin */}
-                          <div className="w-24 shrink-0 text-right font-medium whitespace-nowrap">
-                            {margin !== null ? (
-                              <div className="flex flex-col items-end">
-                                <span className="text-[#3E8E5A] font-bold text-xs">+{margin}%</span>
-                                <span className="text-[10px] text-[#7A6F63]">
-                                  +${profit?.toLocaleString("es-AR")}
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-[#A89C8C]">—</span>
-                            )}
-                          </div>
-
-                          {/* Stock Reference */}
-                          <div className="w-28 shrink-0 text-center">
-                            <Link
-                              href={`/stock?productId=${encodeURIComponent(p.id)}`}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold hover:bg-[#EADBC6]/30 transition-colors"
-                              title="Gestionar stock en inventario"
-                            >
-                              <span
-                                className={`font-bold ${
-                                  p.stock === 0
-                                    ? "text-[#C0492F]"
-                                    : p.stock <= (p.minStock || 10)
-                                    ? "text-[#D98A2B]"
-                                    : "text-[#231E1A]"
-                                }`}
-                              >
-                                {p.stock} u.
-                              </span>
-                              <Badge
-                                variant={
-                                  p.status === "En stock"
-                                    ? "success"
-                                    : p.status === "Bajo stock"
-                                    ? "warning"
-                                    : "danger"
-                                }
-                              >
-                                {p.status}
-                              </Badge>
-                            </Link>
-                          </div>
-
                           {/* Actions (Ver Detalle, Editar, Eliminar) */}
-                          <div className="w-28 shrink-0 flex items-center justify-center gap-1">
+                          <div className="w-24 shrink-0 flex items-center justify-center gap-1">
                             <button
                               onClick={() => setViewingProductDetail(p)}
                               title="Ver ficha técnica del producto"
@@ -587,89 +463,6 @@ export default function ProductosPage() {
                             </button>
                           </div>
                         </div>
-
-                        {/* Expandable Accordion Drawer for Product Models */}
-                        {p.hasVariants && p.variants && p.variants.length > 0 && expandedProducts[p.id] && (
-                          <div className="bg-[#FAF7F2] border-t border-b border-[#E7DFD2]/70 px-6 py-3.5 pl-16 flex flex-col gap-2.5 transition-all">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[11px] font-bold text-[#7A6F63] uppercase tracking-wider flex items-center gap-1.5">
-                                <Layers className="w-3.5 h-3.5 text-[#9C5A2E]" />
-                                Modelos / Colores de {p.name} ({p.variants.length})
-                              </span>
-                              <span className="text-[11px] text-[#7A6F63]">
-                                Stock total combinado:{" "}
-                                <strong className="text-[#231E1A] font-bold">{p.stock} unidades</strong>
-                              </span>
-                            </div>
-
-                            <div className="bg-white rounded-xl border border-[#E7DFD2] overflow-hidden divide-y divide-[#F7F3EC] shadow-2xs">
-                              {p.variants.map((v) => (
-                                <div
-                                  key={v.id}
-                                  className="px-4 py-2.5 flex items-center justify-between text-xs hover:bg-[#FBF8F2]/60 transition-colors"
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <span className="w-2.5 h-2.5 rounded-full bg-[#9C5A2E] shrink-0" />
-                                    <div>
-                                      <span className="font-semibold text-[#231E1A]">{v.name}</span>
-                                      <span className="text-[10px] text-[#A89C8C] ml-2 font-mono">
-                                        Ref: {v.id}
-                                      </span>
-                                    </div>
-                                  </div>
-
-                                  <div className="flex items-center gap-6">
-                                    {/* Barcode */}
-                                    <span className="font-mono text-[11px] text-[#231E1A] bg-[#FBF8F2] px-2.5 py-1 rounded-md border border-[#E7DFD2] flex items-center gap-1.5">
-                                      <ScanBarcode className="w-3.5 h-3.5 text-[#9C5A2E]" />
-                                      <span>{v.sku}</span>
-                                    </span>
-
-                                    {/* Model Stock & Badge */}
-                                    <div className="flex items-center gap-2">
-                                      <span
-                                        className={`font-bold ${
-                                          v.stock === 0
-                                            ? "text-[#C0492F]"
-                                            : v.stock <= 5
-                                            ? "text-[#D98A2B]"
-                                            : "text-[#231E1A]"
-                                        }`}
-                                      >
-                                        {v.stock} u.
-                                      </span>
-                                      <Badge
-                                        variant={
-                                          v.stock === 0
-                                            ? "danger"
-                                            : v.stock <= 5
-                                            ? "warning"
-                                            : "success"
-                                        }
-                                      >
-                                        {v.stock === 0
-                                          ? "Agotado"
-                                          : v.stock <= 5
-                                          ? "Bajo stock"
-                                          : "En stock"}
-                                      </Badge>
-                                    </div>
-
-                                    {/* Direct Re-stock Link */}
-                                    <Link
-                                      href={`/stock?productId=${encodeURIComponent(p.id)}&variantId=${encodeURIComponent(v.id)}`}
-                                      className="text-[#9C5A2E] hover:underline font-semibold text-xs flex items-center gap-1"
-                                      title={`Reponer existencias para modelo ${v.name}`}
-                                    >
-                                      <span>Reponer</span>
-                                      <ArrowRight className="w-3 h-3" />
-                                    </Link>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     );
                   })
@@ -1186,8 +979,8 @@ export default function ProductosPage() {
               </div>
             </div>
 
-            {/* Precios y Margen */}
-            <div className="grid grid-cols-3 gap-3">
+            {/* Precios, Venta CC TC GO y Ganancias */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-white border border-[#E7DFD2] p-3.5 rounded-xl shadow-2xs">
                 <span className="text-[10px] text-[#7A6F63] block uppercase tracking-wider">
                   Costo de lista
@@ -1200,25 +993,41 @@ export default function ProductosPage() {
               </div>
               <div className="bg-white border border-[#E7DFD2] p-3.5 rounded-xl shadow-2xs">
                 <span className="text-[10px] text-[#7A6F63] block uppercase tracking-wider">
-                  Precio de venta
+                  Precio de venta (Base)
+                </span>
+                <span className="text-base font-bold text-[#231E1A] mt-1 block">
+                  ${viewingProductDetail.price.toLocaleString("es-AR")}
+                </span>
+              </div>
+              <div className="bg-[#FDF3E7] border border-[#F3D1AE] p-3.5 rounded-xl shadow-2xs">
+                <span className="text-[10px] text-[#A8581B] block uppercase tracking-wider font-semibold">
+                  Venta CC TC GO (+10%)
                 </span>
                 <span className="text-base font-bold text-[#9C5A2E] mt-1 block">
-                  ${viewingProductDetail.price.toLocaleString("es-AR")}
+                  ${Math.round(viewingProductDetail.price * 1.1).toLocaleString("es-AR")}
                 </span>
               </div>
               <div className="bg-[#EAF5EE] border border-[#3E8E5A]/20 p-3.5 rounded-xl shadow-2xs">
                 <span className="text-[10px] text-[#2D6A42] block uppercase tracking-wider font-semibold">
-                  Margen bruto
+                  Ganancia x U / Total
                 </span>
                 <span className="text-base font-bold text-[#2D6A42] mt-1 block">
-                  {viewingProductDetail.listPrice && viewingProductDetail.price > 0
-                    ? `+${Math.round(
-                        ((viewingProductDetail.price - viewingProductDetail.listPrice) /
-                          viewingProductDetail.listPrice) *
-                          100
-                      )}%`
+                  {viewingProductDetail.listPrice
+                    ? `+$${(
+                        viewingProductDetail.price - viewingProductDetail.listPrice
+                      ).toLocaleString("es-AR")}`
                     : "—"}
                 </span>
+                {viewingProductDetail.listPrice && (
+                  <span className="text-[10px] text-[#7A6F63] block mt-0.5">
+                    Total: $
+                    {(
+                      (viewingProductDetail.price - viewingProductDetail.listPrice) *
+                      viewingProductDetail.stock
+                    ).toLocaleString("es-AR")}{" "}
+                    ({viewingProductDetail.stock} u.)
+                  </span>
+                )}
               </div>
             </div>
 
