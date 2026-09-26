@@ -8,6 +8,39 @@ export interface Product {
   price: number; // Precio de venta al público
   stock: number;
   status: "En stock" | "Bajo stock" | "Agotado";
+  minStock?: number; // Umbral de stock mínimo personalizado para alerta de bajo stock
+  supplier?: string; // Proveedor principal o taller asociado
+  initialStockDate?: string; // Fecha en la que se dio de alta / ingresó por primera vez
+  lastRestockDate?: string; // Fecha del último re-stock
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  city?: string;
+  category?: string;
+  notes?: string;
+}
+
+export interface StockMovement {
+  id: string;
+  productId: string;
+  productName: string;
+  sku: string;
+  category: string;
+  type: "Ingreso inicial" | "Re-stock";
+  quantity: number; // Unidades agregadas (+)
+  previousStock: number;
+  newStock: number;
+  date: string; // Fecha y hora del movimiento
+  costPerUnit?: number; // Costo por unidad al momento del ingreso
+  totalCost?: number; // Costo total del lote (quantity * costPerUnit)
+  supplier?: string; // Proveedor o taller de procedencia
+  notes?: string; // Notas o motivo de la reposición
+  registeredBy?: string; // Usuario responsable
 }
 
 export interface SaleItem {

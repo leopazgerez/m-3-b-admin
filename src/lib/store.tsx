@@ -1,8 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Product, Sale, Expense, Client, ClientPayment } from "./types";
-import { initialProducts, initialSales, initialClients } from "./data";
+import { Product, Sale, Expense, Client, ClientPayment, StockMovement } from "./types";
+import { initialProducts, initialSales, initialClients, initialStockMovements } from "./data";
 import { initialMovements } from "@/app/(admin)/gastos/page";
 
 interface StoreContextType {
@@ -11,6 +11,7 @@ interface StoreContextType {
   clients: Client[];
   expenses: Expense[];
   clientPayments: ClientPayment[];
+  stockMovements: StockMovement[];
   productCategories: string[];
   saleTypes: string[];
   expenseTypes: string[];
@@ -18,6 +19,16 @@ interface StoreContextType {
   addProduct: (product: Omit<Product, "id">) => void;
   updateProduct: (id: string, product: Partial<Product>) => void;
   deleteProduct: (id: string) => void;
+  // Stock actions
+  restockProduct: (params: {
+    productId: string;
+    quantity: number;
+    costPerUnit?: number;
+    supplier?: string;
+    notes?: string;
+    date?: string;
+    registerExpense?: boolean;
+  }) => void;
   // Sale actions
   addSale: (sale: Omit<Sale, "id">) => void;
   updateSale: (id: string, sale: Partial<Sale>) => void;
@@ -56,7 +67,7 @@ const initialExpenses: Expense[] = initialMovements.map((m) => ({
 
 // Bump this string whenever you change initialProducts, initialSales or initialClients
 // so that cached localStorage data is replaced with the fresh seed on next load.
-const DATA_VERSION = "2026-09-26-v2";
+const DATA_VERSION = "2026-09-26-v3";
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
@@ -64,6 +75,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [clients, setClients] = useState<Client[]>(initialClients);
   const [expenses, setExpenses] = useState<Expense[]>(initialExpenses);
   const [clientPayments, setClientPayments] = useState<ClientPayment[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>(initialStockMovements);
   const [productCategories, setProductCategories] = useState<string[]>(defaultProductCategories);
   const [saleTypes, setSaleTypes] = useState<string[]>(defaultSaleTypes);
   const [expenseTypes, setExpenseTypes] = useState<string[]>(defaultExpenseTypes);
@@ -81,6 +93,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem("mates_admin_sales");
           localStorage.removeItem("mates_admin_clients");
           localStorage.removeItem("mates_admin_client_payments");
+          localStorage.removeItem("mates_admin_stock_movements");
           localStorage.setItem("mates_admin_data_version", DATA_VERSION);
           // State is already initialised with initial* values — nothing more to do here
         } else {
@@ -109,6 +122,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
           const savedPayments = localStorage.getItem("mates_admin_client_payments");
           if (savedPayments) setClientPayments(JSON.parse(savedPayments));
+
+          const savedStockMovements = localStorage.getItem("mates_admin_stock_movements");
+          if (savedStockMovements) setStockMovements(JSON.parse(savedStockMovements));
         }
 
         // Config keys are always loaded regardless of data version
@@ -163,6 +179,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isLoaded) {
+      localStorage.setItem("mates_admin_stock_movements", JSON.stringify(stockMovements));
+    }
+  }, [stockMovements, isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded) {
       localStorage.setItem("mates_admin_categories", JSON.stringify(productCategories));
     }
   }, [productCategories, isLoaded]);
@@ -181,21 +203,168 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   // Product CRUD
   const addProduct = (newProd: Omit<Product, "id">) => {
+    const productId = `prod-${Date.now()}`;
+    const nowFormatted = new Intl.DateTimeFormat("es-AR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date());
+
+    const minStock = newProd.minStock || 10;
+    const initialStatus =
+      newProd.stock === 0 ? "Agotado" : newProd.stock <= minStock ? "Bajo stock" : "En stock";
+
     const product: Product = {
       ...newProd,
-      id: `prod-${Date.now()}`,
+      id: productId,
+      status: initialStatus,
+      initialStockDate: newProd.stock > 0 ? nowFormatted : undefined,
+      lastRestockDate: undefined,
     };
     setProducts((prev) => [product, ...prev]);
+
+    // Register initial stock movement if quantity > 0
+    if (newProd.stock > 0) {
+      const movement: StockMovement = {
+        id: `smov-${Date.now()}`,
+        productId,
+        productName: newProd.name,
+        sku: newProd.sku,
+        category: newProd.category,
+        type: "Ingreso inicial",
+        quantity: newProd.stock,
+        previousStock: 0,
+        newStock: newProd.stock,
+        date: nowFormatted,
+        costPerUnit: newProd.listPrice,
+        totalCost: newProd.listPrice ? newProd.listPrice * newProd.stock : undefined,
+        supplier: "Ingreso inicial de catálogo",
+        notes: "Alta inicial del producto en inventario",
+        registeredBy: "Leonel Paz",
+      };
+      setStockMovements((prev) => [movement, ...prev]);
+    }
   };
 
   const updateProduct = (id: string, updated: Partial<Product>) => {
     setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updated } : p))
+      prev.map((p) => {
+        if (p.id !== id) return p;
+        const newStock = updated.stock !== undefined ? updated.stock : p.stock;
+        const minStock = updated.minStock !== undefined ? updated.minStock : p.minStock || 10;
+        const newStatus =
+          updated.status !== undefined
+            ? updated.status
+            : newStock === 0
+            ? "Agotado"
+            : newStock <= minStock
+            ? "Bajo stock"
+            : "En stock";
+
+        return {
+          ...p,
+          ...updated,
+          stock: newStock,
+          status: newStatus,
+        };
+      })
     );
   };
 
   const deleteProduct = (id: string) => {
     setProducts((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  // Stock / Re-stock actions
+  const restockProduct = ({
+    productId,
+    quantity,
+    costPerUnit,
+    supplier,
+    notes,
+    date,
+    registerExpense = false,
+  }: {
+    productId: string;
+    quantity: number;
+    costPerUnit?: number;
+    supplier?: string;
+    notes?: string;
+    date?: string;
+    registerExpense?: boolean;
+  }) => {
+    const targetProduct = products.find((p) => p.id === productId);
+    if (!targetProduct || quantity <= 0) return;
+
+    const previousStock = targetProduct.stock;
+    const newStock = previousStock + quantity;
+    const minThreshold = targetProduct.minStock || 10;
+    const newStatus =
+      newStock === 0 ? "Agotado" : newStock <= minThreshold ? "Bajo stock" : "En stock";
+
+    const movementDate =
+      date ||
+      new Intl.DateTimeFormat("es-AR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date());
+
+    const unitCost = costPerUnit !== undefined ? costPerUnit : targetProduct.listPrice;
+    const totalCost = unitCost ? unitCost * quantity : undefined;
+
+    // 1. Update product with new stock and lastRestockDate
+    setProducts((prev) =>
+      prev.map((p) =>
+        p.id === productId
+          ? {
+              ...p,
+              stock: newStock,
+              status: newStatus,
+              lastRestockDate: movementDate,
+              listPrice: unitCost !== undefined ? unitCost : p.listPrice,
+            }
+          : p
+      )
+    );
+
+    // 2. Register historical stock movement
+    const movement: StockMovement = {
+      id: `smov-${Date.now()}`,
+      productId: targetProduct.id,
+      productName: targetProduct.name,
+      sku: targetProduct.sku,
+      category: targetProduct.category,
+      type: "Re-stock",
+      quantity,
+      previousStock,
+      newStock,
+      date: movementDate,
+      costPerUnit: unitCost,
+      totalCost,
+      supplier: supplier || "Reposición de stock",
+      notes: notes || "Reabastecimiento de existencias",
+      registeredBy: "Leonel Paz",
+    };
+    setStockMovements((prev) => [movement, ...prev]);
+
+    // 3. Optionally register expense in Gastos module
+    if (registerExpense && totalCost && totalCost > 0) {
+      const expenseItem: Expense = {
+        id: `exp-${Date.now()}`,
+        description: `Re-stock: ${quantity}u. ${targetProduct.name}`,
+        category: "Proveedores",
+        date: movementDate.split(" ")[0] || "Hoy",
+        type: "Egreso",
+        amount: totalCost,
+        status: "Pagado",
+      };
+      setExpenses((prev) => [expenseItem, ...prev]);
+    }
   };
 
   // Sale CRUD
@@ -383,12 +552,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         clients,
         expenses,
         clientPayments,
+        stockMovements,
         productCategories,
         saleTypes,
         expenseTypes,
         addProduct,
         updateProduct,
         deleteProduct,
+        restockProduct,
         addSale,
         updateSale,
         deleteSale,

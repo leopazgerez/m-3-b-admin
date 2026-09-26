@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
   Package,
+  Boxes,
   Users,
   ShoppingBag,
   Wallet,
@@ -40,6 +41,7 @@ export default function Sidebar() {
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Productos", href: "/productos", icon: Package },
+    { name: "Stock", href: "/stock", icon: Boxes },
     { name: "Clientes", href: "/clientes", icon: Users },
     { name: "Ventas", href: "/ventas", icon: ShoppingBag },
   ];

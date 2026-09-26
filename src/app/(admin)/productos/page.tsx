@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import Topbar from "@/components/layout/Topbar";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
@@ -10,7 +10,6 @@ import { Product } from "@/lib/types";
 import {
   Plus,
   Coffee,
-  Filter,
   Trash2,
   Edit2,
   ScanBarcode,
@@ -18,16 +17,27 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
+  Eye,
+  Boxes,
+  PackagePlus,
+  Calendar,
+  ArrowRight,
+  TrendingUp,
+  Tag,
+  Truck,
+  ExternalLink,
 } from "lucide-react";
+import Link from "next/link";
 
 export default function ProductosPage() {
-  const { products, productCategories, addProduct, updateProduct, deleteProduct } = useStore();
+  const { products, productCategories, stockMovements, addProduct, updateProduct, deleteProduct } = useStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("Todas");
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [viewingProductDetail, setViewingProductDetail] = useState<Product | null>(null);
 
   // Confirm Delete Modal State
   const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
@@ -39,7 +49,7 @@ export default function ProductosPage() {
   const [category, setCategory] = useState("");
   const [listPrice, setListPrice] = useState("");
   const [price, setPrice] = useState("");
-  const [stock, setStock] = useState("");
+  const [initialStock, setInitialStock] = useState("");
 
   // Barcode Camera Scanner Modal State
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -57,7 +67,7 @@ export default function ProductosPage() {
     setCategory(productCategories[0] || "Mates");
     setListPrice("");
     setPrice("");
-    setStock("");
+    setInitialStock("");
     setIsModalOpen(true);
   };
 
@@ -69,7 +79,7 @@ export default function ProductosPage() {
     setCategory(p.category);
     setListPrice(p.listPrice !== undefined ? p.listPrice.toString() : "");
     setPrice(p.price.toString());
-    setStock(p.stock.toString());
+    setInitialStock(p.stock.toString());
     setIsModalOpen(true);
   };
 
@@ -77,8 +87,6 @@ export default function ProductosPage() {
     e.preventDefault();
     if (!name || !sku || !price) return;
 
-    const numStock = parseInt(stock) || 0;
-    const status = numStock === 0 ? "Agotado" : numStock <= 10 ? "Bajo stock" : "En stock";
     const parsedListPrice = listPrice ? parseFloat(listPrice) : undefined;
     const parsedSalePrice = parseFloat(price);
 
@@ -90,10 +98,11 @@ export default function ProductosPage() {
         category: category || productCategories[0] || "Mates",
         listPrice: parsedListPrice,
         price: parsedSalePrice,
-        stock: numStock,
-        status,
       });
     } else {
+      const numStock = parseInt(initialStock) || 0;
+      const status = numStock === 0 ? "Agotado" : numStock <= 10 ? "Bajo stock" : "En stock";
+
       addProduct({
         name,
         subtitle: subtitle || "Artesanal Mates Triple B",
@@ -218,8 +227,8 @@ export default function ProductosPage() {
   return (
     <>
       <Topbar
-        title="Productos"
-        subtitle="Control de inventario, precios y stock"
+        title="Catálogo de Productos"
+        subtitle="Gestión de artículos, fichas técnicas y precios de venta"
         onSearch={setSearchTerm}
       />
 
@@ -228,7 +237,6 @@ export default function ProductosPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           {/* Categories Filter */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
-            <Filter className="w-4 h-4 text-[#A89C8C] shrink-0 mr-1" />
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -244,29 +252,38 @@ export default function ProductosPage() {
             ))}
           </div>
 
-          <button
-            onClick={openCreateModal}
-            className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs shrink-0 self-start sm:self-auto cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Nuevo producto</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/stock"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-[#E7DFD2] bg-white text-xs font-semibold text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors shadow-2xs"
+            >
+              <Boxes className="w-4 h-4 text-[#9C5A2E]" />
+              <span>Ver stock e inventario</span>
+            </Link>
+            <button
+              onClick={openCreateModal}
+              className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs shrink-0 self-start sm:self-auto cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nuevo producto</span>
+            </button>
+          </div>
         </div>
 
         {/* Table Card (List Format) */}
         <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">
           <div className="overflow-x-auto w-full">
-            <div className="min-w-[820px]">
+            <div className="min-w-[900px]">
               {/* Header Row */}
               <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
                 <div className="flex-1 min-w-[200px]">PRODUCTO</div>
-                <div className="w-32 shrink-0">CÓDIGO / SKU</div>
-                <div className="w-28 shrink-0">CATEGORÍA</div>
+                <div className="w-28 shrink-0">CÓDIGO / SKU</div>
+                <div className="w-24 shrink-0">CATEGORÍA</div>
                 <div className="w-24 shrink-0 text-right">P. LISTA</div>
-                <div className="w-28 shrink-0 text-right">P. VENTA</div>
-                <div className="w-16 shrink-0 text-center">STOCK</div>
-                <div className="w-28 shrink-0 pl-2">ESTADO</div>
-                <div className="w-20 shrink-0 text-center">ACCIONES</div>
+                <div className="w-24 shrink-0 text-right">P. VENTA</div>
+                <div className="w-24 shrink-0 text-right">MARGEN</div>
+                <div className="w-28 shrink-0 text-center">STOCK ACTUAL</div>
+                <div className="w-28 shrink-0 text-center">ACCIONES</div>
               </div>
 
               {/* Body Rows */}
@@ -276,88 +293,135 @@ export default function ProductosPage() {
                     No se encontraron productos con los filtros seleccionados.
                   </div>
                 ) : (
-                  filteredProducts.map((p) => (
-                    <div
-                      key={p.id}
-                      className="px-6 py-3.5 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
-                    >
-                      {/* Product Info */}
-                      <div className="flex-1 min-w-[200px] flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-[#EADBC6] flex items-center justify-center text-[#9C5A2E] shrink-0">
-                          <Coffee className="w-5 h-5" />
+                  filteredProducts.map((p) => {
+                    const margin =
+                      p.listPrice && p.price > 0 && p.listPrice > 0
+                        ? Math.round(((p.price - p.listPrice) / p.listPrice) * 100)
+                        : null;
+                    const profit =
+                      p.listPrice && p.price > 0 && p.listPrice > 0
+                        ? p.price - p.listPrice
+                        : null;
+
+                    return (
+                      <div
+                        key={p.id}
+                        className="px-6 py-3.5 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
+                      >
+                        {/* Product Info */}
+                        <div
+                          onClick={() => setViewingProductDetail(p)}
+                          className="flex-1 min-w-[200px] flex items-center gap-3 cursor-pointer group"
+                        >
+                          <div className="w-10 h-10 rounded-lg bg-[#EADBC6] flex items-center justify-center text-[#9C5A2E] shrink-0 group-hover:scale-105 transition-transform">
+                            <Coffee className="w-5 h-5" />
+                          </div>
+                          <div className="flex flex-col min-w-0 flex-1">
+                            <span className="font-semibold text-[#231E1A] truncate text-sm group-hover:text-[#9C5A2E] transition-colors">
+                              {p.name}
+                            </span>
+                            <span className="text-[11px] text-[#A89C8C] truncate">
+                              {p.subtitle}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <span className="font-semibold text-[#231E1A] truncate text-sm">
-                            {p.name}
-                          </span>
-                          <span className="text-[11px] text-[#A89C8C] truncate">
-                            {p.subtitle}
+
+                        {/* SKU / Código */}
+                        <div className="w-28 shrink-0 text-[#7A6F63] font-mono text-xs flex items-center gap-1.5">
+                          <ScanBarcode className="w-3.5 h-3.5 text-[#A89C8C] shrink-0" />
+                          <span>{p.sku}</span>
+                        </div>
+
+                        {/* Category */}
+                        <div className="w-24 shrink-0 text-[#7A6F63]">
+                          <span className="bg-[#FBF8F2] border border-[#E7DFD2] px-2 py-0.5 rounded-md text-xs whitespace-nowrap">
+                            {p.category}
                           </span>
                         </div>
-                      </div>
 
-                      {/* SKU / Código */}
-                      <div className="w-32 shrink-0 text-[#7A6F63] font-mono text-xs flex items-center gap-1.5">
-                        <ScanBarcode className="w-3.5 h-3.5 text-[#A89C8C] shrink-0" />
-                        <span>{p.sku}</span>
-                      </div>
+                        {/* List Price */}
+                        <div className="w-24 shrink-0 text-right text-[#7A6F63] text-xs font-medium whitespace-nowrap">
+                          {p.listPrice ? `$${p.listPrice.toLocaleString("es-AR")}` : "—"}
+                        </div>
 
-                      {/* Category */}
-                      <div className="w-28 shrink-0 text-[#7A6F63]">
-                        <span className="bg-[#FBF8F2] border border-[#E7DFD2] px-2 py-0.5 rounded-md text-xs whitespace-nowrap">
-                          {p.category}
-                        </span>
-                      </div>
+                        {/* Sale Price */}
+                        <div className="w-24 shrink-0 text-right font-bold text-[#231E1A] text-sm whitespace-nowrap">
+                          ${p.price.toLocaleString("es-AR")}
+                        </div>
 
-                      {/* List Price */}
-                      <div className="w-24 shrink-0 text-right text-[#7A6F63] text-xs font-medium whitespace-nowrap">
-                        {p.listPrice ? `$${p.listPrice.toLocaleString("es-AR")}` : "—"}
-                      </div>
+                        {/* Commercial Margin */}
+                        <div className="w-24 shrink-0 text-right font-medium whitespace-nowrap">
+                          {margin !== null ? (
+                            <div className="flex flex-col items-end">
+                              <span className="text-[#3E8E5A] font-bold text-xs">+{margin}%</span>
+                              <span className="text-[10px] text-[#7A6F63]">
+                                +${profit?.toLocaleString("es-AR")}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-[#A89C8C]">—</span>
+                          )}
+                        </div>
 
-                      {/* Sale Price */}
-                      <div className="w-28 shrink-0 text-right font-bold text-[#231E1A] text-sm whitespace-nowrap">
-                        ${p.price.toLocaleString("es-AR")}
-                      </div>
+                        {/* Stock Reference */}
+                        <div className="w-28 shrink-0 text-center">
+                          <Link
+                            href={`/stock?productId=${encodeURIComponent(p.id)}`}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold hover:bg-[#EADBC6]/30 transition-colors"
+                            title="Gestionar stock en inventario"
+                          >
+                            <span
+                              className={`font-bold ${
+                                p.stock === 0
+                                  ? "text-[#C0492F]"
+                                  : p.stock <= (p.minStock || 10)
+                                  ? "text-[#D98A2B]"
+                                  : "text-[#231E1A]"
+                              }`}
+                            >
+                              {p.stock} u.
+                            </span>
+                            <Badge
+                              variant={
+                                p.status === "En stock"
+                                  ? "success"
+                                  : p.status === "Bajo stock"
+                                  ? "warning"
+                                  : "danger"
+                              }
+                            >
+                              {p.status}
+                            </Badge>
+                          </Link>
+                        </div>
 
-                      {/* Stock */}
-                      <div className="w-16 shrink-0 text-center font-medium text-[#231E1A] whitespace-nowrap">
-                        {p.stock}
+                        {/* Actions (Ver Detalle, Editar, Eliminar) */}
+                        <div className="w-28 shrink-0 flex items-center justify-center gap-1">
+                          <button
+                            onClick={() => setViewingProductDetail(p)}
+                            title="Ver ficha técnica del producto"
+                            className="text-[#A89C8C] hover:text-[#231E1A] p-1.5 rounded-lg hover:bg-[#EADBC6]/40 transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => openEditModal(p)}
+                            title="Editar producto"
+                            className="text-[#A89C8C] hover:text-[#9C5A2E] p-1.5 rounded-lg hover:bg-[#EADBC6]/40 transition-colors cursor-pointer"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => setDeletingProduct(p)}
+                            title="Eliminar producto"
+                            className="text-[#A89C8C] hover:text-[#C0492F] p-1.5 rounded-lg hover:bg-[#F7E3DD]/40 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
-
-                      {/* Status */}
-                      <div className="w-28 shrink-0 pl-2">
-                        <Badge
-                          variant={
-                            p.status === "En stock"
-                              ? "success"
-                              : p.status === "Bajo stock"
-                              ? "warning"
-                              : "danger"
-                          }
-                        >
-                          {p.status}
-                        </Badge>
-                      </div>
-
-                      {/* Actions (Editar / Eliminar con ConfirmDeleteModal) */}
-                      <div className="w-20 shrink-0 flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => openEditModal(p)}
-                          title="Editar producto"
-                          className="text-[#A89C8C] hover:text-[#9C5A2E] p-1.5 rounded-lg hover:bg-[#EADBC6]/40 transition-colors cursor-pointer"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setDeletingProduct(p)}
-                          title="Eliminar producto"
-                          className="text-[#A89C8C] hover:text-[#C0492F] p-1.5 rounded-lg hover:bg-[#F7E3DD]/40 transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -486,19 +550,62 @@ export default function ProductosPage() {
             </div>
           )}
 
-          <div>
-            <label className="font-medium text-[#231E1A] block mb-1">
-              Stock disponible <span className="text-[#C0492F]">*</span>
-            </label>
-            <input
-              type="number"
-              required
-              placeholder="20"
-              value={stock}
-              onChange={(e) => setStock(e.target.value)}
-              className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
-            />
-          </div>
+          {editingProduct ? (
+            <div className="bg-[#FBF8F2] border border-[#E7DFD2] rounded-2xl p-4 flex flex-col gap-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-[#7A6F63]">Stock actual:</span>
+                <Badge
+                  variant={
+                    editingProduct.status === "En stock"
+                      ? "success"
+                      : editingProduct.status === "Bajo stock"
+                      ? "warning"
+                      : "danger"
+                  }
+                >
+                  {editingProduct.status}
+                </Badge>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold font-heading text-[#231E1A]">
+                  {editingProduct.stock}
+                </span>
+                <span className="text-xs text-[#A89C8C]">unidades registradas</span>
+              </div>
+              <p className="text-[11px] text-[#7A6F63] leading-relaxed">
+                El stock y las reposiciones se gestionan por separado en la sección{" "}
+                <strong className="text-[#231E1A]">Stock</strong> para mantener el historial
+                completo de auditoría y métricas.
+              </p>
+              <div className="pt-1">
+                <Link
+                  href={`/stock?productId=${encodeURIComponent(editingProduct.id)}`}
+                  onClick={() => setIsModalOpen(false)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9C5A2E] hover:underline"
+                >
+                  <PackagePlus className="w-3.5 h-3.5" />
+                  <span>Ir a reponer stock de este producto →</span>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="font-medium text-[#231E1A] block mb-1">
+                Stock inicial (opcional)
+              </label>
+              <input
+                type="number"
+                min="0"
+                placeholder="Ej. 20 (opcional)"
+                value={initialStock}
+                onChange={(e) => setInitialStock(e.target.value)}
+                className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
+              />
+              <span className="text-[10px] text-[#A89C8C] mt-1 block">
+                Se registrará como &quot;Ingreso inicial&quot; en el historial de stock.
+              </span>
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-3 pt-3 mt-2 border-t border-[#F7F3EC]">
             <button
@@ -517,6 +624,180 @@ export default function ProductosPage() {
           </div>
         </form>
       </Modal>
+
+      {/* Modal: Ficha Técnica y Detalle del Producto */}
+      {viewingProductDetail && (
+        <Modal
+          isOpen={!!viewingProductDetail}
+          onClose={() => setViewingProductDetail(null)}
+          title="Ficha Técnica del Producto"
+        >
+          <div className="flex flex-col gap-5 text-xs">
+            {/* Header info */}
+            <div className="flex items-start gap-3.5 bg-[#FBF8F2] p-4 rounded-2xl border border-[#E7DFD2]">
+              <div className="w-12 h-12 rounded-xl bg-[#EADBC6] text-[#9C5A2E] flex items-center justify-center shrink-0 shadow-inner">
+                <Coffee className="w-6 h-6" />
+              </div>
+              <div className="flex flex-col min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-heading font-bold text-base text-[#231E1A] truncate">
+                    {viewingProductDetail.name}
+                  </span>
+                  <Badge
+                    variant={
+                      viewingProductDetail.status === "En stock"
+                        ? "success"
+                        : viewingProductDetail.status === "Bajo stock"
+                        ? "warning"
+                        : "danger"
+                    }
+                  >
+                    {viewingProductDetail.status}
+                  </Badge>
+                </div>
+                <span className="text-xs text-[#7A6F63] mt-0.5">
+                  {viewingProductDetail.subtitle}
+                </span>
+                <div className="flex items-center gap-3 mt-2 text-[11px] text-[#A89C8C] flex-wrap">
+                  <span className="font-mono bg-white border border-[#E7DFD2] px-2 py-0.5 rounded-md text-[#231E1A]">
+                    SKU: {viewingProductDetail.sku}
+                  </span>
+                  <span>Categoría: {viewingProductDetail.category}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Precios y Margen */}
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-white border border-[#E7DFD2] p-3.5 rounded-xl shadow-2xs">
+                <span className="text-[10px] text-[#7A6F63] block uppercase tracking-wider">
+                  Costo de lista
+                </span>
+                <span className="text-base font-bold text-[#231E1A] mt-1 block">
+                  {viewingProductDetail.listPrice
+                    ? `$${viewingProductDetail.listPrice.toLocaleString("es-AR")}`
+                    : "—"}
+                </span>
+              </div>
+              <div className="bg-white border border-[#E7DFD2] p-3.5 rounded-xl shadow-2xs">
+                <span className="text-[10px] text-[#7A6F63] block uppercase tracking-wider">
+                  Precio de venta
+                </span>
+                <span className="text-base font-bold text-[#9C5A2E] mt-1 block">
+                  ${viewingProductDetail.price.toLocaleString("es-AR")}
+                </span>
+              </div>
+              <div className="bg-[#EAF5EE] border border-[#3E8E5A]/20 p-3.5 rounded-xl shadow-2xs">
+                <span className="text-[10px] text-[#2D6A42] block uppercase tracking-wider font-semibold">
+                  Margen bruto
+                </span>
+                <span className="text-base font-bold text-[#2D6A42] mt-1 block">
+                  {viewingProductDetail.listPrice && viewingProductDetail.price > 0
+                    ? `+${Math.round(
+                        ((viewingProductDetail.price - viewingProductDetail.listPrice) /
+                          viewingProductDetail.listPrice) *
+                          100
+                      )}%`
+                    : "—"}
+                </span>
+              </div>
+            </div>
+
+            {/* Existencias y Stock actual con botón directo a Re-stock */}
+            <div className="bg-[#FBF8F2] border border-[#E7DFD2] rounded-2xl p-4 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Boxes className="w-4 h-4 text-[#9C5A2E]" />
+                  <span className="font-semibold text-xs text-[#231E1A]">Estado de inventario</span>
+                </div>
+                <Link
+                  href={`/stock?productId=${encodeURIComponent(viewingProductDetail.id)}`}
+                  className="flex items-center gap-1.5 bg-[#9C5A2E] text-white px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs"
+                >
+                  <PackagePlus className="w-3.5 h-3.5" />
+                  <span>Re-stock de este producto</span>
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+                <div>
+                  <span className="text-[11px] text-[#7A6F63]">Stock actual disponible:</span>
+                  <span className="text-lg font-bold text-[#231E1A] block">
+                    {viewingProductDetail.stock} unidades
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-[#7A6F63]">Umbral de alerta mínimo:</span>
+                  <span className="text-lg font-bold text-[#7A6F63] block">
+                    {viewingProductDetail.minStock || 10} unidades
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[11px] text-[#7A6F63]">Último re-stock registrado:</span>
+                  <span className="text-xs font-semibold text-[#231E1A] block mt-1">
+                    {viewingProductDetail.lastRestockDate ||
+                      viewingProductDetail.initialStockDate ||
+                      "Sin registros"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Historial reciente de re-stocks del producto */}
+            <div className="flex flex-col gap-2">
+              <span className="font-semibold text-xs text-[#231E1A]">
+                Historial de reposiciones del producto
+              </span>
+              <div className="border border-[#E7DFD2] rounded-xl overflow-hidden divide-y divide-[#F7F3EC] bg-white">
+                {stockMovements.filter((m) => m.productId === viewingProductDetail.id).length === 0 ? (
+                  <div className="p-4 text-center text-[#7A6F63] text-xs">
+                    No se registran reposiciones previas para este artículo.
+                  </div>
+                ) : (
+                  stockMovements
+                    .filter((m) => m.productId === viewingProductDetail.id)
+                    .map((m) => (
+                      <div
+                        key={m.id}
+                        className="p-3 flex items-center justify-between text-xs gap-3 hover:bg-[#FBF8F2]/60"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              m.type === "Re-stock"
+                                ? "bg-[#EAF5EE] text-[#2D6A42]"
+                                : "bg-[#E8EEF5] text-[#2B5480]"
+                            }`}
+                          >
+                            {m.type}
+                          </span>
+                          <span className="text-[#231E1A] font-medium">{m.date}</span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-[#2D6A42]">+{m.quantity} u.</span>
+                          <span className="font-mono text-[#7A6F63] text-[11px]">
+                            ({m.previousStock} → {m.newStock} u.)
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end pt-3 border-t border-[#F7F3EC]">
+              <button
+                type="button"
+                onClick={() => setViewingProductDetail(null)}
+                className="px-4 py-2 rounded-xl bg-[#FBF8F2] border border-[#E7DFD2] text-[#7A6F63] hover:text-[#231E1A] transition-colors cursor-pointer"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Barcode Scanner Modal */}
       {isScannerOpen && (
