@@ -31,7 +31,7 @@ export default function StockContent() {
   const {
     products,
     productCategories,
-    suppliers,
+    supplierNames,
     stockMovements,
     restockProduct,
   } = useStore();
@@ -835,7 +835,7 @@ export default function StockContent() {
                 className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
               />
               <datalist id="restock-suppliers-list">
-                {suppliers.map((s) => (
+                {supplierNames.map((s) => (
                   <option key={s} value={s} />
                 ))}
               </datalist>

@@ -33,7 +33,7 @@ export default function ProductosPage() {
   const {
     products,
     productCategories,
-    suppliers,
+    supplierNames,
     addSupplier,
     stockMovements,
     addProduct,
@@ -76,7 +76,7 @@ export default function ProductosPage() {
     setSubtitle("");
     setSku("");
     setCategory(productCategories[0] || "Mates");
-    setSupplier(suppliers[0] || "Taller Artesanal Salta");
+    setSupplier(supplierNames[0] || "Taller Artesanal Salta");
     setMinStock("10");
     setListPrice("");
     setPrice("");
@@ -90,7 +90,7 @@ export default function ProductosPage() {
     setSubtitle(p.subtitle);
     setSku(p.sku);
     setCategory(p.category);
-    setSupplier(p.supplier || suppliers[0] || "");
+    setSupplier(p.supplier || supplierNames[0] || "");
     setMinStock(p.minStock !== undefined ? p.minStock.toString() : "10");
     setListPrice(p.listPrice !== undefined ? p.listPrice.toString() : "");
     setPrice(p.price.toString());
@@ -108,7 +108,7 @@ export default function ProductosPage() {
     const cleanSupplier = supplier.trim() || "Proveedor general";
 
     if (cleanSupplier) {
-      addSupplier(cleanSupplier);
+      addSupplier({ name: cleanSupplier });
     }
 
     if (editingProduct) {
@@ -556,7 +556,7 @@ export default function ProductosPage() {
                   className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
                 />
                 <datalist id="suppliers-list">
-                  {suppliers.map((s) => (
+                  {supplierNames.map((s) => (
                     <option key={s} value={s} />
                   ))}
                 </datalist>

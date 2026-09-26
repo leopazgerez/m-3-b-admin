@@ -18,6 +18,7 @@ import {
   CreditCard,
   ReceiptText,
   X,
+  Truck,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getAssetPath } from "@/lib/assets";
@@ -42,6 +43,7 @@ export default function Sidebar() {
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Productos", href: "/productos", icon: Package },
     { name: "Stock", href: "/stock", icon: Boxes },
+    { name: "Proveedores", href: "/proveedores", icon: Truck },
     { name: "Clientes", href: "/clientes", icon: Users },
     { name: "Ventas", href: "/ventas", icon: ShoppingBag },
   ];

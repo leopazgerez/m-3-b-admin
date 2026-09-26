@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Product, Sale, Expense, Client, ClientPayment, StockMovement } from "./types";
+import { Product, Sale, Expense, Client, ClientPayment, StockMovement, Supplier } from "./types";
 import { initialProducts, initialSales, initialClients, initialStockMovements, initialSuppliers } from "./data";
 import { initialMovements } from "@/app/(admin)/gastos/page";
 
@@ -13,7 +13,8 @@ interface StoreContextType {
   clientPayments: ClientPayment[];
   stockMovements: StockMovement[];
   productCategories: string[];
-  suppliers: string[];
+  suppliers: Supplier[];
+  supplierNames: string[];
   saleTypes: string[];
   expenseTypes: string[];
   // Product actions
@@ -44,7 +45,9 @@ interface StoreContextType {
   // Configuration actions
   addProductCategory: (category: string) => void;
   deleteProductCategory: (category: string) => void;
-  addSupplier: (supplier: string) => void;
+  addSupplier: (supplier: Omit<Supplier, "id">) => void;
+  updateSupplier: (id: string, supplier: Partial<Supplier>) => void;
+  deleteSupplier: (id: string) => void;
   addSaleType: (type: string) => void;
   deleteSaleType: (type: string) => void;
   addExpenseType: (type: string) => void;
@@ -69,7 +72,7 @@ const initialExpenses: Expense[] = initialMovements.map((m) => ({
 
 // Bump this string whenever you change initialProducts, initialSales or initialClients
 // so that cached localStorage data is replaced with the fresh seed on next load.
-const DATA_VERSION = "2026-09-26-v4";
+const DATA_VERSION = "2026-09-26-v5";
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
@@ -79,7 +82,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [clientPayments, setClientPayments] = useState<ClientPayment[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(initialStockMovements);
   const [productCategories, setProductCategories] = useState<string[]>(defaultProductCategories);
-  const [suppliers, setSuppliers] = useState<string[]>(initialSuppliers);
+  const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [saleTypes, setSaleTypes] = useState<string[]>(defaultSaleTypes);
   const [expenseTypes, setExpenseTypes] = useState<string[]>(defaultExpenseTypes);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -97,6 +100,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem("mates_admin_clients");
           localStorage.removeItem("mates_admin_client_payments");
           localStorage.removeItem("mates_admin_stock_movements");
+          localStorage.removeItem("mates_admin_suppliers");
           localStorage.setItem("mates_admin_data_version", DATA_VERSION);
           // State is already initialised with initial* values — nothing more to do here
         } else {
@@ -135,7 +139,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (savedCategories) setProductCategories(JSON.parse(savedCategories));
 
         const savedSuppliers = localStorage.getItem("mates_admin_suppliers");
-        if (savedSuppliers) setSuppliers(JSON.parse(savedSuppliers));
+        if (savedSuppliers) {
+          const parsed = JSON.parse(savedSuppliers);
+          // Migrate legacy string[] to Supplier[] if needed
+          if (Array.isArray(parsed) && parsed.length > 0 && typeof parsed[0] === "string") {
+            const migrated: Supplier[] = parsed.map((name: string, i: number) => ({
+              id: `sup-legacy-${i}`,
+              name,
+            }));
+            setSuppliers(migrated);
+          } else {
+            setSuppliers(parsed);
+          }
+        }
 
         const savedSaleTypes = localStorage.getItem("mates_admin_saletypes");
         if (savedSaleTypes) setSaleTypes(JSON.parse(savedSaleTypes));
@@ -549,11 +565,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSaleTypes((prev) => prev.filter((t) => t !== type));
   };
 
-  const addSupplier = (supplier: string) => {
-    const trimmed = supplier.trim();
-    if (trimmed && !suppliers.includes(trimmed)) {
-      setSuppliers((prev) => [...prev, trimmed]);
+  const addSupplier = (newSupplier: Omit<Supplier, "id">) => {
+    const trimmed = newSupplier.name.trim();
+    if (!trimmed) return;
+    const exists = suppliers.some((s) => s.name.toLowerCase() === trimmed.toLowerCase());
+    if (!exists) {
+      const supplier: Supplier = {
+        ...newSupplier,
+        id: `sup-${Date.now()}`,
+        name: trimmed,
+      };
+      setSuppliers((prev) => [...prev, supplier]);
     }
+  };
+
+  const updateSupplier = (id: string, updated: Partial<Supplier>) => {
+    setSuppliers((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...updated } : s))
+    );
+  };
+
+  const deleteSupplier = (id: string) => {
+    setSuppliers((prev) => prev.filter((s) => s.id !== id));
   };
 
   const addExpenseType = (type: string) => {
@@ -566,6 +599,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setExpenseTypes((prev) => prev.filter((t) => t !== type));
   };
 
+  // Derived: list of supplier names for datalists / autocomplete
+  const supplierNames = suppliers.map((s) => s.name);
+
   return (
     <StoreContext.Provider
       value={{
@@ -577,6 +613,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         stockMovements,
         productCategories,
         suppliers,
+        supplierNames,
         saleTypes,
         expenseTypes,
         addProduct,
@@ -594,6 +631,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         addProductCategory,
         deleteProductCategory,
         addSupplier,
+        updateSupplier,
+        deleteSupplier,
         addSaleType,
         deleteSaleType,
         addExpenseType,

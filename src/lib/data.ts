@@ -1,12 +1,66 @@
-import { Product, Sale, MonthlyBalance, Client, StockMovement } from "./types";
+import { Product, Sale, MonthlyBalance, Client, StockMovement, Supplier } from "./types";
 
-export const initialSuppliers = [
-  "Taller Artesanal Salta",
-  "Metalúrgica Lanús Artesanías",
-  "Molino Misionero Don Arnaldo",
-  "Importaciones Rioplatenses",
-  "Marroquinería San Telmo",
-  "Distribuidora Lumilagro / Stanley",
+export const initialSuppliers: Supplier[] = [
+  {
+    id: "sup-1",
+    name: "Taller Artesanal Salta",
+    contactName: "Don Ernesto Corvalán",
+    phone: "+54 387 412-7893",
+    email: "corvalan.artesanias@gmail.com",
+    city: "Salta, Salta",
+    category: "Mates y accesorios",
+    notes: "Proveedor principal de mates calabaza. Entrega mensual. Acepta transferencia.",
+  },
+  {
+    id: "sup-2",
+    name: "Metalúrgica Lanús Artesanías",
+    contactName: "Héctor Salvini",
+    phone: "+54 11 4240-5561",
+    email: "metalurgica.lanus@outlook.com",
+    city: "Lanús, Buenos Aires",
+    category: "Bombillas y virolas",
+    notes: "Especialista en bombillas artesanales y virolas de alpaca. Pedido mínimo: 20 unidades.",
+  },
+  {
+    id: "sup-3",
+    name: "Molino Misionero Don Arnaldo",
+    contactName: "Arnaldo Kessler",
+    phone: "+54 376 442-0187",
+    email: "molino.arnaldo@misionero.com",
+    city: "Posadas, Misiones",
+    category: "Yerba mate",
+    notes: "Yerba orgánica elaborada en Misiones. Entregas quincenales. Producto premium.",
+  },
+  {
+    id: "sup-4",
+    name: "Importaciones Rioplatenses",
+    contactName: "Marcela Duhalde",
+    phone: "+54 11 4510-3322",
+    email: "ventas@importrioplatense.com.ar",
+    city: "CABA, Buenos Aires",
+    category: "Accesorios importados",
+    notes: "Accesorios y artículos importados de Brasil y Uruguay. Requiere adelanto del 50%.",
+  },
+  {
+    id: "sup-5",
+    name: "Marroquinería San Telmo",
+    contactName: "Fabián Iriarte",
+    phone: "+54 11 4362-9047",
+    email: "santelmo.cueros@gmail.com",
+    city: "San Telmo, CABA",
+    category: "Cueros y terminaciones",
+    notes: "Cuero vacuno seleccionado para terminaciones de mates. Trato directo con el curtidor.",
+  },
+  {
+    id: "sup-6",
+    name: "Distribuidora Lumilagro / Stanley",
+    contactName: "Gustavo Mena",
+    phone: "+54 800 777-9865",
+    email: "distribuidora@lumilagro.com.ar",
+    city: "Córdoba, Córdoba",
+    category: "Termos y frascos",
+    notes: "Distribuidor oficial de termos Stanley y Lumilagro para la región centro. Condiciones especiales.",
+  },
 ];
 
 export const initialProducts: Product[] = [
