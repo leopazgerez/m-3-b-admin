@@ -6,6 +6,8 @@ import Modal from "@/components/ui/Modal";
 import ConfirmDeleteModal from "@/components/ui/ConfirmDeleteModal";
 import { useStore } from "@/lib/store";
 import { Supplier } from "@/lib/types";
+import FilterPanel from "@/components/ui/FilterPanel";
+import { isDateInRange } from "@/lib/dateUtils";
 import {
   Plus,
   Search,
@@ -64,10 +66,22 @@ function getAvatarColor(id: string) {
 }
 
 export default function ProveedoresPage() {
-  const { suppliers, products, addSupplier, updateSupplier, deleteSupplier } = useStore();
+  const {
+    suppliers,
+    products,
+    stockMovements,
+    expenses,
+    addSupplier,
+    updateSupplier,
+    deleteSupplier,
+  } = useStore();
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todas");
+  const [selectedProductStatus, setSelectedProductStatus] = useState("Todos");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -132,17 +146,68 @@ export default function ProveedoresPage() {
     return ["Todas", ...Array.from(new Set(cats))];
   }, [suppliers]);
 
+  const supplierLastDateMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const m of stockMovements) {
+      if (m.supplier && (!map[m.supplier] || m.date > map[m.supplier])) {
+        map[m.supplier] = m.date;
+      }
+    }
+    for (const e of expenses) {
+      if (e.supplier && (!map[e.supplier] || e.date > map[e.supplier])) {
+        map[e.supplier] = e.date;
+      }
+    }
+    return map;
+  }, [stockMovements, expenses]);
+
+  const activeFilterCount =
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0) +
+    (selectedCategory !== "Todas" ? 1 : 0) +
+    (selectedProductStatus !== "Todos" ? 1 : 0);
+
+  const handleResetFilters = () => {
+    setDateFrom("");
+    setDateTo("");
+    setSelectedCategory("Todas");
+    setSelectedProductStatus("Todos");
+  };
+
   const filtered = useMemo(() => {
     const q = searchTerm.toLowerCase();
     return suppliers.filter((s) => {
-      const matchSearch = !q || s.name.toLowerCase().includes(q) ||
+      const matchSearch =
+        !q ||
+        s.name.toLowerCase().includes(q) ||
         (s.contactName?.toLowerCase().includes(q) ?? false) ||
         (s.city?.toLowerCase().includes(q) ?? false) ||
         (s.category?.toLowerCase().includes(q) ?? false);
-      const matchCat = selectedCategory === "Todas" || s.category === selectedCategory;
-      return matchSearch && matchCat;
+
+      const matchCat =
+        selectedCategory === "Todas" || s.category === selectedCategory;
+
+      const prodsCount = productCountBySupplier[s.name] ?? 0;
+      const matchProductStatus =
+        selectedProductStatus === "Todos" ||
+        (selectedProductStatus === "Con productos" && prodsCount > 0) ||
+        (selectedProductStatus === "Sin productos" && prodsCount === 0);
+
+      const lastDate = supplierLastDateMap[s.name];
+      const matchDate = isDateInRange(lastDate, dateFrom, dateTo);
+
+      return matchSearch && matchCat && matchProductStatus && matchDate;
     });
-  }, [suppliers, searchTerm, selectedCategory]);
+  }, [
+    suppliers,
+    searchTerm,
+    selectedCategory,
+    selectedProductStatus,
+    supplierLastDateMap,
+    productCountBySupplier,
+    dateFrom,
+    dateTo,
+  ]);
 
   return (
     <div className="flex flex-col h-full">
@@ -170,34 +235,77 @@ export default function ProveedoresPage() {
         </div>
 
         {/* Toolbar */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="relative flex-1 w-full">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A89C8C]" />
-            <input
-              type="text"
-              placeholder="Buscar por nombre, contacto o ciudad…"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-white border border-[#E7DFD2] rounded-xl text-sm text-[#231E1A] placeholder-[#C9BCA9] outline-none focus:border-[#9C5A2E] transition-colors"
-            />
+        <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+          <div className="flex-1 min-w-0 max-w-3xl">
+            <FilterPanel
+              isOpen={isFilterOpen}
+              onToggle={() => setIsFilterOpen(!isFilterOpen)}
+              activeCount={activeFilterCount}
+              onReset={handleResetFilters}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              dateLabel="Fecha de última operación"
+              resultCount={filtered.length}
+            >
+              {/* Categoría */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                  <span>Rubro / Categoría:</span>
+                </label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+                >
+                  {allCategories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Artículos Asociados */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                  <span>Artículos en catálogo:</span>
+                </label>
+                <select
+                  value={selectedProductStatus}
+                  onChange={(e) => setSelectedProductStatus(e.target.value)}
+                  className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+                >
+                  <option value="Todos">Todos los proveedores</option>
+                  <option value="Con productos">Con productos asociados</option>
+                  <option value="Sin productos">Sin productos en catálogo</option>
+                </select>
+              </div>
+            </FilterPanel>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {allCategories.map((cat) => (
-              <button key={cat} onClick={() => setSelectedCategory(cat)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-medium transition-all border ${
-                  selectedCategory === cat
-                    ? "bg-[#9C5A2E] text-white border-[#9C5A2E] shadow-xs"
-                    : "bg-white text-[#7A6A5A] border-[#E7DFD2] hover:border-[#9C5A2E] hover:text-[#9C5A2E]"
-                }`}>
-                {cat}
-              </button>
-            ))}
+
+          <div className="flex items-center gap-3 w-full sm:w-auto shrink-0 justify-end">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#A89C8C]" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre, ciudad…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3.5 py-2 bg-white border border-[#E7DFD2] rounded-xl text-xs text-[#231E1A] placeholder-[#C9BCA9] outline-none focus:border-[#9C5A2E] transition-colors shadow-2xs"
+              />
+            </div>
+            <button
+              onClick={openCreate}
+              className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs shrink-0 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Nuevo</span>
+            </button>
           </div>
-          <button onClick={openCreate}
-            className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs shrink-0 cursor-pointer">
-            <Plus className="w-4 h-4" />
-            <span>Nuevo proveedor</span>
-          </button>
         </div>
 
         {/* List Table */}

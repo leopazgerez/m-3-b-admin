@@ -20,11 +20,13 @@ import {
   Coffee,
   Truck,
   ArrowRight,
-  Info,
   SlidersHorizontal,
   Layers,
+  Tag,
 } from "lucide-react";
 import Link from "next/link";
+import FilterPanel from "@/components/ui/FilterPanel";
+import { isDateInRange } from "@/lib/dateUtils";
 
 export default function StockContent() {
   const searchParams = useSearchParams();
@@ -40,11 +42,18 @@ export default function StockContent() {
 
   // Filter & Search states (Tab Existencias)
   const [searchTerm, setSearchTerm] = useState("");
+  const [isExistenciasFilterOpen, setIsExistenciasFilterOpen] = useState(false);
+  const [existenciasDateFrom, setExistenciasDateFrom] = useState("");
+  const [existenciasDateTo, setExistenciasDateTo] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("Todas");
   const [selectedStatus, setSelectedStatus] = useState<string>("Todos");
+  const [selectedSupplier, setSelectedSupplier] = useState<string>("Todos");
 
   // Filter & Search states (Tab Historial)
   const [historySearchTerm, setHistorySearchTerm] = useState("");
+  const [isHistoryFilterOpen, setIsHistoryFilterOpen] = useState(false);
+  const [historyDateFrom, setHistoryDateFrom] = useState("");
+  const [historyDateTo, setHistoryDateTo] = useState("");
   const [historyTypeFilter, setHistoryTypeFilter] = useState<string>("Todos");
 
   // Re-stock Modal State
@@ -183,15 +192,47 @@ export default function StockContent() {
             )
         );
       const matchCategory = selectedCategory === "Todas" || p.category === selectedCategory;
+      const matchSupplier =
+        selectedSupplier === "Todos" || p.supplier === selectedSupplier;
+
       const matchStatus =
         selectedStatus === "Todos" ||
         (selectedStatus === "En stock" && p.status === "En stock") ||
         (selectedStatus === "Bajo stock" && p.status === "Bajo stock") ||
         (selectedStatus === "Agotado" && (p.status === "Agotado" || p.stock === 0));
 
-      return matchSearch && matchCategory && matchStatus;
+      const matchDate = isDateInRange(
+        p.lastRestockDate || p.initialStockDate,
+        existenciasDateFrom,
+        existenciasDateTo
+      );
+
+      return matchSearch && matchCategory && matchSupplier && matchStatus && matchDate;
     });
-  }, [products, searchTerm, selectedCategory, selectedStatus]);
+  }, [
+    products,
+    searchTerm,
+    selectedCategory,
+    selectedSupplier,
+    selectedStatus,
+    existenciasDateFrom,
+    existenciasDateTo,
+  ]);
+
+  const existenciasActiveCount =
+    (existenciasDateFrom ? 1 : 0) +
+    (existenciasDateTo ? 1 : 0) +
+    (selectedStatus !== "Todos" ? 1 : 0) +
+    (selectedCategory !== "Todas" ? 1 : 0) +
+    (selectedSupplier !== "Todos" ? 1 : 0);
+
+  const resetExistenciasFilters = () => {
+    setExistenciasDateFrom("");
+    setExistenciasDateTo("");
+    setSelectedStatus("Todos");
+    setSelectedCategory("Todas");
+    setSelectedSupplier("Todos");
+  };
 
   // Filtered history movements
   const filteredMovements = useMemo(() => {
@@ -203,10 +244,28 @@ export default function StockContent() {
         (m.supplier && m.supplier.toLowerCase().includes(historySearchTerm.toLowerCase())) ||
         (m.notes && m.notes.toLowerCase().includes(historySearchTerm.toLowerCase()));
       const matchType = historyTypeFilter === "Todos" || m.type === historyTypeFilter;
+      const matchDate = isDateInRange(m.date, historyDateFrom, historyDateTo);
 
-      return matchSearch && matchType;
+      return matchSearch && matchType && matchDate;
     });
-  }, [stockMovements, historySearchTerm, historyTypeFilter]);
+  }, [
+    stockMovements,
+    historySearchTerm,
+    historyTypeFilter,
+    historyDateFrom,
+    historyDateTo,
+  ]);
+
+  const historyActiveCount =
+    (historyDateFrom ? 1 : 0) +
+    (historyDateTo ? 1 : 0) +
+    (historyTypeFilter !== "Todos" ? 1 : 0);
+
+  const resetHistoryFilters = () => {
+    setHistoryDateFrom("");
+    setHistoryDateTo("");
+    setHistoryTypeFilter("Todos");
+  };
 
   return (
     <div className="flex flex-col flex-1 min-w-0 bg-[#FBF8F2] min-h-screen">
@@ -401,51 +460,89 @@ export default function StockContent() {
         {activeTab === "existencias" && (
           <div className="flex flex-col gap-4">
             {/* Filters bar */}
-            <div className="bg-white rounded-2xl border border-[#E7DFD2] p-4 shadow-xs flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div className="flex-1 min-w-0 max-w-3xl">
+                <FilterPanel
+                  isOpen={isExistenciasFilterOpen}
+                  onToggle={() => setIsExistenciasFilterOpen(!isExistenciasFilterOpen)}
+                  activeCount={existenciasActiveCount}
+                  onReset={resetExistenciasFilters}
+                  dateFrom={existenciasDateFrom}
+                  dateTo={existenciasDateTo}
+                  onDateFromChange={setExistenciasDateFrom}
+                  onDateToChange={setExistenciasDateTo}
+                  resultCount={filteredProducts.length}
+                >
+                  {/* Estado de stock */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                      <Boxes className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                      <span>Estado:</span>
+                    </label>
+                    <select
+                      value={selectedStatus}
+                      onChange={(e) => setSelectedStatus(e.target.value)}
+                      className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+                    >
+                      <option value="Todos">Todos los estados</option>
+                      <option value="En stock">En stock</option>
+                      <option value="Bajo stock">Bajo stock</option>
+                      <option value="Agotado">Agotado</option>
+                    </select>
+                  </div>
+
+                  {/* Categoría */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                      <span>Categoría:</span>
+                    </label>
+                    <select
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+                    >
+                      <option value="Todas">Todas las categorías</option>
+                      {productCategories.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Proveedor */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                      <Truck className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                      <span>Proveedor:</span>
+                    </label>
+                    <select
+                      value={selectedSupplier}
+                      onChange={(e) => setSelectedSupplier(e.target.value)}
+                      className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+                    >
+                      <option value="Todos">Todos los proveedores</option>
+                      {supplierNames.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </FilterPanel>
+              </div>
+
               {/* Search */}
-              <div className="relative flex-1 min-w-[240px]">
+              <div className="relative w-full sm:w-72 shrink-0">
                 <Search className="w-4 h-4 text-[#A89C8C] absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
                   placeholder="Buscar producto por nombre o SKU…"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl pl-9 pr-3.5 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white transition-all"
+                  className="w-full bg-white border border-[#E7DFD2] rounded-xl pl-9 pr-3.5 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white transition-all shadow-2xs"
                 />
-              </div>
-
-              {/* Status and Category Selects */}
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <div className="flex items-center gap-1.5 text-xs text-[#7A6F63]">
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-[#A89C8C]" />
-                  <span>Estado:</span>
-                  <select
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-1.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] cursor-pointer"
-                  >
-                    <option value="Todos">Todos</option>
-                    <option value="En stock">En stock</option>
-                    <option value="Bajo stock">Bajo stock</option>
-                    <option value="Agotado">Agotado</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center gap-1.5 text-xs text-[#7A6F63]">
-                  <span>Categoría:</span>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
-                    className="bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-1.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] cursor-pointer"
-                  >
-                    <option value="Todas">Todas</option>
-                    {productCategories.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
               </div>
             </div>
 
@@ -601,31 +698,48 @@ export default function StockContent() {
         {activeTab === "historial" && (
           <div className="flex flex-col gap-4">
             {/* Filter bar */}
-            <div className="bg-white rounded-2xl border border-[#E7DFD2] p-4 shadow-xs flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div className="flex-1 min-w-0 max-w-3xl">
+                <FilterPanel
+                  isOpen={isHistoryFilterOpen}
+                  onToggle={() => setIsHistoryFilterOpen(!isHistoryFilterOpen)}
+                  activeCount={historyActiveCount}
+                  onReset={resetHistoryFilters}
+                  dateFrom={historyDateFrom}
+                  dateTo={historyDateTo}
+                  onDateFromChange={setHistoryDateFrom}
+                  onDateToChange={setHistoryDateTo}
+                  resultCount={filteredMovements.length}
+                >
+                  {/* Tipo de ingreso */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                      <PackagePlus className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                      <span>Tipo de ingreso:</span>
+                    </label>
+                    <select
+                      value={historyTypeFilter}
+                      onChange={(e) => setHistoryTypeFilter(e.target.value)}
+                      className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+                    >
+                      <option value="Todos">Todos los tipos</option>
+                      <option value="Re-stock">Re-stock (Reposición)</option>
+                      <option value="Ingreso inicial">Ingreso inicial (Alta)</option>
+                    </select>
+                  </div>
+                </FilterPanel>
+              </div>
+
               {/* Search */}
-              <div className="relative flex-1 min-w-[240px]">
+              <div className="relative w-full sm:w-80 shrink-0">
                 <Search className="w-4 h-4 text-[#A89C8C] absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Buscar en el historial por producto, SKU, proveedor o notas…"
+                  placeholder="Buscar por producto, SKU, notas…"
                   value={historySearchTerm}
                   onChange={(e) => setHistorySearchTerm(e.target.value)}
-                  className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl pl-9 pr-3.5 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white transition-all"
+                  className="w-full bg-white border border-[#E7DFD2] rounded-xl pl-9 pr-3.5 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white transition-all shadow-2xs"
                 />
-              </div>
-
-              {/* Type filter */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[#7A6F63]">Tipo de ingreso:</span>
-                <select
-                  value={historyTypeFilter}
-                  onChange={(e) => setHistoryTypeFilter(e.target.value)}
-                  className="bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-1.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] cursor-pointer"
-                >
-                  <option value="Todos">Todos los tipos</option>
-                  <option value="Re-stock">Re-stock (Reposición)</option>
-                  <option value="Ingreso inicial">Ingreso inicial (Alta)</option>
-                </select>
               </div>
             </div>
 

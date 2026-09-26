@@ -3,12 +3,21 @@
 import Link from "next/link";
 import Topbar from "@/components/layout/Topbar";
 import { useStore } from "@/lib/store";
-import { Mail, Phone, ChevronRight, UserCheck } from "lucide-react";
+import { Mail, Phone, ChevronRight, UserCheck, ShoppingBag, Users } from "lucide-react";
 import { useState } from "react";
+import FilterPanel from "@/components/ui/FilterPanel";
+import { isDateInRange } from "@/lib/dateUtils";
 
 export default function ClientesPage() {
   const { clients: storeClients, sales } = useStore();
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Filter states
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [activityFilter, setActivityFilter] = useState("Todos");
+  const [ordersFilter, setOrdersFilter] = useState("Todos");
 
   // Map registered clients with purchase metrics
   const clientsList = storeClients.map((sc) => {
@@ -55,13 +64,41 @@ export default function ClientesPage() {
 
   const allClients = [...clientsList, ...salesClientsExtra];
 
-  const filtered = allClients.filter(
-    (c) =>
+  const activeFilterCount =
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0) +
+    (activityFilter !== "Todos" ? 1 : 0) +
+    (ordersFilter !== "Todos" ? 1 : 0);
+
+  const handleResetFilters = () => {
+    setDateFrom("");
+    setDateTo("");
+    setActivityFilter("Todos");
+    setOrdersFilter("Todos");
+  };
+
+  const filtered = allClients.filter((c) => {
+    const matchSearch =
       c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       c.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (c.dni && c.dni.includes(searchTerm)) ||
-      (c.phone && c.phone.includes(searchTerm))
-  );
+      (c.phone && c.phone.includes(searchTerm));
+
+    const matchActivity =
+      activityFilter === "Todos" ||
+      (activityFilter === "Con compras" && c.orders > 0) ||
+      (activityFilter === "Sin compras" && c.orders === 0);
+
+    const matchOrders =
+      ordersFilter === "Todos" ||
+      (ordersFilter === "1+" && c.orders >= 1) ||
+      (ordersFilter === "3+" && c.orders >= 3) ||
+      (ordersFilter === "5+" && c.orders >= 5);
+
+    const matchDate = isDateInRange(c.lastPurchase, dateFrom, dateTo);
+
+    return matchSearch && matchActivity && matchOrders && matchDate;
+  });
 
   return (
     <>
@@ -72,6 +109,58 @@ export default function ClientesPage() {
       />
 
       <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full min-w-0">
+        {/* Filter Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="flex-1 min-w-0 max-w-3xl">
+            <FilterPanel
+              isOpen={isFilterOpen}
+              onToggle={() => setIsFilterOpen(!isFilterOpen)}
+              activeCount={activeFilterCount}
+              onReset={handleResetFilters}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              dateLabel="Última compra"
+              resultCount={filtered.length}
+            >
+              {/* Estado de Actividad */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                  <span>Actividad:</span>
+                </label>
+                <select
+                  value={activityFilter}
+                  onChange={(e) => setActivityFilter(e.target.value)}
+                  className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+                >
+                  <option value="Todos">Todos los clientes</option>
+                  <option value="Con compras">Con compras registradas</option>
+                  <option value="Sin compras">Sin compras registradas</option>
+                </select>
+              </div>
+
+              {/* Volumen de Pedidos */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                  <ShoppingBag className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                  <span>Volumen de pedidos:</span>
+                </label>
+                <select
+                  value={ordersFilter}
+                  onChange={(e) => setOrdersFilter(e.target.value)}
+                  className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+                >
+                  <option value="Todos">Cualquier cantidad</option>
+                  <option value="1+">1 o más pedidos</option>
+                  <option value="3+">3 o más pedidos (Frecuente)</option>
+                  <option value="5+">5 o más pedidos (VIP)</option>
+                </select>
+              </div>
+            </FilterPanel>
+          </div>
+        </div>
         {/* Table / List View */}
         <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">
           <div className="overflow-x-auto w-full">

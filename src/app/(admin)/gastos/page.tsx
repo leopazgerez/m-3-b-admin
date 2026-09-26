@@ -4,9 +4,11 @@ import { useState, useMemo } from "react";
 import Topbar from "@/components/layout/Topbar";
 import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
-import ConfirmDeleteModal from "@/components/ui/ConfirmDeleteModal";
 import { useStore } from "@/lib/store";
 import { Expense, ExpenseInstallment } from "@/lib/types";
+import ConfirmDeleteModal from "@/components/ui/ConfirmDeleteModal";
+import FilterPanel from "@/components/ui/FilterPanel";
+import { isDateInRange } from "@/lib/dateUtils";
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -129,8 +131,13 @@ export default function GastosPage() {
   } = useStore();
 
   const [searchTerm, setSearchTerm] = useState("");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("Todas");
   const [selectedStatusFilter, setSelectedStatusFilter] = useState("Todos");
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState("Todos");
+  const [selectedMethodFilter, setSelectedMethodFilter] = useState("Todos");
 
   // Modals state
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
@@ -308,6 +315,23 @@ export default function GastosPage() {
     setPayNotes("");
   };
 
+  const activeFilterCount =
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0) +
+    (selectedCategoryFilter !== "Todas" ? 1 : 0) +
+    (selectedStatusFilter !== "Todos" ? 1 : 0) +
+    (selectedTypeFilter !== "Todos" ? 1 : 0) +
+    (selectedMethodFilter !== "Todos" ? 1 : 0);
+
+  const handleResetFilters = () => {
+    setDateFrom("");
+    setDateTo("");
+    setSelectedCategoryFilter("Todas");
+    setSelectedStatusFilter("Todos");
+    setSelectedTypeFilter("Todos");
+    setSelectedMethodFilter("Todos");
+  };
+
   // Filtered expenses
   const filtered = useMemo(() => {
     return expenses.filter((e) => {
@@ -324,9 +348,36 @@ export default function GastosPage() {
       const matchStatus =
         selectedStatusFilter === "Todos" || e.status === selectedStatusFilter;
 
-      return matchSearch && matchCategory && matchStatus;
+      const matchType =
+        selectedTypeFilter === "Todos" || e.type === selectedTypeFilter;
+
+      const matchMethod =
+        selectedMethodFilter === "Todos" ||
+        e.paymentMethod === selectedMethodFilter ||
+        (e.isInstallments &&
+          e.installments?.some((inst) => inst.paidMethod === selectedMethodFilter));
+
+      const matchDate = isDateInRange(e.date, dateFrom, dateTo);
+
+      return (
+        matchSearch &&
+        matchCategory &&
+        matchStatus &&
+        matchType &&
+        matchMethod &&
+        matchDate
+      );
     });
-  }, [expenses, searchTerm, selectedCategoryFilter, selectedStatusFilter]);
+  }, [
+    expenses,
+    searchTerm,
+    selectedCategoryFilter,
+    selectedStatusFilter,
+    selectedTypeFilter,
+    selectedMethodFilter,
+    dateFrom,
+    dateTo,
+  ]);
 
   // Statistics
   const totalEgreso = useMemo(() => {
@@ -391,48 +442,92 @@ export default function GastosPage() {
           </div>
         </div>
 
-        {/* Filter Pills Bar */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-[#E7DFD2] shadow-2xs">
-          {/* Categories Filter */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-            <span className="text-[11px] font-semibold text-[#A89C8C] uppercase tracking-wider mr-1">
-              Rubro:
-            </span>
-            {["Todas", ...expenseCategories.map((c) => c.name)].map((catName) => (
-              <button
-                key={catName}
-                onClick={() => setSelectedCategoryFilter(catName)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
-                  selectedCategoryFilter === catName
-                    ? "bg-[#9C5A2E] text-white shadow-2xs"
-                    : "text-[#7A6F63] hover:bg-[#FBF8F2] hover:text-[#231E1A]"
-                }`}
-              >
-                {catName}
-              </button>
-            ))}
+        {/* Unified Filter Panel */}
+        <FilterPanel
+          isOpen={isFilterOpen}
+          onToggle={() => setIsFilterOpen(!isFilterOpen)}
+          activeCount={activeFilterCount}
+          onReset={handleResetFilters}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={setDateFrom}
+          onDateToChange={setDateTo}
+          resultCount={filtered.length}
+        >
+          {/* Rubro / Categoría */}
+          <div className="flex flex-col gap-1.5">
+            <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5 text-[#9C5A2E]" />
+              <span>Rubro / Categoría:</span>
+            </label>
+            <select
+              value={selectedCategoryFilter}
+              onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+              className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+            >
+              {["Todas", ...expenseCategories.map((c) => c.name)].map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Status Filter */}
-          <div className="flex items-center gap-1.5 shrink-0 border-t md:border-t-0 md:border-l border-[#F7F3EC] pt-2 md:pt-0 md:pl-4">
-            <span className="text-[11px] font-semibold text-[#A89C8C] uppercase tracking-wider mr-1">
-              Estado:
-            </span>
-            {["Todos", "Pagado", "En cuotas", "Pendiente"].map((st) => (
-              <button
-                key={st}
-                onClick={() => setSelectedStatusFilter(st)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
-                  selectedStatusFilter === st
-                    ? "bg-[#231E1A] text-white"
-                    : "text-[#7A6F63] hover:bg-[#FBF8F2]"
-                }`}
-              >
-                {st}
-              </button>
-            ))}
+          {/* Estado */}
+          <div className="flex flex-col gap-1.5">
+            <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#9C5A2E]" />
+              <span>Estado:</span>
+            </label>
+            <select
+              value={selectedStatusFilter}
+              onChange={(e) => setSelectedStatusFilter(e.target.value)}
+              className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+            >
+              <option value="Todos">Todos los estados</option>
+              <option value="Pagado">Pagado</option>
+              <option value="En cuotas">En cuotas</option>
+              <option value="Pendiente">Pendiente</option>
+            </select>
           </div>
-        </div>
+
+          {/* Tipo (Ingreso / Egreso) */}
+          <div className="flex flex-col gap-1.5">
+            <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+              <ArrowDownRight className="w-3.5 h-3.5 text-[#9C5A2E]" />
+              <span>Tipo:</span>
+            </label>
+            <select
+              value={selectedTypeFilter}
+              onChange={(e) => setSelectedTypeFilter(e.target.value)}
+              className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+            >
+              <option value="Todos">Todos los tipos</option>
+              <option value="Egreso">Egreso</option>
+              <option value="Ingreso">Ingreso</option>
+            </select>
+          </div>
+
+          {/* Forma de pago */}
+          <div className="flex flex-col gap-1.5">
+            <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+              <CreditCard className="w-3.5 h-3.5 text-[#9C5A2E]" />
+              <span>Medio de pago:</span>
+            </label>
+            <select
+              value={selectedMethodFilter}
+              onChange={(e) => setSelectedMethodFilter(e.target.value)}
+              className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+            >
+              <option value="Todos">Todos los medios</option>
+              {PAYMENT_METHODS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+        </FilterPanel>
 
         {/* Table List (Maintains project essence: purely table list, NOT cards) */}
         <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">

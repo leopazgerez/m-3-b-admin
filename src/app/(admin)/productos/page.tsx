@@ -30,6 +30,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
+import FilterPanel from "@/components/ui/FilterPanel";
+import { isDateInRange } from "@/lib/dateUtils";
 
 export default function ProductosPage() {
   const {
@@ -43,7 +45,13 @@ export default function ProductosPage() {
     deleteProduct,
   } = useStore();
   const [searchTerm, setSearchTerm] = useState("");
+  // Filter states
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("Todas");
+  const [selectedSupplier, setSelectedSupplier] = useState<string>("Todos");
+  const [selectedStockStatus, setSelectedStockStatus] = useState<string>("Todos");
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -303,11 +311,27 @@ export default function ProductosPage() {
     }, 600);
   };
 
+  const activeFilterCount =
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0) +
+    (selectedCategory !== "Todas" ? 1 : 0) +
+    (selectedSupplier !== "Todos" ? 1 : 0) +
+    (selectedStockStatus !== "Todos" ? 1 : 0);
+
+  const handleResetFilters = () => {
+    setDateFrom("");
+    setDateTo("");
+    setSelectedCategory("Todas");
+    setSelectedSupplier("Todos");
+    setSelectedStockStatus("Todos");
+  };
+
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
       p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
       p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.supplier && p.supplier.toLowerCase().includes(searchTerm.toLowerCase())) ||
       Boolean(
         p.hasVariants &&
           p.variants?.some(
@@ -318,7 +342,22 @@ export default function ProductosPage() {
       );
     const matchesCategory =
       selectedCategory === "Todas" || p.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesSupplier =
+      selectedSupplier === "Todos" || p.supplier === selectedSupplier;
+    const matchesStatus =
+      selectedStockStatus === "Todos" || p.status === selectedStockStatus;
+    const matchesDate = isDateInRange(
+      p.lastRestockDate || p.initialStockDate,
+      dateFrom,
+      dateTo
+    );
+    return (
+      matchesSearch &&
+      matchesCategory &&
+      matchesSupplier &&
+      matchesStatus &&
+      matchesDate
+    );
   });
 
   const categories = ["Todas", ...productCategories];
@@ -333,35 +372,89 @@ export default function ProductosPage() {
 
       <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full">
         {/* Actions bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          {/* Categories Filter */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                  selectedCategory === cat
-                    ? "bg-[#9C5A2E] text-white font-semibold shadow-xs"
-                    : "bg-white border border-[#E7DFD2] text-[#7A6F63] hover:text-[#231E1A]"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="flex-1 min-w-0 max-w-3xl">
+            <FilterPanel
+              isOpen={isFilterOpen}
+              onToggle={() => setIsFilterOpen(!isFilterOpen)}
+              activeCount={activeFilterCount}
+              onReset={handleResetFilters}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              resultCount={filteredProducts.length}
+            >
+              {/* Categoría */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                  <span>Categoría:</span>
+                </label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+                >
+                  {categories.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Proveedor */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                  <Truck className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                  <span>Proveedor:</span>
+                </label>
+                <select
+                  value={selectedSupplier}
+                  onChange={(e) => setSelectedSupplier(e.target.value)}
+                  className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+                >
+                  <option value="Todos">Todos los proveedores</option>
+                  {supplierNames.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Estado de stock */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                  <Boxes className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                  <span>Estado:</span>
+                </label>
+                <select
+                  value={selectedStockStatus}
+                  onChange={(e) => setSelectedStockStatus(e.target.value)}
+                  className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+                >
+                  <option value="Todos">Todos los estados</option>
+                  <option value="En stock">En stock</option>
+                  <option value="Bajo stock">Bajo stock</option>
+                  <option value="Agotado">Agotado</option>
+                </select>
+              </div>
+            </FilterPanel>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0 mt-0.5">
             <Link
               href="/stock"
               className="flex items-center gap-2 px-3.5 py-2 rounded-xl border border-[#E7DFD2] bg-white text-xs font-semibold text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors shadow-2xs"
             >
               <Boxes className="w-4 h-4 text-[#9C5A2E]" />
-              <span>Ver stock e inventario</span>
+              <span>Ver inventario</span>
             </Link>
             <button
               onClick={openCreateModal}
-              className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs shrink-0 self-start sm:self-auto cursor-pointer"
+              className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs shrink-0 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>Nuevo producto</span>

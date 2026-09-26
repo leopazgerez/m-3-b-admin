@@ -8,8 +8,9 @@ import Badge from "@/components/ui/Badge";
 import Modal from "@/components/ui/Modal";
 import ConfirmDeleteModal from "@/components/ui/ConfirmDeleteModal";
 import { useState, useMemo } from "react";
+import FilterPanel from "@/components/ui/FilterPanel";
+import { isDateInRange } from "@/lib/dateUtils";
 import {
-  Filter,
   Calendar,
   CreditCard,
   Plus,
@@ -81,8 +82,14 @@ function formatDisplayDate(isoDate: string): string {
 
 export default function VentasPage() {
   const { sales, products, saleTypes, addSale, updateSale, deleteSale } = useStore();
-  const [methodFilter, setMethodFilter] = useState("Todos");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Filter states
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [methodFilter, setMethodFilter] = useState("Todos");
+  const [statusFilter, setStatusFilter] = useState("Todos");
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -271,12 +278,27 @@ export default function VentasPage() {
     setIsModalOpen(false);
   };
 
+  const activeFilterCount =
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0) +
+    (methodFilter !== "Todos" ? 1 : 0) +
+    (statusFilter !== "Todos" ? 1 : 0);
+
+  const handleResetFilters = () => {
+    setDateFrom("");
+    setDateTo("");
+    setMethodFilter("Todos");
+    setStatusFilter("Todos");
+  };
+
   const filtered = sales.filter((s) => {
     const matchesSearch =
       s.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.productName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesMethod = methodFilter === "Todos" || s.method === methodFilter;
-    return matchesSearch && matchesMethod;
+    const matchesStatus = statusFilter === "Todos" || s.status === statusFilter;
+    const matchesDate = isDateInRange(s.date, dateFrom, dateTo);
+    return matchesSearch && matchesMethod && matchesStatus && matchesDate;
   });
 
   const methods = ["Todos", ...saleTypes];
@@ -291,27 +313,61 @@ export default function VentasPage() {
 
       <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full">
         {/* Filters and CTA bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
-            <Filter className="w-4 h-4 text-[#A89C8C] shrink-0 mr-1" />
-            {methods.map((m) => (
-              <button
-                key={m}
-                onClick={() => setMethodFilter(m)}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
-                  methodFilter === m
-                    ? "bg-[#9C5A2E] text-white font-semibold shadow-xs"
-                    : "bg-white border border-[#E7DFD2] text-[#7A6F63] hover:text-[#231E1A]"
-                }`}
-              >
-                {m}
-              </button>
-            ))}
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+          <div className="flex-1 min-w-0 max-w-3xl">
+            <FilterPanel
+              isOpen={isFilterOpen}
+              onToggle={() => setIsFilterOpen(!isFilterOpen)}
+              activeCount={activeFilterCount}
+              onReset={handleResetFilters}
+              dateFrom={dateFrom}
+              dateTo={dateTo}
+              onDateFromChange={setDateFrom}
+              onDateToChange={setDateTo}
+              resultCount={filtered.length}
+            >
+              {/* Método de pago */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                  <CreditCard className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                  <span>Método de pago:</span>
+                </label>
+                <select
+                  value={methodFilter}
+                  onChange={(e) => setMethodFilter(e.target.value)}
+                  className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+                >
+                  {methods.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Estado de venta */}
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                  <span>Estado:</span>
+                </label>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
+                >
+                  <option value="Todos">Todos los estados</option>
+                  <option value="Completada">Completada</option>
+                  <option value="Pendiente">Pendiente</option>
+                  <option value="Cancelada">Cancelada</option>
+                </select>
+              </div>
+            </FilterPanel>
           </div>
 
           <Link
             href="/ventas/nueva"
-            className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs self-start sm:self-auto cursor-pointer shrink-0"
+            className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs self-start sm:self-auto cursor-pointer shrink-0 mt-0.5"
           >
             <Plus className="w-4 h-4" />
             <span>Nueva venta</span>
