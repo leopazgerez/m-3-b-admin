@@ -22,7 +22,6 @@ import {
   ArrowRight,
   Info,
   SlidersHorizontal,
-  ChevronDown,
   Layers,
 } from "lucide-react";
 import Link from "next/link";
@@ -60,15 +59,7 @@ export default function StockContent() {
   const [registerExpense, setRegisterExpense] = useState<boolean>(true);
   const [restockSuccessFeedback, setRestockSuccessFeedback] = useState<string | null>(null);
 
-  // Expanded products accordion in Existencias table
-  const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
 
-  const toggleExpand = (productId: string) => {
-    setExpandedProducts((prev) => ({
-      ...prev,
-      [productId]: !prev[productId],
-    }));
-  };
 
   // Auto-open modal if URL query parameter productId is provided
   useEffect(() => {
@@ -493,65 +484,14 @@ export default function StockContent() {
                                   <Coffee className="w-5 h-5" />
                                 </div>
                                 <div className="flex flex-col min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-semibold text-[#231E1A] truncate text-sm">
-                                      {p.name}
+                                  <span className="font-semibold text-[#231E1A] truncate text-sm">
+                                    {p.name}
+                                  </span>
+                                  {p.supplier && (
+                                    <span className="text-[11px] text-[#9C5A2E] font-medium truncate flex items-center gap-1 mt-0.5">
+                                      <Truck className="w-3 h-3 shrink-0" />
+                                      <span>{p.supplier}</span>
                                     </span>
-                                    {p.hasVariants && p.variants && p.variants.length > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => toggleExpand(p.id)}
-                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EADBC6]/60 hover:bg-[#EADBC6] text-[#9C5A2E] text-[10px] font-bold transition-colors cursor-pointer shrink-0"
-                                        title="Ver detalle de stock por modelo"
-                                      >
-                                        <Layers className="w-2.5 h-2.5" />
-                                        <span>{p.variants.length} modelos</span>
-                                        <ChevronDown
-                                          className={`w-2.5 h-2.5 transition-transform duration-200 ${
-                                            expandedProducts[p.id] ? "rotate-180" : ""
-                                          }`}
-                                        />
-                                      </button>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center gap-1.5 text-[11px] text-[#A89C8C] truncate mt-0.5">
-                                    <span className="truncate">{p.subtitle}</span>
-                                    {p.supplier && (
-                                      <>
-                                        <span>·</span>
-                                        <span className="text-[#9C5A2E] font-medium truncate flex items-center gap-1">
-                                          <Truck className="w-3 h-3 shrink-0" />
-                                          {p.supplier}
-                                        </span>
-                                      </>
-                                    )}
-                                  </div>
-
-                                  {/* Models mini-chips preview */}
-                                  {p.hasVariants && p.variants && p.variants.length > 0 && (
-                                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                      {p.variants.slice(0, 3).map((v) => (
-                                        <span
-                                          key={v.id}
-                                          className={`text-[10px] px-2 py-0.5 rounded-md border flex items-center gap-1 ${
-                                            v.stock === 0
-                                              ? "bg-[#F7E3DD] border-[#F2BDB3] text-[#C0492F]"
-                                              : v.stock <= (p.minStock || 10) / 2
-                                              ? "bg-[#FBEFD9] border-[#F4DCB0] text-[#D98A2B]"
-                                              : "bg-[#FBF8F2] border-[#E7DFD2] text-[#7A6F63]"
-                                          }`}
-                                        >
-                                          <span>{v.name}:</span>
-                                          <strong className="font-bold">{v.stock}u.</strong>
-                                        </span>
-                                      ))}
-                                      {p.variants.length > 3 && (
-                                        <span className="text-[10px] text-[#A89C8C] font-medium">
-                                          +{p.variants.length - 3} más
-                                        </span>
-                                      )}
-                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -646,86 +586,6 @@ export default function StockContent() {
                                 </button>
                               </div>
                             </div>
-
-                            {/* Expandable Accordion Drawer for Models Stock */}
-                            {p.hasVariants && p.variants && p.variants.length > 0 && expandedProducts[p.id] && (
-                              <div className="bg-[#FAF7F2] border-t border-b border-[#E7DFD2]/70 px-6 py-3.5 pl-16 flex flex-col gap-2.5 transition-all">
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[11px] font-bold text-[#7A6F63] uppercase tracking-wider flex items-center gap-1.5">
-                                    <Layers className="w-3.5 h-3.5 text-[#9C5A2E]" />
-                                    Modelos / Colores de {p.name} ({p.variants.length})
-                                  </span>
-                                  <span className="text-[11px] text-[#7A6F63]">
-                                    Suma total:{" "}
-                                    <strong className="text-[#231E1A] font-bold">{p.stock} unidades</strong>
-                                  </span>
-                                </div>
-
-                                <div className="bg-white rounded-xl border border-[#E7DFD2] overflow-hidden divide-y divide-[#F7F3EC] shadow-2xs">
-                                  {p.variants.map((v) => (
-                                    <div
-                                      key={v.id}
-                                      className="px-4 py-2.5 flex items-center justify-between text-xs hover:bg-[#FBF8F2]/60 transition-colors"
-                                    >
-                                      <div className="flex items-center gap-3">
-                                        <span className="w-2.5 h-2.5 rounded-full bg-[#9C5A2E] shrink-0" />
-                                        <div>
-                                          <span className="font-semibold text-[#231E1A]">{v.name}</span>
-                                          <span className="text-[10px] text-[#A89C8C] ml-2 font-mono">
-                                            Ref: {v.id}
-                                          </span>
-                                        </div>
-                                      </div>
-
-                                      <div className="flex items-center gap-6">
-                                        <span className="font-mono text-[11px] text-[#231E1A] bg-[#FBF8F2] px-2.5 py-1 rounded-md border border-[#E7DFD2]">
-                                          SKU: {v.sku}
-                                        </span>
-
-                                        <div className="flex items-center gap-2">
-                                          <span
-                                            className={`font-bold ${
-                                              v.stock === 0
-                                                ? "text-[#C0492F]"
-                                                : v.stock <= 5
-                                                ? "text-[#D98A2B]"
-                                                : "text-[#231E1A]"
-                                            }`}
-                                          >
-                                            {v.stock} u.
-                                          </span>
-                                          <Badge
-                                            variant={
-                                              v.stock === 0
-                                                ? "danger"
-                                                : v.stock <= 5
-                                                ? "warning"
-                                                : "success"
-                                            }
-                                          >
-                                            {v.stock === 0
-                                              ? "Agotado"
-                                              : v.stock <= 5
-                                              ? "Bajo stock"
-                                              : "En stock"}
-                                          </Badge>
-                                        </div>
-
-                                        <button
-                                          type="button"
-                                          onClick={() => openRestockModal(p, v.id)}
-                                          className="text-[#9C5A2E] hover:underline font-semibold text-xs flex items-center gap-1 cursor-pointer"
-                                          title={`Reponer existencias para modelo ${v.name}`}
-                                        >
-                                          <PackagePlus className="w-3.5 h-3.5" />
-                                          <span>Reponer modelo</span>
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
                           </div>
                         );
                       })
