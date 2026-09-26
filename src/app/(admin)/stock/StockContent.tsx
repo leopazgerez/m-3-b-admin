@@ -31,6 +31,7 @@ export default function StockContent() {
   const {
     products,
     productCategories,
+    suppliers,
     stockMovements,
     restockProduct,
   } = useStore();
@@ -76,7 +77,7 @@ export default function StockContent() {
     setSelectedProductForRestock(target);
     setRestockQuantity("10");
     setRestockCostUnit(target?.listPrice ? target.listPrice.toString() : "");
-    setRestockSupplier("");
+    setRestockSupplier(target?.supplier || "");
     setRestockNotes("");
     setRegisterExpense(true);
 
@@ -99,6 +100,9 @@ export default function StockContent() {
     if (found && found.listPrice) {
       setRestockCostUnit(found.listPrice.toString());
     }
+    if (found && found.supplier) {
+      setRestockSupplier(found.supplier);
+    }
   };
 
   // Submit restock
@@ -115,7 +119,7 @@ export default function StockContent() {
       productId: selectedProductForRestock.id,
       quantity: qty,
       costPerUnit: costUnit,
-      supplier: restockSupplier || "Proveedor habitual",
+      supplier: restockSupplier || selectedProductForRestock.supplier || "Proveedor habitual",
       notes: restockNotes || "Reposición de stock",
       date: restockDate,
       registerExpense,
@@ -138,7 +142,11 @@ export default function StockContent() {
   }, [products]);
 
   const lowStockCount = useMemo(() => {
-    return products.filter((p) => p.status === "Bajo stock").length;
+    return products.filter(
+      (p) =>
+        p.status === "Bajo stock" ||
+        (p.stock > 0 && p.stock <= (p.minStock !== undefined ? p.minStock : 10))
+    ).length;
   }, [products]);
 
   const outOfStockCount = useMemo(() => {
@@ -458,9 +466,18 @@ export default function StockContent() {
                                 <span className="font-semibold text-[#231E1A] truncate text-sm">
                                   {p.name}
                                 </span>
-                                <span className="text-[11px] text-[#A89C8C] truncate">
-                                  {p.subtitle}
-                                </span>
+                                <div className="flex items-center gap-1.5 text-[11px] text-[#A89C8C] truncate">
+                                  <span className="truncate">{p.subtitle}</span>
+                                  {p.supplier && (
+                                    <>
+                                      <span>·</span>
+                                      <span className="text-[#9C5A2E] font-medium truncate flex items-center gap-1">
+                                        <Truck className="w-3 h-3 shrink-0" />
+                                        {p.supplier}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
                               </div>
                             </div>
 
@@ -811,11 +828,17 @@ export default function StockContent() {
               </label>
               <input
                 type="text"
+                list="restock-suppliers-list"
                 placeholder="Ej. Taller Artesanal Salta"
                 value={restockSupplier}
                 onChange={(e) => setRestockSupplier(e.target.value)}
                 className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
               />
+              <datalist id="restock-suppliers-list">
+                {suppliers.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
             </div>
 
             <div>

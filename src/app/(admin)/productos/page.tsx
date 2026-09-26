@@ -30,7 +30,16 @@ import {
 import Link from "next/link";
 
 export default function ProductosPage() {
-  const { products, productCategories, stockMovements, addProduct, updateProduct, deleteProduct } = useStore();
+  const {
+    products,
+    productCategories,
+    suppliers,
+    addSupplier,
+    stockMovements,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+  } = useStore();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("Todas");
 
@@ -47,6 +56,8 @@ export default function ProductosPage() {
   const [subtitle, setSubtitle] = useState("");
   const [sku, setSku] = useState("");
   const [category, setCategory] = useState("");
+  const [supplier, setSupplier] = useState("");
+  const [minStock, setMinStock] = useState("10");
   const [listPrice, setListPrice] = useState("");
   const [price, setPrice] = useState("");
   const [initialStock, setInitialStock] = useState("");
@@ -65,6 +76,8 @@ export default function ProductosPage() {
     setSubtitle("");
     setSku("");
     setCategory(productCategories[0] || "Mates");
+    setSupplier(suppliers[0] || "Taller Artesanal Salta");
+    setMinStock("10");
     setListPrice("");
     setPrice("");
     setInitialStock("");
@@ -77,6 +90,8 @@ export default function ProductosPage() {
     setSubtitle(p.subtitle);
     setSku(p.sku);
     setCategory(p.category);
+    setSupplier(p.supplier || suppliers[0] || "");
+    setMinStock(p.minStock !== undefined ? p.minStock.toString() : "10");
     setListPrice(p.listPrice !== undefined ? p.listPrice.toString() : "");
     setPrice(p.price.toString());
     setInitialStock(p.stock.toString());
@@ -89,6 +104,12 @@ export default function ProductosPage() {
 
     const parsedListPrice = listPrice ? parseFloat(listPrice) : undefined;
     const parsedSalePrice = parseFloat(price);
+    const parsedMinStock = minStock ? parseInt(minStock) : 10;
+    const cleanSupplier = supplier.trim() || "Proveedor general";
+
+    if (cleanSupplier) {
+      addSupplier(cleanSupplier);
+    }
 
     if (editingProduct) {
       updateProduct(editingProduct.id, {
@@ -96,18 +117,22 @@ export default function ProductosPage() {
         subtitle: subtitle || "Artesanal Mates Triple B",
         sku,
         category: category || productCategories[0] || "Mates",
+        supplier: cleanSupplier,
+        minStock: parsedMinStock,
         listPrice: parsedListPrice,
         price: parsedSalePrice,
       });
     } else {
       const numStock = parseInt(initialStock) || 0;
-      const status = numStock === 0 ? "Agotado" : numStock <= 10 ? "Bajo stock" : "En stock";
+      const status = numStock === 0 ? "Agotado" : numStock <= parsedMinStock ? "Bajo stock" : "En stock";
 
       addProduct({
         name,
         subtitle: subtitle || "Artesanal Mates Triple B",
         sku,
         category: category || productCategories[0] || "Mates",
+        supplier: cleanSupplier,
+        minStock: parsedMinStock,
         listPrice: parsedListPrice,
         price: parsedSalePrice,
         stock: numStock,
@@ -320,9 +345,18 @@ export default function ProductosPage() {
                             <span className="font-semibold text-[#231E1A] truncate text-sm group-hover:text-[#9C5A2E] transition-colors">
                               {p.name}
                             </span>
-                            <span className="text-[11px] text-[#A89C8C] truncate">
-                              {p.subtitle}
-                            </span>
+                            <div className="flex items-center gap-1.5 text-[11px] text-[#A89C8C] truncate">
+                              <span className="truncate">{p.subtitle}</span>
+                              {p.supplier && (
+                                <>
+                                  <span>·</span>
+                                  <span className="text-[#9C5A2E] font-medium truncate flex items-center gap-1">
+                                    <Truck className="w-3 h-3 shrink-0" />
+                                    {p.supplier}
+                                  </span>
+                                </>
+                              )}
+                            </div>
                           </div>
                         </div>
 
@@ -509,6 +543,51 @@ export default function ProductosPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="font-medium text-[#231E1A] block mb-1">
+                Proveedor / Taller <span className="text-[#C0492F]">*</span>
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  list="suppliers-list"
+                  required
+                  placeholder="Seleccionar o escribir proveedor"
+                  value={supplier}
+                  onChange={(e) => setSupplier(e.target.value)}
+                  className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
+                />
+                <datalist id="suppliers-list">
+                  {suppliers.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+              </div>
+              <span className="text-[10px] text-[#A89C8C] mt-0.5 block">
+                Taller artesanal o distribuidor habitual
+              </span>
+            </div>
+
+            <div>
+              <label className="font-medium text-[#231E1A] block mb-1">
+                Stock mínimo de alerta <span className="text-[#C0492F]">*</span>
+              </label>
+              <input
+                type="number"
+                min="1"
+                required
+                placeholder="10"
+                value={minStock}
+                onChange={(e) => setMinStock(e.target.value)}
+                className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
+              />
+              <span className="text-[10px] text-[#A89C8C] mt-0.5 block">
+                Alerta de &quot;Bajo stock&quot; si hay ≤ {minStock || 10} u.
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="font-medium text-[#231E1A] block mb-1">
                 Precio de lista ($)
               </label>
               <input
@@ -663,6 +742,12 @@ export default function ProductosPage() {
                     SKU: {viewingProductDetail.sku}
                   </span>
                   <span>Categoría: {viewingProductDetail.category}</span>
+                  {viewingProductDetail.supplier && (
+                    <span className="flex items-center gap-1.5 text-[#9C5A2E] font-medium bg-[#EADBC6]/40 border border-[#E7DFD2] px-2 py-0.5 rounded-md">
+                      <Truck className="w-3.5 h-3.5" />
+                      <span>Proveedor: {viewingProductDetail.supplier}</span>
+                    </span>
+                  )}
                 </div>
               </div>
             </div>

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Product, Sale, Expense, Client, ClientPayment, StockMovement } from "./types";
-import { initialProducts, initialSales, initialClients, initialStockMovements } from "./data";
+import { initialProducts, initialSales, initialClients, initialStockMovements, initialSuppliers } from "./data";
 import { initialMovements } from "@/app/(admin)/gastos/page";
 
 interface StoreContextType {
@@ -13,6 +13,7 @@ interface StoreContextType {
   clientPayments: ClientPayment[];
   stockMovements: StockMovement[];
   productCategories: string[];
+  suppliers: string[];
   saleTypes: string[];
   expenseTypes: string[];
   // Product actions
@@ -43,6 +44,7 @@ interface StoreContextType {
   // Configuration actions
   addProductCategory: (category: string) => void;
   deleteProductCategory: (category: string) => void;
+  addSupplier: (supplier: string) => void;
   addSaleType: (type: string) => void;
   deleteSaleType: (type: string) => void;
   addExpenseType: (type: string) => void;
@@ -67,7 +69,7 @@ const initialExpenses: Expense[] = initialMovements.map((m) => ({
 
 // Bump this string whenever you change initialProducts, initialSales or initialClients
 // so that cached localStorage data is replaced with the fresh seed on next load.
-const DATA_VERSION = "2026-09-26-v3";
+const DATA_VERSION = "2026-09-26-v4";
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
@@ -77,6 +79,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [clientPayments, setClientPayments] = useState<ClientPayment[]>([]);
   const [stockMovements, setStockMovements] = useState<StockMovement[]>(initialStockMovements);
   const [productCategories, setProductCategories] = useState<string[]>(defaultProductCategories);
+  const [suppliers, setSuppliers] = useState<string[]>(initialSuppliers);
   const [saleTypes, setSaleTypes] = useState<string[]>(defaultSaleTypes);
   const [expenseTypes, setExpenseTypes] = useState<string[]>(defaultExpenseTypes);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -130,6 +133,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         // Config keys are always loaded regardless of data version
         const savedCategories = localStorage.getItem("mates_admin_categories");
         if (savedCategories) setProductCategories(JSON.parse(savedCategories));
+
+        const savedSuppliers = localStorage.getItem("mates_admin_suppliers");
+        if (savedSuppliers) setSuppliers(JSON.parse(savedSuppliers));
 
         const savedSaleTypes = localStorage.getItem("mates_admin_saletypes");
         if (savedSaleTypes) setSaleTypes(JSON.parse(savedSaleTypes));
@@ -191,6 +197,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isLoaded) {
+      localStorage.setItem("mates_admin_suppliers", JSON.stringify(suppliers));
+    }
+  }, [suppliers, isLoaded]);
+
+  useEffect(() => {
+    if (isLoaded) {
       localStorage.setItem("mates_admin_saletypes", JSON.stringify(saleTypes));
     }
   }, [saleTypes, isLoaded]);
@@ -212,13 +224,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       minute: "2-digit",
     }).format(new Date());
 
-    const minStock = newProd.minStock || 10;
+    const minStock = newProd.minStock !== undefined ? newProd.minStock : 10;
     const initialStatus =
       newProd.stock === 0 ? "Agotado" : newProd.stock <= minStock ? "Bajo stock" : "En stock";
 
     const product: Product = {
       ...newProd,
       id: productId,
+      minStock,
       status: initialStatus,
       initialStockDate: newProd.stock > 0 ? nowFormatted : undefined,
       lastRestockDate: undefined,
@@ -240,7 +253,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         date: nowFormatted,
         costPerUnit: newProd.listPrice,
         totalCost: newProd.listPrice ? newProd.listPrice * newProd.stock : undefined,
-        supplier: "Ingreso inicial de catálogo",
+        supplier: newProd.supplier || "Ingreso inicial de catálogo",
         notes: "Alta inicial del producto en inventario",
         registeredBy: "Leonel Paz",
       };
@@ -300,7 +313,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     const previousStock = targetProduct.stock;
     const newStock = previousStock + quantity;
-    const minThreshold = targetProduct.minStock || 10;
+    const minThreshold = targetProduct.minStock !== undefined ? targetProduct.minStock : 10;
     const newStatus =
       newStock === 0 ? "Agotado" : newStock <= minThreshold ? "Bajo stock" : "En stock";
 
@@ -316,6 +329,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     const unitCost = costPerUnit !== undefined ? costPerUnit : targetProduct.listPrice;
     const totalCost = unitCost ? unitCost * quantity : undefined;
+    const resolvedSupplier = supplier || targetProduct.supplier || "Reposición de stock";
 
     // 1. Update product with new stock and lastRestockDate
     setProducts((prev) =>
@@ -346,7 +360,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       date: movementDate,
       costPerUnit: unitCost,
       totalCost,
-      supplier: supplier || "Reposición de stock",
+      supplier: resolvedSupplier,
       notes: notes || "Reabastecimiento de existencias",
       registeredBy: "Leonel Paz",
     };
@@ -356,7 +370,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (registerExpense && totalCost && totalCost > 0) {
       const expenseItem: Expense = {
         id: `exp-${Date.now()}`,
-        description: `Re-stock: ${quantity}u. ${targetProduct.name}`,
+        description: `Re-stock: ${quantity}u. ${targetProduct.name} (${resolvedSupplier})`,
         category: "Proveedores",
         date: movementDate.split(" ")[0] || "Hoy",
         type: "Egreso",
@@ -384,8 +398,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           );
           if (matchedItem) {
             const nextStock = Math.max(0, prod.stock - matchedItem.quantity);
+            const minThreshold = prod.minStock !== undefined ? prod.minStock : 10;
             const nextStatus =
-              nextStock === 0 ? "Agotado" : nextStock <= 10 ? "Bajo stock" : "En stock";
+              nextStock === 0 ? "Agotado" : nextStock <= minThreshold ? "Bajo stock" : "En stock";
             return {
               ...prod,
               stock: nextStock,
@@ -534,6 +549,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSaleTypes((prev) => prev.filter((t) => t !== type));
   };
 
+  const addSupplier = (supplier: string) => {
+    const trimmed = supplier.trim();
+    if (trimmed && !suppliers.includes(trimmed)) {
+      setSuppliers((prev) => [...prev, trimmed]);
+    }
+  };
+
   const addExpenseType = (type: string) => {
     if (!expenseTypes.includes(type)) {
       setExpenseTypes((prev) => [...prev, type]);
@@ -554,6 +576,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         clientPayments,
         stockMovements,
         productCategories,
+        suppliers,
         saleTypes,
         expenseTypes,
         addProduct,
@@ -570,6 +593,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         settleTotalClientDebt,
         addProductCategory,
         deleteProductCategory,
+        addSupplier,
         addSaleType,
         deleteSaleType,
         addExpenseType,
