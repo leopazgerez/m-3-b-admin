@@ -2,7 +2,7 @@
 
 import Topbar from "@/components/layout/Topbar";
 import { useState } from "react";
-import { ArrowDownRight, Plus, Calendar } from "lucide-react";
+import { ArrowDownRight, Plus, Calendar, Tag } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Link from "next/link";
 import { initialMovements } from "../page";
@@ -49,6 +49,13 @@ export default function EgresosSubmenuPage() {
             >
               <ArrowDownRight className="w-3.5 h-3.5 text-white" />
               <span>Egresos</span>
+            </Link>
+            <Link
+              href="/configuracion/gastos"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap"
+            >
+              <Tag className="w-3.5 h-3.5 text-[#D98A2B]" />
+              <span>Categorías</span>
             </Link>
           </div>
 

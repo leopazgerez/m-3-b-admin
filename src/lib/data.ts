@@ -1,4 +1,4 @@
-import { Product, Sale, MonthlyBalance, Client, StockMovement, Supplier } from "./types";
+import { Product, Sale, MonthlyBalance, Client, StockMovement, Supplier, ExpenseCategory } from "./types";
 
 export const initialSuppliers: Supplier[] = [
   {
@@ -659,3 +659,37 @@ export const stockAlerts = [
     level: "out-of-stock",
   },
 ];
+
+export const initialExpenseCategories: ExpenseCategory[] = [
+  {
+    id: "cat-gasto-1",
+    name: "Equipamiento",
+    description: "Herramientas de grabado y cincelado, maquinaria de taller, computadoras, muebles y equipamiento operativo.",
+    createdAt: "2026-01-10",
+  },
+  {
+    id: "cat-gasto-2",
+    name: "Insumos/packaging",
+    description: "Cajas kraft, bolsas ecológicas, papel de seda, fajas térmicas, stickers, viruta y packaging de presentación para envíos.",
+    createdAt: "2026-01-10",
+  },
+  {
+    id: "cat-gasto-3",
+    name: "Mercaderia",
+    description: "Compra directa de mates, termos, bombillas, mochilas y artículos de cuero para reventa y reposición comercial.",
+    createdAt: "2026-01-10",
+  },
+  {
+    id: "cat-gasto-4",
+    name: "Logistica",
+    description: "Costos de fletes, envíos por correo / Andreani, logística de distribución interprovincial, combustible y motomensajería.",
+    createdAt: "2026-01-10",
+  },
+  {
+    id: "cat-gasto-5",
+    name: "Gastos propios",
+    description: "Servicios generales (luz, gas, internet), alquiler comercial del local/taller, suscripciones de software y gastos administrativos.",
+    createdAt: "2026-01-10",
+  },
+];
+

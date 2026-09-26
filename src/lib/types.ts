@@ -104,6 +104,13 @@ export interface ClientPayment {
   notes?: string;
 }
 
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  description: string;
+  createdAt?: string;
+}
+
 export interface Expense {
   id: string;
   description: string;

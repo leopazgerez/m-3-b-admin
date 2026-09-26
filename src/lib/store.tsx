@@ -1,8 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Product, Sale, Expense, Client, ClientPayment, StockMovement, Supplier } from "./types";
-import { initialProducts, initialSales, initialClients, initialStockMovements, initialSuppliers } from "./data";
+import { Product, Sale, Expense, Client, ClientPayment, StockMovement, Supplier, ExpenseCategory } from "./types";
+import { initialProducts, initialSales, initialClients, initialStockMovements, initialSuppliers, initialExpenseCategories } from "./data";
 import { initialMovements } from "@/app/(admin)/gastos/page";
 
 interface StoreContextType {
@@ -17,6 +17,7 @@ interface StoreContextType {
   supplierNames: string[];
   saleTypes: string[];
   expenseTypes: string[];
+  expenseCategories: ExpenseCategory[];
   // Product actions
   addProduct: (product: Omit<Product, "id">) => void;
   updateProduct: (id: string, product: Partial<Product>) => void;
@@ -51,6 +52,9 @@ interface StoreContextType {
   deleteSupplier: (id: string) => void;
   addSaleType: (type: string) => void;
   deleteSaleType: (type: string) => void;
+  addExpenseCategory: (category: { name: string; description: string }) => void;
+  updateExpenseCategory: (id: string, category: { name: string; description: string }) => void;
+  deleteExpenseCategory: (id: string) => void;
   addExpenseType: (type: string) => void;
   deleteExpenseType: (type: string) => void;
 }
@@ -73,7 +77,7 @@ const initialExpenses: Expense[] = initialMovements.map((m) => ({
 
 // Bump this string whenever you change initialProducts, initialSales or initialClients
 // so that cached localStorage data is replaced with the fresh seed on next load.
-const DATA_VERSION = "2026-09-26-v6";
+const DATA_VERSION = "2026-09-26-v7";
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
@@ -85,7 +89,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [productCategories, setProductCategories] = useState<string[]>(defaultProductCategories);
   const [suppliers, setSuppliers] = useState<Supplier[]>(initialSuppliers);
   const [saleTypes, setSaleTypes] = useState<string[]>(defaultSaleTypes);
-  const [expenseTypes, setExpenseTypes] = useState<string[]>(defaultExpenseTypes);
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>(initialExpenseCategories);
   const [isLoaded, setIsLoaded] = useState(false);
 
   // Load from LocalStorage once on mount (client-side only, avoids SSR hydration mismatch)
@@ -102,6 +106,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem("mates_admin_client_payments");
           localStorage.removeItem("mates_admin_stock_movements");
           localStorage.removeItem("mates_admin_suppliers");
+          localStorage.removeItem("mates_admin_expenses");
+          localStorage.removeItem("mates_admin_expensecategories");
+          localStorage.removeItem("mates_admin_expensetypes");
           localStorage.setItem("mates_admin_data_version", DATA_VERSION);
           // State is already initialised with initial* values — nothing more to do here
         } else {
@@ -157,8 +164,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const savedSaleTypes = localStorage.getItem("mates_admin_saletypes");
         if (savedSaleTypes) setSaleTypes(JSON.parse(savedSaleTypes));
 
-        const savedExpenseTypes = localStorage.getItem("mates_admin_expensetypes");
-        if (savedExpenseTypes) setExpenseTypes(JSON.parse(savedExpenseTypes));
+        const savedExpenseCategories = localStorage.getItem("mates_admin_expensecategories");
+        if (savedExpenseCategories) {
+          try {
+            setExpenseCategories(JSON.parse(savedExpenseCategories));
+          } catch {}
+        }
       } catch (e) {
         console.error("Error reading localStorage", e);
       } finally {
@@ -226,9 +237,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem("mates_admin_expensetypes", JSON.stringify(expenseTypes));
+      localStorage.setItem("mates_admin_expensecategories", JSON.stringify(expenseCategories));
     }
-  }, [expenseTypes, isLoaded]);
+  }, [expenseCategories, isLoaded]);
 
   // Product CRUD
   const addProduct = (newProd: Omit<Product, "id">) => {
@@ -663,15 +674,61 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSuppliers((prev) => prev.filter((s) => s.id !== id));
   };
 
+  const addExpenseCategory = (cat: { name: string; description: string }) => {
+    const newCat: ExpenseCategory = {
+      id: `cat-gasto-${Date.now()}`,
+      name: cat.name.trim(),
+      description: cat.description.trim(),
+      createdAt: new Intl.DateTimeFormat("es-AR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      }).format(new Date()),
+    };
+    setExpenseCategories((prev) => [...prev, newCat]);
+  };
+
+  const updateExpenseCategory = (id: string, updated: { name: string; description: string }) => {
+    setExpenseCategories((prev) =>
+      prev.map((c) => {
+        if (c.id === id) {
+          const oldName = c.name;
+          const newName = updated.name.trim();
+          if (oldName !== newName) {
+            setExpenses((prevExp) =>
+              prevExp.map((e) => (e.category === oldName ? { ...e, category: newName } : e))
+            );
+          }
+          return {
+            ...c,
+            name: newName,
+            description: updated.description.trim(),
+          };
+        }
+        return c;
+      })
+    );
+  };
+
+  const deleteExpenseCategory = (id: string) => {
+    setExpenseCategories((prev) => prev.filter((c) => c.id !== id));
+  };
+
   const addExpenseType = (type: string) => {
-    if (!expenseTypes.includes(type)) {
-      setExpenseTypes((prev) => [...prev, type]);
+    if (!expenseCategories.some((c) => c.name.toLowerCase() === type.toLowerCase())) {
+      addExpenseCategory({ name: type, description: "Categoría de gasto comercial" });
     }
   };
 
   const deleteExpenseType = (type: string) => {
-    setExpenseTypes((prev) => prev.filter((t) => t !== type));
+    const found = expenseCategories.find((c) => c.name === type);
+    if (found) {
+      deleteExpenseCategory(found.id);
+    }
   };
+
+  // Derived: list of category names for compatibility
+  const expenseTypes = expenseCategories.map((c) => c.name);
 
   // Derived: list of supplier names for datalists / autocomplete
   const supplierNames = suppliers.map((s) => s.name);
@@ -690,6 +747,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         supplierNames,
         saleTypes,
         expenseTypes,
+        expenseCategories,
         addProduct,
         updateProduct,
         deleteProduct,
@@ -709,6 +767,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         deleteSupplier,
         addSaleType,
         deleteSaleType,
+        addExpenseCategory,
+        updateExpenseCategory,
+        deleteExpenseCategory,
         addExpenseType,
         deleteExpenseType,
       }}

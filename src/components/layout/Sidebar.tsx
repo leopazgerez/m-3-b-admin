@@ -55,7 +55,7 @@ export default function Sidebar() {
   const isConfigActive = pathname === "/configuracion" || pathname.startsWith("/configuracion/");
   const isConfigProductoActive = pathname === "/configuracion/producto";
   const isConfigVentaActive = pathname === "/configuracion/venta";
-  const isConfigGastosActive = pathname === "/configuracion/gastos";
+  const isConfigGastosActive = pathname === "/configuracion/gastos" || pathname === "/gastos/categorias";
 
   return (
     <>
@@ -188,6 +188,18 @@ export default function Sidebar() {
                 >
                   <TrendingDown className="w-4 h-4 text-[#C0492F]" />
                   <span>Egresos</span>
+                </Link>
+                <Link
+                  href="/configuracion/gastos"
+                  onClick={closeSidebar}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-all ${
+                    isConfigGastosActive
+                      ? "bg-[#9C5A2E] text-[#F5EAD6] font-semibold"
+                      : "text-[#C9BCA9] hover:text-[#F5EAD6] hover:bg-[#322A23]"
+                  }`}
+                >
+                  <Tag className="w-4 h-4 text-[#D98A2B]" />
+                  <span>Categorías</span>
                 </Link>
               </div>
             )}

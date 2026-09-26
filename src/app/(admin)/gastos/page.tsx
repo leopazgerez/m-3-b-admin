@@ -2,7 +2,7 @@
 
 import Topbar from "@/components/layout/Topbar";
 import { useState } from "react";
-import { ArrowUpRight, ArrowDownRight, Plus, Search, Calendar } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Plus, Search, Calendar, Tag } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Link from "next/link";
 
@@ -10,7 +10,7 @@ export const initialMovements = [
   {
     id: "mov-1",
     desc: "Venta Mayorista Mate Torpedo x20",
-    cat: "Ventas",
+    cat: "Mercaderia",
     date: "19 Sep",
     type: "Ingreso" as const,
     amount: 280000,
@@ -18,8 +18,8 @@ export const initialMovements = [
   },
   {
     id: "mov-2",
-    desc: "Compra de calabazas seleccionadas",
-    cat: "Proveedores",
+    desc: "Compra de calabazas y mates seleccionados",
+    cat: "Mercaderia",
     date: "18 Sep",
     type: "Egreso" as const,
     amount: 145000,
@@ -27,17 +27,17 @@ export const initialMovements = [
   },
   {
     id: "mov-3",
-    desc: "Virolas de alpaca cincelada x50",
-    cat: "Proveedores",
+    desc: "Grabadora láser para personalizaciones",
+    cat: "Equipamiento",
     date: "17 Sep",
     type: "Egreso" as const,
-    amount: 98000,
+    amount: 220000,
     status: "Pagado",
   },
   {
     id: "mov-4",
-    desc: "Cajas y bolsas de empaque Kraft",
-    cat: "Embalaje",
+    desc: "Cajas kraft y bolsas de empaque",
+    cat: "Insumos/packaging",
     date: "16 Sep",
     type: "Egreso" as const,
     amount: 32000,
@@ -45,17 +45,17 @@ export const initialMovements = [
   },
   {
     id: "mov-5",
-    desc: "Venta personalizada Corporativa",
-    cat: "Ventas",
+    desc: "Servicio de internet y software de gestión",
+    cat: "Gastos propios",
     date: "15 Sep",
-    type: "Ingreso" as const,
-    amount: 195000,
+    type: "Egreso" as const,
+    amount: 38500,
     status: "Pagado",
   },
   {
     id: "mov-6",
-    desc: "Pago logística envíos OCA / Correo",
-    cat: "Logística",
+    desc: "Pago logística envíos Andreani / Correo",
+    cat: "Logistica",
     date: "14 Sep",
     type: "Egreso" as const,
     amount: 45600,
@@ -102,6 +102,13 @@ export default function GastosPage() {
             >
               <ArrowDownRight className="w-3.5 h-3.5 text-[#C0492F]" />
               <span>Egresos</span>
+            </Link>
+            <Link
+              href="/configuracion/gastos"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap"
+            >
+              <Tag className="w-3.5 h-3.5 text-[#D98A2B]" />
+              <span>Categorías</span>
             </Link>
           </div>
 
