@@ -24,6 +24,7 @@ interface StoreContextType {
   // Stock actions
   restockProduct: (params: {
     productId: string;
+    variantId?: string;
     quantity: number;
     costPerUnit?: number;
     supplier?: string;
@@ -72,7 +73,7 @@ const initialExpenses: Expense[] = initialMovements.map((m) => ({
 
 // Bump this string whenever you change initialProducts, initialSales or initialClients
 // so that cached localStorage data is replaced with the fresh seed on next load.
-const DATA_VERSION = "2026-09-26-v5";
+const DATA_VERSION = "2026-09-26-v6";
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
@@ -240,22 +241,53 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       minute: "2-digit",
     }).format(new Date());
 
+    const hasVariants = Boolean(newProd.hasVariants && newProd.variants && newProd.variants.length > 0);
+    const calculatedStock = hasVariants
+      ? newProd.variants!.reduce((sum, v) => sum + (Number(v.stock) || 0), 0)
+      : (Number(newProd.stock) || 0);
+
     const minStock = newProd.minStock !== undefined ? newProd.minStock : 10;
     const initialStatus =
-      newProd.stock === 0 ? "Agotado" : newProd.stock <= minStock ? "Bajo stock" : "En stock";
+      calculatedStock === 0 ? "Agotado" : calculatedStock <= minStock ? "Bajo stock" : "En stock";
 
     const product: Product = {
       ...newProd,
       id: productId,
+      stock: calculatedStock,
       minStock,
       status: initialStatus,
-      initialStockDate: newProd.stock > 0 ? nowFormatted : undefined,
+      initialStockDate: calculatedStock > 0 ? nowFormatted : undefined,
       lastRestockDate: undefined,
     };
     setProducts((prev) => [product, ...prev]);
 
-    // Register initial stock movement if quantity > 0
-    if (newProd.stock > 0) {
+    // Register initial stock movement(s)
+    if (hasVariants && newProd.variants) {
+      newProd.variants.forEach((v, idx) => {
+        if (v.stock > 0) {
+          const movement: StockMovement = {
+            id: `smov-${Date.now()}-${idx}`,
+            productId,
+            variantId: v.id,
+            variantName: v.name,
+            productName: `${newProd.name} (${v.name})`,
+            sku: v.sku || newProd.sku,
+            category: newProd.category,
+            type: "Ingreso inicial",
+            quantity: v.stock,
+            previousStock: 0,
+            newStock: v.stock,
+            date: nowFormatted,
+            costPerUnit: v.listPrice || newProd.listPrice,
+            totalCost: (v.listPrice || newProd.listPrice) ? (v.listPrice || newProd.listPrice)! * v.stock : undefined,
+            supplier: newProd.supplier || "Ingreso inicial de catálogo",
+            notes: `Alta inicial modelo ${v.name}`,
+            registeredBy: "Leonel Paz",
+          };
+          setStockMovements((prev) => [movement, ...prev]);
+        }
+      });
+    } else if (calculatedStock > 0) {
       const movement: StockMovement = {
         id: `smov-${Date.now()}`,
         productId,
@@ -263,12 +295,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         sku: newProd.sku,
         category: newProd.category,
         type: "Ingreso inicial",
-        quantity: newProd.stock,
+        quantity: calculatedStock,
         previousStock: 0,
-        newStock: newProd.stock,
+        newStock: calculatedStock,
         date: nowFormatted,
         costPerUnit: newProd.listPrice,
-        totalCost: newProd.listPrice ? newProd.listPrice * newProd.stock : undefined,
+        totalCost: newProd.listPrice ? newProd.listPrice * calculatedStock : undefined,
         supplier: newProd.supplier || "Ingreso inicial de catálogo",
         notes: "Alta inicial del producto en inventario",
         registeredBy: "Leonel Paz",
@@ -281,7 +313,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setProducts((prev) =>
       prev.map((p) => {
         if (p.id !== id) return p;
-        const newStock = updated.stock !== undefined ? updated.stock : p.stock;
+
+        const hasVariants = updated.hasVariants !== undefined ? updated.hasVariants : p.hasVariants;
+        const newVariants = updated.variants !== undefined ? updated.variants : p.variants;
+
+        let newStock: number;
+        if (hasVariants && newVariants && newVariants.length > 0) {
+          newStock = newVariants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+        } else {
+          newStock = updated.stock !== undefined ? updated.stock : p.stock;
+        }
+
         const minStock = updated.minStock !== undefined ? updated.minStock : p.minStock || 10;
         const newStatus =
           updated.status !== undefined
@@ -295,6 +337,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return {
           ...p,
           ...updated,
+          hasVariants,
+          variants: newVariants,
           stock: newStock,
           status: newStatus,
         };
@@ -309,6 +353,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   // Stock / Re-stock actions
   const restockProduct = ({
     productId,
+    variantId,
     quantity,
     costPerUnit,
     supplier,
@@ -317,6 +362,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     registerExpense = false,
   }: {
     productId: string;
+    variantId?: string;
     quantity: number;
     costPerUnit?: number;
     supplier?: string;
@@ -347,7 +393,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const totalCost = unitCost ? unitCost * quantity : undefined;
     const resolvedSupplier = supplier || targetProduct.supplier || "Reposición de stock";
 
-    // 1. Update product with new stock and lastRestockDate
+    const targetVariant =
+      variantId && targetProduct.variants ? targetProduct.variants.find((v) => v.id === variantId) : null;
+
+    const updatedVariants = targetProduct.variants
+      ? targetProduct.variants.map((v) =>
+          v.id === variantId ? { ...v, stock: v.stock + quantity } : v
+        )
+      : undefined;
+
+    // 1. Update product with new stock, updated variants and lastRestockDate
     setProducts((prev) =>
       prev.map((p) =>
         p.id === productId
@@ -357,6 +412,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               status: newStatus,
               lastRestockDate: movementDate,
               listPrice: unitCost !== undefined ? unitCost : p.listPrice,
+              variants: updatedVariants || p.variants,
             }
           : p
       )
@@ -366,8 +422,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const movement: StockMovement = {
       id: `smov-${Date.now()}`,
       productId: targetProduct.id,
-      productName: targetProduct.name,
-      sku: targetProduct.sku,
+      variantId: targetVariant?.id,
+      variantName: targetVariant?.name,
+      productName: targetVariant ? `${targetProduct.name} (${targetVariant.name})` : targetProduct.name,
+      sku: targetVariant?.sku || targetProduct.sku,
       category: targetProduct.category,
       type: "Re-stock",
       quantity,
@@ -377,7 +435,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       costPerUnit: unitCost,
       totalCost,
       supplier: resolvedSupplier,
-      notes: notes || "Reabastecimiento de existencias",
+      notes: notes || (targetVariant ? `Re-stock modelo ${targetVariant.name}` : "Reabastecimiento de existencias"),
       registeredBy: "Leonel Paz",
     };
     setStockMovements((prev) => [movement, ...prev]);
@@ -386,7 +444,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (registerExpense && totalCost && totalCost > 0) {
       const expenseItem: Expense = {
         id: `exp-${Date.now()}`,
-        description: `Re-stock: ${quantity}u. ${targetProduct.name} (${resolvedSupplier})`,
+        description: `Re-stock: ${quantity}u. ${targetVariant ? `${targetProduct.name} (${targetVariant.name})` : targetProduct.name} (${resolvedSupplier})`,
         category: "Proveedores",
         date: movementDate.split(" ")[0] || "Hoy",
         type: "Egreso",
@@ -410,10 +468,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       setProducts((prev) =>
         prev.map((prod) => {
           const matchedItem = newSale.items?.find(
-            (i) => i.productId === prod.id || i.sku === prod.sku
+            (i) =>
+              i.productId === prod.id ||
+              i.sku === prod.sku ||
+              (prod.variants && prod.variants.some((v) => v.sku === i.sku || v.id === i.variantId))
           );
           if (matchedItem) {
-            const nextStock = Math.max(0, prod.stock - matchedItem.quantity);
+            let nextVariants = prod.variants;
+            if (prod.hasVariants && prod.variants) {
+              nextVariants = prod.variants.map((v) => {
+                if (v.id === matchedItem.variantId || v.sku === matchedItem.sku) {
+                  return { ...v, stock: Math.max(0, v.stock - matchedItem.quantity) };
+                }
+                return v;
+              });
+            }
+            const nextStock =
+              nextVariants && prod.hasVariants
+                ? nextVariants.reduce((sum, v) => sum + v.stock, 0)
+                : Math.max(0, prod.stock - matchedItem.quantity);
             const minThreshold = prod.minStock !== undefined ? prod.minStock : 10;
             const nextStatus =
               nextStock === 0 ? "Agotado" : nextStock <= minThreshold ? "Bajo stock" : "En stock";
@@ -421,6 +494,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               ...prod,
               stock: nextStock,
               status: nextStatus,
+              variants: nextVariants,
             };
           }
           return prod;

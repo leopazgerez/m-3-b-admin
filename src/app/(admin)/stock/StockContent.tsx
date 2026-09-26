@@ -23,6 +23,7 @@ import {
   Info,
   SlidersHorizontal,
   ChevronDown,
+  Layers,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -50,6 +51,7 @@ export default function StockContent() {
   // Re-stock Modal State
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
   const [selectedProductForRestock, setSelectedProductForRestock] = useState<Product | null>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState<string>("");
   const [restockQuantity, setRestockQuantity] = useState<string>("");
   const [restockCostUnit, setRestockCostUnit] = useState<string>("");
   const [restockSupplier, setRestockSupplier] = useState<string>("");
@@ -58,27 +60,40 @@ export default function StockContent() {
   const [registerExpense, setRegisterExpense] = useState<boolean>(true);
   const [restockSuccessFeedback, setRestockSuccessFeedback] = useState<string | null>(null);
 
+  // Expanded products accordion in Existencias table
+  const [expandedProducts, setExpandedProducts] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (productId: string) => {
+    setExpandedProducts((prev) => ({
+      ...prev,
+      [productId]: !prev[productId],
+    }));
+  };
+
   // Auto-open modal if URL query parameter productId is provided
   useEffect(() => {
     const paramProductId = searchParams.get("productId");
+    const paramVariantId = searchParams.get("variantId");
     if (paramProductId) {
       const match = products.find(
         (p) => p.id === paramProductId || p.sku.toLowerCase() === paramProductId.toLowerCase()
       );
       if (match) {
-        openRestockModal(match);
+        openRestockModal(match, paramVariantId || undefined);
       }
     }
   }, [searchParams, products]);
 
   // Open restock modal with clean state
-  const openRestockModal = (product?: Product) => {
+  const openRestockModal = (product?: Product, variantId?: string) => {
     const target = product || products[0] || null;
     setSelectedProductForRestock(target);
+    setSelectedVariantId(variantId || "");
     setRestockQuantity("10");
     setRestockCostUnit(target?.listPrice ? target.listPrice.toString() : "");
     setRestockSupplier(target?.supplier || "");
-    setRestockNotes("");
+    const targetVar = variantId && target?.variants ? target.variants.find((v) => v.id === variantId) : null;
+    setRestockNotes(targetVar ? `Reposición modelo ${targetVar.name}` : "");
     setRegisterExpense(true);
 
     const now = new Intl.DateTimeFormat("es-AR", {
@@ -97,6 +112,7 @@ export default function StockContent() {
   const handleProductChangeInModal = (prodId: string) => {
     const found = products.find((p) => p.id === prodId) || null;
     setSelectedProductForRestock(found);
+    setSelectedVariantId("");
     if (found && found.listPrice) {
       setRestockCostUnit(found.listPrice.toString());
     }
@@ -117,6 +133,7 @@ export default function StockContent() {
 
     restockProduct({
       productId: selectedProductForRestock.id,
+      variantId: selectedVariantId || undefined,
       quantity: qty,
       costPerUnit: costUnit,
       supplier: restockSupplier || selectedProductForRestock.supplier || "Proveedor habitual",
@@ -125,7 +142,13 @@ export default function StockContent() {
       registerExpense,
     });
 
-    const successMsg = `¡Re-stock de +${qty} unidades registrado para ${selectedProductForRestock.name}!`;
+    const targetVar = selectedVariantId && selectedProductForRestock.variants
+      ? selectedProductForRestock.variants.find((v) => v.id === selectedVariantId)
+      : null;
+
+    const successMsg = targetVar
+      ? `¡Re-stock de +${qty} unidades registrado para ${selectedProductForRestock.name} (Modelo: ${targetVar.name})!`
+      : `¡Re-stock de +${qty} unidades registrado para ${selectedProductForRestock.name}!`;
     setRestockSuccessFeedback(successMsg);
     setTimeout(() => setRestockSuccessFeedback(null), 4000);
 
@@ -159,7 +182,15 @@ export default function StockContent() {
       const matchSearch =
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchTerm.toLowerCase());
+        p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        Boolean(
+          p.hasVariants &&
+            p.variants?.some(
+              (v) =>
+                v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                v.sku.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+        );
       const matchCategory = selectedCategory === "Todas" || p.category === selectedCategory;
       const matchStatus =
         selectedStatus === "Todos" ||
@@ -177,6 +208,7 @@ export default function StockContent() {
       const matchSearch =
         m.productName.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
         m.sku.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
+        Boolean(m.variantName && m.variantName.toLowerCase().includes(historySearchTerm.toLowerCase())) ||
         (m.supplier && m.supplier.toLowerCase().includes(historySearchTerm.toLowerCase())) ||
         (m.notes && m.notes.toLowerCase().includes(historySearchTerm.toLowerCase()));
       const matchType = historyTypeFilter === "Todos" || m.type === historyTypeFilter;
@@ -453,123 +485,247 @@ export default function StockContent() {
                         const ratio = Math.min(100, Math.round((p.stock / Math.max(minStock * 2, 20)) * 100));
 
                         return (
-                          <div
-                            key={p.id}
-                            className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
-                          >
-                            {/* Product Info */}
-                            <div className="flex-1 min-w-[220px] flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-[#EADBC6] flex items-center justify-center text-[#9C5A2E] shrink-0 shadow-inner">
-                                <Coffee className="w-5 h-5" />
-                              </div>
-                              <div className="flex flex-col min-w-0 flex-1">
-                                <span className="font-semibold text-[#231E1A] truncate text-sm">
-                                  {p.name}
-                                </span>
-                                <div className="flex items-center gap-1.5 text-[11px] text-[#A89C8C] truncate">
-                                  <span className="truncate">{p.subtitle}</span>
-                                  {p.supplier && (
-                                    <>
-                                      <span>·</span>
-                                      <span className="text-[#9C5A2E] font-medium truncate flex items-center gap-1">
-                                        <Truck className="w-3 h-3 shrink-0" />
-                                        {p.supplier}
-                                      </span>
-                                    </>
+                          <div key={p.id} className="flex flex-col">
+                            <div className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors">
+                              {/* Product Info */}
+                              <div className="flex-1 min-w-[220px] flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-[#EADBC6] flex items-center justify-center text-[#9C5A2E] shrink-0 shadow-inner">
+                                  <Coffee className="w-5 h-5" />
+                                </div>
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-[#231E1A] truncate text-sm">
+                                      {p.name}
+                                    </span>
+                                    {p.hasVariants && p.variants && p.variants.length > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => toggleExpand(p.id)}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EADBC6]/60 hover:bg-[#EADBC6] text-[#9C5A2E] text-[10px] font-bold transition-colors cursor-pointer shrink-0"
+                                        title="Ver detalle de stock por modelo"
+                                      >
+                                        <Layers className="w-2.5 h-2.5" />
+                                        <span>{p.variants.length} modelos</span>
+                                        <ChevronDown
+                                          className={`w-2.5 h-2.5 transition-transform duration-200 ${
+                                            expandedProducts[p.id] ? "rotate-180" : ""
+                                          }`}
+                                        />
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 text-[11px] text-[#A89C8C] truncate mt-0.5">
+                                    <span className="truncate">{p.subtitle}</span>
+                                    {p.supplier && (
+                                      <>
+                                        <span>·</span>
+                                        <span className="text-[#9C5A2E] font-medium truncate flex items-center gap-1">
+                                          <Truck className="w-3 h-3 shrink-0" />
+                                          {p.supplier}
+                                        </span>
+                                      </>
+                                    )}
+                                  </div>
+
+                                  {/* Models mini-chips preview */}
+                                  {p.hasVariants && p.variants && p.variants.length > 0 && (
+                                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                      {p.variants.slice(0, 3).map((v) => (
+                                        <span
+                                          key={v.id}
+                                          className={`text-[10px] px-2 py-0.5 rounded-md border flex items-center gap-1 ${
+                                            v.stock === 0
+                                              ? "bg-[#F7E3DD] border-[#F2BDB3] text-[#C0492F]"
+                                              : v.stock <= (p.minStock || 10) / 2
+                                              ? "bg-[#FBEFD9] border-[#F4DCB0] text-[#D98A2B]"
+                                              : "bg-[#FBF8F2] border-[#E7DFD2] text-[#7A6F63]"
+                                          }`}
+                                        >
+                                          <span>{v.name}:</span>
+                                          <strong className="font-bold">{v.stock}u.</strong>
+                                        </span>
+                                      ))}
+                                      {p.variants.length > 3 && (
+                                        <span className="text-[10px] text-[#A89C8C] font-medium">
+                                          +{p.variants.length - 3} más
+                                        </span>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
                               </div>
-                            </div>
 
-                            {/* SKU */}
-                            <div className="w-28 shrink-0 font-mono text-xs text-[#7A6F63]">
-                              {p.sku}
-                            </div>
+                              {/* SKU */}
+                              <div className="w-28 shrink-0 font-mono text-xs text-[#7A6F63]">
+                                {p.sku}
+                              </div>
 
-                            {/* Category */}
-                            <div className="w-28 shrink-0 text-[#7A6F63]">
-                              <span className="bg-[#FBF8F2] border border-[#E7DFD2] px-2.5 py-0.5 rounded-md text-xs">
-                                {p.category}
-                              </span>
-                            </div>
+                              {/* Category */}
+                              <div className="w-28 shrink-0 text-[#7A6F63]">
+                                <span className="bg-[#FBF8F2] border border-[#E7DFD2] px-2.5 py-0.5 rounded-md text-xs">
+                                  {p.category}
+                                </span>
+                              </div>
 
-                            {/* Current Stock */}
-                            <div className="w-24 shrink-0 text-center">
-                              <span
-                                className={`text-base font-bold ${
-                                  p.stock === 0
-                                    ? "text-[#C0492F]"
-                                    : p.stock <= minStock
-                                    ? "text-[#D98A2B]"
-                                    : "text-[#231E1A]"
-                                }`}
-                              >
-                                {p.stock}
-                              </span>
-                              <span className="text-[10px] text-[#A89C8C] block">
-                                mín. {minStock} u.
-                              </span>
-                            </div>
-
-                            {/* Status with Progress bar */}
-                            <div className="w-28 shrink-0 flex flex-col gap-1.5">
-                              <Badge
-                                variant={
-                                  p.status === "En stock"
-                                    ? "success"
-                                    : p.status === "Bajo stock"
-                                    ? "warning"
-                                    : "danger"
-                                }
-                              >
-                                {p.status}
-                              </Badge>
-                              {/* Stock ratio visual bar */}
-                              <div className="w-full bg-[#E7DFD2]/60 h-1.5 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-300 ${
+                              {/* Current Stock */}
+                              <div className="w-24 shrink-0 text-center">
+                                <span
+                                  className={`text-base font-bold ${
                                     p.stock === 0
-                                      ? "bg-[#C0492F] w-0"
+                                      ? "text-[#C0492F]"
                                       : p.stock <= minStock
-                                      ? "bg-[#D98A2B]"
-                                      : "bg-[#3E8E5A]"
+                                      ? "text-[#D98A2B]"
+                                      : "text-[#231E1A]"
                                   }`}
-                                  style={{ width: `${p.stock === 0 ? 0 : Math.max(12, ratio)}%` }}
-                                />
+                                >
+                                  {p.stock}
+                                </span>
+                                <span className="text-[10px] text-[#A89C8C] block">
+                                  mín. {minStock} u.
+                                </span>
+                              </div>
+
+                              {/* Status with Progress bar */}
+                              <div className="w-28 shrink-0 flex flex-col gap-1.5">
+                                <Badge
+                                  variant={
+                                    p.status === "En stock"
+                                      ? "success"
+                                      : p.status === "Bajo stock"
+                                      ? "warning"
+                                      : "danger"
+                                  }
+                                >
+                                  {p.status}
+                                </Badge>
+                                {/* Stock ratio visual bar */}
+                                <div className="w-full bg-[#E7DFD2]/60 h-1.5 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                      p.stock === 0
+                                        ? "bg-[#C0492F] w-0"
+                                        : p.stock <= minStock
+                                        ? "bg-[#D98A2B]"
+                                        : "bg-[#3E8E5A]"
+                                    }`}
+                                    style={{ width: `${p.stock === 0 ? 0 : Math.max(12, ratio)}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Last Restock / Ingress Date */}
+                              <div className="w-36 shrink-0 flex flex-col text-[11px] text-[#7A6F63]">
+                                {p.lastRestockDate ? (
+                                  <>
+                                    <span className="font-medium text-[#231E1A]">
+                                      {p.lastRestockDate}
+                                    </span>
+                                    <span className="text-[10px] text-[#3E8E5A]">Re-stock</span>
+                                  </>
+                                ) : p.initialStockDate ? (
+                                  <>
+                                    <span className="font-medium text-[#231E1A]">
+                                      {p.initialStockDate}
+                                    </span>
+                                    <span className="text-[10px] text-[#7A6F63]">Ingreso inicial</span>
+                                  </>
+                                ) : (
+                                  <span className="text-[#A89C8C]">Sin registros</span>
+                                )}
+                              </div>
+
+                              {/* Action: Re-stock button */}
+                              <div className="w-32 shrink-0 text-right">
+                                <button
+                                  onClick={() => openRestockModal(p)}
+                                  className="inline-flex items-center gap-1.5 bg-[#9C5A2E]/10 hover:bg-[#9C5A2E] text-[#9C5A2E] hover:text-white px-3 py-1.5 rounded-xl font-semibold text-xs transition-all cursor-pointer shadow-2xs"
+                                >
+                                  <PackagePlus className="w-3.5 h-3.5" />
+                                  <span>Re-stock</span>
+                                </button>
                               </div>
                             </div>
 
-                            {/* Last Restock / Ingress Date */}
-                            <div className="w-36 shrink-0 flex flex-col text-[11px] text-[#7A6F63]">
-                              {p.lastRestockDate ? (
-                                <>
-                                  <span className="font-medium text-[#231E1A]">
-                                    {p.lastRestockDate}
+                            {/* Expandable Accordion Drawer for Models Stock */}
+                            {p.hasVariants && p.variants && p.variants.length > 0 && expandedProducts[p.id] && (
+                              <div className="bg-[#FAF7F2] border-t border-b border-[#E7DFD2]/70 px-6 py-3.5 pl-16 flex flex-col gap-2.5 transition-all">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[11px] font-bold text-[#7A6F63] uppercase tracking-wider flex items-center gap-1.5">
+                                    <Layers className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                                    Modelos / Colores de {p.name} ({p.variants.length})
                                   </span>
-                                  <span className="text-[10px] text-[#3E8E5A]">Re-stock</span>
-                                </>
-                              ) : p.initialStockDate ? (
-                                <>
-                                  <span className="font-medium text-[#231E1A]">
-                                    {p.initialStockDate}
+                                  <span className="text-[11px] text-[#7A6F63]">
+                                    Suma total:{" "}
+                                    <strong className="text-[#231E1A] font-bold">{p.stock} unidades</strong>
                                   </span>
-                                  <span className="text-[10px] text-[#7A6F63]">Ingreso inicial</span>
-                                </>
-                              ) : (
-                                <span className="text-[#A89C8C]">Sin registros</span>
-                              )}
-                            </div>
+                                </div>
 
-                            {/* Action: Re-stock button */}
-                            <div className="w-32 shrink-0 text-right">
-                              <button
-                                onClick={() => openRestockModal(p)}
-                                className="inline-flex items-center gap-1.5 bg-[#9C5A2E]/10 hover:bg-[#9C5A2E] text-[#9C5A2E] hover:text-white px-3 py-1.5 rounded-xl font-semibold text-xs transition-all cursor-pointer"
-                              >
-                                <PackagePlus className="w-3.5 h-3.5" />
-                                <span>Re-stock</span>
-                              </button>
-                            </div>
+                                <div className="bg-white rounded-xl border border-[#E7DFD2] overflow-hidden divide-y divide-[#F7F3EC] shadow-2xs">
+                                  {p.variants.map((v) => (
+                                    <div
+                                      key={v.id}
+                                      className="px-4 py-2.5 flex items-center justify-between text-xs hover:bg-[#FBF8F2]/60 transition-colors"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <span className="w-2.5 h-2.5 rounded-full bg-[#9C5A2E] shrink-0" />
+                                        <div>
+                                          <span className="font-semibold text-[#231E1A]">{v.name}</span>
+                                          <span className="text-[10px] text-[#A89C8C] ml-2 font-mono">
+                                            Ref: {v.id}
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-6">
+                                        <span className="font-mono text-[11px] text-[#231E1A] bg-[#FBF8F2] px-2.5 py-1 rounded-md border border-[#E7DFD2]">
+                                          SKU: {v.sku}
+                                        </span>
+
+                                        <div className="flex items-center gap-2">
+                                          <span
+                                            className={`font-bold ${
+                                              v.stock === 0
+                                                ? "text-[#C0492F]"
+                                                : v.stock <= 5
+                                                ? "text-[#D98A2B]"
+                                                : "text-[#231E1A]"
+                                            }`}
+                                          >
+                                            {v.stock} u.
+                                          </span>
+                                          <Badge
+                                            variant={
+                                              v.stock === 0
+                                                ? "danger"
+                                                : v.stock <= 5
+                                                ? "warning"
+                                                : "success"
+                                            }
+                                          >
+                                            {v.stock === 0
+                                              ? "Agotado"
+                                              : v.stock <= 5
+                                              ? "Bajo stock"
+                                              : "En stock"}
+                                          </Badge>
+                                        </div>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => openRestockModal(p, v.id)}
+                                          className="text-[#9C5A2E] hover:underline font-semibold text-xs flex items-center gap-1 cursor-pointer"
+                                          title={`Reponer existencias para modelo ${v.name}`}
+                                        >
+                                          <PackagePlus className="w-3.5 h-3.5" />
+                                          <span>Reponer modelo</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })
@@ -663,9 +819,17 @@ export default function StockContent() {
 
                           {/* Product */}
                           <div className="flex-1 min-w-[200px] flex flex-col min-w-0">
-                            <span className="font-semibold text-[#231E1A] truncate text-sm">
-                              {m.productName}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-[#231E1A] truncate text-sm">
+                                {m.productName}
+                              </span>
+                              {m.variantName && (
+                                <span className="bg-[#EADBC6]/70 text-[#9C5A2E] text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1 border border-[#E7DFD2]">
+                                  <Layers className="w-2.5 h-2.5" />
+                                  <span>{m.variantName}</span>
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[11px] text-[#A89C8C] font-mono">
                               SKU: {m.sku} · {m.category}
                             </span>
@@ -751,31 +915,86 @@ export default function StockContent() {
             </select>
           </div>
 
+          {/* Select Variant / Model if product has variants */}
+          {selectedProductForRestock?.hasVariants &&
+            selectedProductForRestock.variants &&
+            selectedProductForRestock.variants.length > 0 && (
+              <div className="bg-[#FAF7F2] p-3 rounded-xl border border-[#E7DFD2] flex flex-col gap-1.5 shadow-2xs">
+                <label className="font-semibold text-xs text-[#231E1A] flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                  <span>Modelo o Color a reponer:</span>
+                </label>
+                <select
+                  value={selectedVariantId}
+                  onChange={(e) => setSelectedVariantId(e.target.value)}
+                  className="w-full bg-white border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] font-medium"
+                >
+                  <option value="">Ingreso general / Todos los modelos</option>
+                  {selectedProductForRestock.variants.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name} (Stock: {v.stock}u. · SKU: {v.sku})
+                    </option>
+                  ))}
+                </select>
+                <span className="text-[10px] text-[#7A6F63]">
+                  {selectedVariantId ? (
+                    <>
+                      Se sumará específicamente al modelo{" "}
+                      <strong className="text-[#9C5A2E]">
+                        {
+                          selectedProductForRestock.variants.find(
+                            (v) => v.id === selectedVariantId
+                          )?.name
+                        }
+                      </strong>
+                      .
+                    </>
+                  ) : (
+                    "Se sumará al stock general del producto."
+                  )}
+                </span>
+              </div>
+            )}
+
           {/* Current Stock vs New Stock Preview Card */}
-          {selectedProductForRestock && (
-            <div className="bg-[#FBF8F2] border border-[#E7DFD2] rounded-2xl p-4 flex items-center justify-between gap-4">
-              <div>
-                <span className="text-[11px] text-[#7A6F63] block">Stock actual</span>
-                <span className="text-xl font-bold text-[#231E1A]">
-                  {selectedProductForRestock.stock}{" "}
-                  <span className="text-xs font-normal text-[#A89C8C]">unidades</span>
-                </span>
-              </div>
+          {selectedProductForRestock && (() => {
+            const activeVar =
+              selectedVariantId && selectedProductForRestock.variants
+                ? selectedProductForRestock.variants.find((v) => v.id === selectedVariantId)
+                : null;
+            const currentCount = activeVar ? activeVar.stock : selectedProductForRestock.stock;
+            const addedCount = parseInt(restockQuantity) || 0;
+            const nextCount = currentCount + addedCount;
 
-              <div className="flex items-center gap-2 text-[#9C5A2E] font-bold">
-                <span>+{parseInt(restockQuantity) || 0}</span>
-                <ArrowRight className="w-4 h-4 text-[#A89C8C]" />
-              </div>
+            return (
+              <div className="bg-[#FBF8F2] border border-[#E7DFD2] rounded-2xl p-4 flex items-center justify-between gap-4">
+                <div>
+                  <span className="text-[11px] text-[#7A6F63] block">
+                    {activeVar ? `Stock actual (${activeVar.name})` : "Stock actual del producto"}
+                  </span>
+                  <span className="text-xl font-bold text-[#231E1A]">
+                    {currentCount}{" "}
+                    <span className="text-xs font-normal text-[#A89C8C]">unidades</span>
+                  </span>
+                </div>
 
-              <div className="text-right">
-                <span className="text-[11px] text-[#7A6F63] block">Nuevo stock resultante</span>
-                <span className="text-xl font-bold text-[#3E8E5A]">
-                  {selectedProductForRestock.stock + (parseInt(restockQuantity) || 0)}{" "}
-                  <span className="text-xs font-normal text-[#A89C8C]">unidades</span>
-                </span>
+                <div className="flex items-center gap-2 text-[#9C5A2E] font-bold">
+                  <span>+{addedCount}</span>
+                  <ArrowRight className="w-4 h-4 text-[#A89C8C]" />
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[11px] text-[#7A6F63] block">
+                    {activeVar ? `Nuevo stock (${activeVar.name})` : "Nuevo stock resultante"}
+                  </span>
+                  <span className="text-xl font-bold text-[#3E8E5A]">
+                    {nextCount}{" "}
+                    <span className="text-xs font-normal text-[#A89C8C]">unidades</span>
+                  </span>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Quantity and Unit Cost Inputs */}
           <div className="grid grid-cols-2 gap-3">

@@ -4,8 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Topbar from "@/components/layout/Topbar";
+import Modal from "@/components/ui/Modal";
 import { useStore } from "@/lib/store";
-import { Product, SaleItem, Client } from "@/lib/types";
+import { Product, ProductVariant, SaleItem, Client } from "@/lib/types";
 import { getAssetPath } from "@/lib/assets";
 import {
   ScanBarcode,
@@ -29,6 +30,7 @@ import {
   Search,
   UserPlus,
   Check,
+  Layers,
 } from "lucide-react";
 
 interface CartItem extends SaleItem {
@@ -43,6 +45,9 @@ export default function NuevaVentaPosPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discountType, setDiscountType] = useState<"percent" | "fixed">("percent");
   const [discountValue, setDiscountValue] = useState<number>(0);
+
+  // Variant selector modal state
+  const [selectedProductForVariantModal, setSelectedProductForVariantModal] = useState<Product | null>(null);
 
   // Scanner & Search input
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -159,13 +164,20 @@ export default function NuevaVentaPosPage() {
     }
   };
 
-  // Add Product to Cart by instance
-  const addItemToCart = (product: Product, qty: number = 1) => {
+  // Add Product to Cart (with optional variant)
+  const addItemToCart = (product: Product, qty: number = 1, variant?: ProductVariant) => {
     setCart((prev) => {
-      const existing = prev.find((item) => item.productId === product.id);
+      const existing = prev.find((item) =>
+        variant
+          ? item.productId === product.id && item.variantId === variant.id
+          : item.productId === product.id && !item.variantId
+      );
+
       if (existing) {
         return prev.map((item) =>
-          item.productId === product.id
+          (variant
+            ? item.productId === product.id && item.variantId === variant.id
+            : item.productId === product.id && !item.variantId)
             ? {
                 ...item,
                 quantity: item.quantity + qty,
@@ -174,22 +186,28 @@ export default function NuevaVentaPosPage() {
             : item
         );
       }
+
+      const unitPrice = variant?.price !== undefined ? variant.price : product.price;
+
       return [
         ...prev,
         {
           productId: product.id,
-          productName: product.name,
-          sku: product.sku,
+          variantId: variant?.id,
+          variantName: variant?.name,
+          productName: variant ? `${product.name} (${variant.name})` : product.name,
+          sku: variant?.sku || product.sku,
           quantity: qty,
-          unitPrice: product.price,
-          subtotal: product.price * qty,
+          unitPrice,
+          subtotal: unitPrice * qty,
           product,
         },
       ];
     });
 
     playBeep();
-    setScanNotification(`+${qty} ${product.name}`);
+    const displayName = variant ? `${product.name} (${variant.name})` : product.name;
+    setScanNotification(`+${qty} ${displayName}`);
     setTimeout(() => setScanNotification(null), 2500);
     setScanError(null);
   };
@@ -200,20 +218,50 @@ export default function NuevaVentaPosPage() {
     const query = barcodeInput.trim();
     if (!query) return;
 
-    // Search exact SKU first, then name, or partial
-    const match =
-      products.find((p) => p.sku.toLowerCase() === query.toLowerCase()) ||
-      products.find((p) => p.name.toLowerCase() === query.toLowerCase()) ||
-      products.find((p) => p.sku.toLowerCase().includes(query.toLowerCase())) ||
-      products.find((p) => p.name.toLowerCase().includes(query.toLowerCase()));
+    // 1. Search exact variant SKU match first!
+    let matchedProduct: Product | undefined;
+    let matchedVariant: ProductVariant | undefined;
 
-    if (match) {
-      addItemToCart(match, 1);
+    for (const p of products) {
+      if (p.hasVariants && p.variants) {
+        const foundVar = p.variants.find(
+          (v) => v.sku.toLowerCase() === query.toLowerCase()
+        );
+        if (foundVar) {
+          matchedProduct = p;
+          matchedVariant = foundVar;
+          break;
+        }
+      }
+    }
+
+    // 2. If not matched by exact variant SKU, search product SKU, name, or partial
+    if (!matchedProduct) {
+      matchedProduct =
+        products.find((p) => p.sku.toLowerCase() === query.toLowerCase()) ||
+        products.find((p) => p.name.toLowerCase() === query.toLowerCase()) ||
+        products.find((p) => p.sku.toLowerCase().includes(query.toLowerCase())) ||
+        products.find((p) => p.name.toLowerCase().includes(query.toLowerCase()));
+    }
+
+    if (matchedProduct) {
+      if (matchedVariant) {
+        addItemToCart(matchedProduct, 1, matchedVariant);
+      } else if (
+        matchedProduct.hasVariants &&
+        matchedProduct.variants &&
+        matchedProduct.variants.length > 0
+      ) {
+        // If product has variants and user scanned base SKU or searched by name, open model selector
+        setSelectedProductForVariantModal(matchedProduct);
+      } else {
+        addItemToCart(matchedProduct, 1);
+      }
       setBarcodeInput("");
       setSearchSuggestions([]);
       barcodeInputRef.current?.focus();
     } else {
-      setScanError(`Producto con código "${query}" no encontrado`);
+      setScanError(`Producto o código "${query}" no encontrado`);
       setTimeout(() => setScanError(null), 3000);
     }
   };
@@ -230,33 +278,47 @@ export default function NuevaVentaPosPage() {
         (p) =>
           p.sku.toLowerCase().includes(val.toLowerCase()) ||
           p.name.toLowerCase().includes(val.toLowerCase()) ||
-          p.category.toLowerCase().includes(val.toLowerCase())
+          p.category.toLowerCase().includes(val.toLowerCase()) ||
+          Boolean(
+            p.hasVariants &&
+              p.variants?.some(
+                (v) =>
+                  v.name.toLowerCase().includes(val.toLowerCase()) ||
+                  v.sku.toLowerCase().includes(val.toLowerCase())
+              )
+          )
       )
       .slice(0, 6);
     setSearchSuggestions(filtered);
   };
 
-  // Quantity controls
-  const updateQuantity = (productId: string, newQty: number) => {
+  // Quantity controls using composite key
+  const updateQuantity = (cartKey: string, newQty: number) => {
     if (newQty <= 0) {
-      removeItem(productId);
+      removeItem(cartKey);
       return;
     }
     setCart((prev) =>
-      prev.map((item) =>
-        item.productId === productId
+      prev.map((item) => {
+        const k = item.variantId ? `${item.productId}-${item.variantId}` : item.productId;
+        return k === cartKey
           ? {
               ...item,
               quantity: newQty,
               subtotal: newQty * item.unitPrice,
             }
-          : item
-      )
+          : item;
+      })
     );
   };
 
-  const removeItem = (productId: string) => {
-    setCart((prev) => prev.filter((item) => item.productId !== productId));
+  const removeItem = (cartKey: string) => {
+    setCart((prev) =>
+      prev.filter((item) => {
+        const k = item.variantId ? `${item.productId}-${item.variantId}` : item.productId;
+        return k !== cartKey;
+      })
+    );
   };
 
   const clearCart = () => {
@@ -316,12 +378,42 @@ export default function NuevaVentaPosPage() {
                 const barcodes = await barcodeDetector.detect(videoRef.current);
                 if (barcodes.length > 0) {
                   const codeValue = barcodes[0].rawValue;
-                  const matched = products.find(
-                    (p) => p.sku.toLowerCase() === codeValue.toLowerCase()
-                  );
-                  if (matched) {
-                    addItemToCart(matched, 1);
-                    stopCamera();
+                  let matchedProduct: Product | undefined;
+                  let matchedVariant: ProductVariant | undefined;
+
+                  for (const prod of products) {
+                    if (prod.hasVariants && prod.variants) {
+                      const v = prod.variants.find(
+                        (item) => item.sku.toLowerCase() === codeValue.toLowerCase()
+                      );
+                      if (v) {
+                        matchedProduct = prod;
+                        matchedVariant = v;
+                        break;
+                      }
+                    }
+                  }
+                  if (!matchedProduct) {
+                    matchedProduct = products.find(
+                      (p) => p.sku.toLowerCase() === codeValue.toLowerCase()
+                    );
+                  }
+
+                  if (matchedProduct) {
+                    if (matchedVariant) {
+                      addItemToCart(matchedProduct, 1, matchedVariant);
+                      stopCamera();
+                    } else if (
+                      matchedProduct.hasVariants &&
+                      matchedProduct.variants &&
+                      matchedProduct.variants.length > 0
+                    ) {
+                      setSelectedProductForVariantModal(matchedProduct);
+                      stopCamera();
+                    } else {
+                      addItemToCart(matchedProduct, 1);
+                      stopCamera();
+                    }
                   }
                 }
               } catch {
@@ -537,7 +629,11 @@ export default function NuevaVentaPosPage() {
                     <div
                       key={prod.id}
                       onClick={() => {
-                        addItemToCart(prod, 1);
+                        if (prod.hasVariants && prod.variants && prod.variants.length > 0) {
+                          setSelectedProductForVariantModal(prod);
+                        } else {
+                          addItemToCart(prod, 1);
+                        }
                         setBarcodeInput("");
                         setSearchSuggestions([]);
                         barcodeInputRef.current?.focus();
@@ -549,9 +645,16 @@ export default function NuevaVentaPosPage() {
                           <Package className="w-4 h-4" />
                         </div>
                         <div className="flex flex-col min-w-0">
-                          <span className="text-xs font-semibold text-[#231E1A] truncate">
-                            {prod.name}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-semibold text-[#231E1A] truncate">
+                              {prod.name}
+                            </span>
+                            {prod.hasVariants && prod.variants && prod.variants.length > 0 && (
+                              <span className="text-[10px] bg-[#EADBC6]/60 text-[#9C5A2E] font-bold px-1.5 py-0.5 rounded shrink-0">
+                                {prod.variants.length} modelos
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[10px] text-[#A89C8C] font-mono">
                             SKU: {prod.sku} • {prod.category} • Stock: {prod.stock}
                           </span>
@@ -602,68 +705,81 @@ export default function NuevaVentaPosPage() {
                 <>
                   {/* MOBILE VIEW (< 640px): Touch-friendly cards */}
                   <div className="sm:hidden divide-y divide-[#F7F3EC]">
-                    {cart.map((item, idx) => (
-                      <div key={item.productId} className="p-4 flex flex-col gap-2.5">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start gap-2.5 min-w-0">
-                            <span className="font-mono text-xs text-[#A89C8C] mt-0.5">#{idx + 1}</span>
-                            <div className="flex flex-col min-w-0">
-                              <span className="font-semibold text-[#231E1A] text-sm leading-snug">
-                                {item.productName}
-                              </span>
-                              <div className="flex items-center gap-2 text-[11px] text-[#A89C8C] mt-0.5">
-                                <span className="font-mono">SKU: {item.sku}</span>
-                                <span>•</span>
-                                <span>${item.unitPrice.toLocaleString("es-AR")} c/u</span>
+                    {cart.map((item, idx) => {
+                      const itemKey = item.variantId
+                        ? `${item.productId}-${item.variantId}`
+                        : item.productId;
+
+                      return (
+                        <div key={itemKey} className="p-4 flex flex-col gap-2.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-start gap-2.5 min-w-0">
+                              <span className="font-mono text-xs text-[#A89C8C] mt-0.5">#{idx + 1}</span>
+                              <div className="flex flex-col min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-semibold text-[#231E1A] text-sm leading-snug">
+                                    {item.productName}
+                                  </span>
+                                  {item.variantName && (
+                                    <span className="bg-[#EADBC6]/60 text-[#9C5A2E] text-[10px] font-bold px-1.5 py-0.2 rounded border border-[#E7DFD2]">
+                                      {item.variantName}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-[11px] text-[#A89C8C] mt-0.5">
+                                  <span className="font-mono">SKU: {item.sku}</span>
+                                  <span>•</span>
+                                  <span>${item.unitPrice.toLocaleString("es-AR")} c/u</span>
+                                </div>
+                                {item.product.stock <= item.quantity && (
+                                  <span className="text-[11px] text-[#C0492F] font-medium mt-0.5">
+                                    Stock restante: {item.product.stock}
+                                  </span>
+                                )}
                               </div>
-                              {item.product.stock <= item.quantity && (
-                                <span className="text-[11px] text-[#C0492F] font-medium mt-0.5">
-                                  Stock restante: {item.product.stock}
-                                </span>
-                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => removeItem(itemKey)}
+                              className="text-[#A89C8C] hover:text-[#C0492F] p-1.5 rounded-lg hover:bg-[#F7E3DD]/50 transition-colors cursor-pointer shrink-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 border-t border-[#F7F3EC]/80">
+                            {/* Large touch targets for quantities on mobile */}
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(itemKey, item.quantity - 1)}
+                                className="w-9 h-9 rounded-xl bg-[#FBF8F2] border border-[#E7DFD2] text-[#231E1A] hover:bg-[#EADBC6] flex items-center justify-center transition-colors cursor-pointer"
+                              >
+                                <Minus className="w-3.5 h-3.5" />
+                              </button>
+                              <span className="w-8 text-center font-bold text-sm text-[#231E1A]">
+                                {item.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(itemKey, item.quantity + 1)}
+                                className="w-9 h-9 rounded-xl bg-[#FBF8F2] border border-[#E7DFD2] text-[#231E1A] hover:bg-[#EADBC6] flex items-center justify-center transition-colors cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <div className="text-right">
+                              <span className="text-[10px] text-[#A89C8C] block uppercase font-medium">Subtotal</span>
+                              <span className="font-bold text-base text-[#231E1A]">
+                                ${item.subtotal.toLocaleString("es-AR")}
+                              </span>
                             </div>
                           </div>
-
-                          <button
-                            type="button"
-                            onClick={() => removeItem(item.productId)}
-                            className="text-[#A89C8C] hover:text-[#C0492F] p-1.5 rounded-lg hover:bg-[#F7E3DD]/50 transition-colors cursor-pointer shrink-0"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
                         </div>
-
-                        <div className="flex items-center justify-between pt-1 border-t border-[#F7F3EC]/80">
-                          {/* Large touch targets for quantities on mobile */}
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                              className="w-9 h-9 rounded-xl bg-[#FBF8F2] border border-[#E7DFD2] text-[#231E1A] hover:bg-[#EADBC6] flex items-center justify-center transition-colors cursor-pointer"
-                            >
-                              <Minus className="w-3.5 h-3.5" />
-                            </button>
-                            <span className="w-8 text-center font-bold text-sm text-[#231E1A]">
-                              {item.quantity}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                              className="w-9 h-9 rounded-xl bg-[#FBF8F2] border border-[#E7DFD2] text-[#231E1A] hover:bg-[#EADBC6] flex items-center justify-center transition-colors cursor-pointer"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-
-                          <div className="text-right">
-                            <span className="text-[10px] text-[#A89C8C] block uppercase font-medium">Subtotal</span>
-                            <span className="font-bold text-base text-[#231E1A]">
-                              ${item.subtotal.toLocaleString("es-AR")}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* DESKTOP VIEW (>= 640px): Standard Supermarket Receipt Table */}
@@ -679,77 +795,90 @@ export default function NuevaVentaPosPage() {
                       </div>
 
                       <div className="divide-y divide-[#F7F3EC]">
-                        {cart.map((item, idx) => (
-                          <div
-                            key={item.productId}
-                            className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
-                          >
-                            <div className="w-10 text-center font-mono text-[#A89C8C] text-xs">
-                              {idx + 1}
-                            </div>
+                        {cart.map((item, idx) => {
+                          const itemKey = item.variantId
+                            ? `${item.productId}-${item.variantId}`
+                            : item.productId;
 
-                            <div className="flex-1 flex flex-col min-w-0">
-                              <span className="font-semibold text-[#231E1A] text-sm truncate">
-                                {item.productName}
-                              </span>
-                              <div className="flex items-center gap-2 text-[11px] text-[#A89C8C]">
-                                <span className="font-mono">SKU: {item.sku}</span>
-                                {item.product.stock <= item.quantity && (
-                                  <span className="text-[#C0492F] font-medium">
-                                    (Stock restante: {item.product.stock})
+                          return (
+                            <div
+                              key={itemKey}
+                              className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
+                            >
+                              <div className="w-10 text-center font-mono text-[#A89C8C] text-xs">
+                                {idx + 1}
+                              </div>
+
+                              <div className="flex-1 flex flex-col min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-[#231E1A] text-sm truncate">
+                                    {item.productName}
                                   </span>
-                                )}
+                                  {item.variantName && (
+                                    <span className="bg-[#EADBC6]/60 text-[#9C5A2E] text-[10px] font-bold px-1.5 py-0.5 rounded-md border border-[#E7DFD2] shrink-0">
+                                      {item.variantName}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2 text-[11px] text-[#A89C8C]">
+                                  <span className="font-mono">SKU: {item.sku}</span>
+                                  {item.product.stock <= item.quantity && (
+                                    <span className="text-[#C0492F] font-medium">
+                                      (Stock restante: {item.product.stock})
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="w-28 text-right text-[#7A6F63] font-medium">
+                                ${item.unitPrice.toLocaleString("es-AR")}
+                              </div>
+
+                              {/* Quantity Controls */}
+                              <div className="w-32 flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => updateQuantity(itemKey, item.quantity - 1)}
+                                  className="w-7 h-7 rounded-lg bg-[#FBF8F2] border border-[#E7DFD2] text-[#231E1A] hover:bg-[#EADBC6] flex items-center justify-center transition-colors cursor-pointer"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.quantity}
+                                  onChange={(e) => {
+                                    const val = parseInt(e.target.value) || 1;
+                                    updateQuantity(itemKey, val);
+                                  }}
+                                  className="w-10 text-center font-bold text-xs bg-white border border-[#E7DFD2] rounded-lg py-1 outline-none focus:border-[#9C5A2E]"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => updateQuantity(itemKey, item.quantity + 1)}
+                                  className="w-7 h-7 rounded-lg bg-[#FBF8F2] border border-[#E7DFD2] text-[#231E1A] hover:bg-[#EADBC6] flex items-center justify-center transition-colors cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+
+                              <div className="w-28 text-right font-bold text-[#231E1A] text-sm">
+                                ${item.subtotal.toLocaleString("es-AR")}
+                              </div>
+
+                              <div className="w-12 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(itemKey)}
+                                  title="Eliminar del ticket"
+                                  className="text-[#A89C8C] hover:text-[#C0492F] p-1.5 rounded-lg hover:bg-[#F7E3DD]/50 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
                               </div>
                             </div>
-
-                            <div className="w-28 text-right text-[#7A6F63] font-medium">
-                              ${item.unitPrice.toLocaleString("es-AR")}
-                            </div>
-
-                            {/* Quantity Controls */}
-                            <div className="w-32 flex items-center justify-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                                className="w-7 h-7 rounded-lg bg-[#FBF8F2] border border-[#E7DFD2] text-[#231E1A] hover:bg-[#EADBC6] flex items-center justify-center transition-colors cursor-pointer"
-                              >
-                                <Minus className="w-3 h-3" />
-                              </button>
-                              <input
-                                type="number"
-                                min="1"
-                                value={item.quantity}
-                                onChange={(e) => {
-                                  const val = parseInt(e.target.value) || 1;
-                                  updateQuantity(item.productId, val);
-                                }}
-                                className="w-10 text-center font-bold text-xs bg-white border border-[#E7DFD2] rounded-lg py-1 outline-none focus:border-[#9C5A2E]"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                                className="w-7 h-7 rounded-lg bg-[#FBF8F2] border border-[#E7DFD2] text-[#231E1A] hover:bg-[#EADBC6] flex items-center justify-center transition-colors cursor-pointer"
-                              >
-                                <Plus className="w-3 h-3" />
-                              </button>
-                            </div>
-
-                            <div className="w-28 text-right font-bold text-[#231E1A] text-sm">
-                              ${item.subtotal.toLocaleString("es-AR")}
-                            </div>
-
-                            <div className="w-12 text-center">
-                              <button
-                                type="button"
-                                onClick={() => removeItem(item.productId)}
-                                title="Eliminar del ticket"
-                                className="text-[#A89C8C] hover:text-[#C0492F] p-1.5 rounded-lg hover:bg-[#F7E3DD]/50 transition-colors cursor-pointer"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -1525,6 +1654,115 @@ export default function NuevaVentaPosPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Variant Selection Modal */}
+      {selectedProductForVariantModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-[#211C18] text-[#F5EAD6] rounded-2xl border border-[#322A23] w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden shadow-2xl animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#322A23]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#322A23] text-[#C87941] flex items-center justify-center">
+                  <Package className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-bold text-sm text-[#F5EAD6]">
+                    Seleccionar Modelo / Color
+                  </h3>
+                  <p className="text-[11px] text-[#A89C8C] truncate max-w-xs">
+                    {selectedProductForVariantModal.name}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedProductForVariantModal(null)}
+                className="text-[#A89C8C] hover:text-[#F5EAD6] p-1 rounded-lg hover:bg-[#322A23] transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 flex flex-col gap-3 overflow-y-auto">
+              <p className="text-xs text-[#C9BCA9]">
+                Este producto tiene variantes registradas. Seleccioná cuál querés ingresar a la venta:
+              </p>
+
+              <div className="divide-y divide-[#322A23] border border-[#322A23] rounded-xl overflow-hidden bg-[#15110E]">
+                {selectedProductForVariantModal.variants?.map((variant) => {
+                  const effectivePrice = variant.price || selectedProductForVariantModal.price;
+                  const isOutOfStock = variant.stock <= 0;
+
+                  return (
+                    <div
+                      key={variant.id}
+                      className="p-3.5 flex items-center justify-between gap-3 hover:bg-[#1C1713] transition-colors"
+                    >
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-bold text-[#F5EAD6]">
+                          {variant.name}
+                        </span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] font-mono text-[#A89C8C] bg-[#211C18] px-1.5 py-0.5 rounded border border-[#322A23]">
+                            SKU: {variant.sku}
+                          </span>
+                          <span
+                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                              variant.stock <= 2
+                                ? "bg-[#C0492F]/20 text-[#E27D60]"
+                                : "bg-[#2D5A43]/20 text-[#68B087]"
+                            }`}
+                          >
+                            Stock: {variant.stock} u.
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        <div className="text-right">
+                          <div className="text-xs font-bold text-[#F5EAD6]">
+                            ${effectivePrice.toLocaleString("es-AR")}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={isOutOfStock}
+                          onClick={() => {
+                            addItemToCart(selectedProductForVariantModal, 1, variant);
+                            setSelectedProductForVariantModal(null);
+                            barcodeInputRef.current?.focus();
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all ${
+                            isOutOfStock
+                              ? "bg-[#322A23] text-[#7A6F63] cursor-not-allowed opacity-50"
+                              : "bg-[#9C5A2E] hover:bg-[#7A3F1F] text-white shadow-xs"
+                          }`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Sumar</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-[#322A23] bg-[#1C1713] flex justify-end">
+              <button
+                type="button"
+                onClick={() => setSelectedProductForVariantModal(null)}
+                className="px-4 py-2 rounded-xl bg-[#322A23] hover:bg-[#433930] text-[#F5EAD6] text-xs font-semibold cursor-pointer transition-colors"
+              >
+                Cerrar
+              </button>
+            </div>
           </div>
         </div>
       )}

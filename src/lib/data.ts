@@ -78,11 +78,16 @@ export const initialProducts: Product[] = [
     supplier: "Taller Artesanal Salta",
     initialStockDate: "15/07/2026 09:30",
     lastRestockDate: "20/09/2026 14:15",
+    hasVariants: true,
+    variants: [
+      { id: "var-1-1", name: "Negro Cincelado", sku: "MT-0142-NEG", stock: 24 },
+      { id: "var-1-2", name: "Marrón Suela", sku: "MT-0142-MAR", stock: 18 },
+    ],
   },
   {
     id: "prod-2",
     name: "Mate Torpedo Premium",
-    subtitle: "Cuero vaqueta seleccionado marrón",
+    subtitle: "Cuero vaqueta seleccionado",
     sku: "MT-0143",
     category: "Mates",
     listPrice: 11000,
@@ -93,6 +98,11 @@ export const initialProducts: Product[] = [
     supplier: "Taller Artesanal Salta",
     initialStockDate: "18/07/2026 11:00",
     lastRestockDate: "05/09/2026 16:40",
+    hasVariants: true,
+    variants: [
+      { id: "var-2-1", name: "Negro Azabache", sku: "MT-0143-NEG", stock: 5 },
+      { id: "var-2-2", name: "Marrón Habano", sku: "MT-0143-MAR", stock: 3 },
+    ],
   },
   {
     id: "prod-3",
@@ -108,6 +118,11 @@ export const initialProducts: Product[] = [
     supplier: "Importaciones Rioplatenses",
     initialStockDate: "20/07/2026 10:15",
     lastRestockDate: "15/09/2026 11:20",
+    hasVariants: true,
+    variants: [
+      { id: "var-3-1", name: "Negro Mate", sku: "MT-0144-NEG", stock: 14 },
+      { id: "var-3-2", name: "Cuero Crudo", sku: "MT-0144-CRU", stock: 10 },
+    ],
   },
   {
     id: "prod-4",

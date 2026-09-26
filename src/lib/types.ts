@@ -1,3 +1,12 @@
+export interface ProductVariant {
+  id: string;
+  name: string; // Nombre del modelo o color (ej: "Negro", "Marrón", "Cuero Crudo")
+  sku: string; // Código de barras específico para este modelo
+  stock: number; // Stock individual de este modelo
+  price?: number; // Precio de venta particular (opcional si difiere del padre)
+  listPrice?: number; // Costo particular (opcional)
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -6,12 +15,14 @@ export interface Product {
   category: string;
   listPrice?: number; // Precio de lista / costo
   price: number; // Precio de venta al público
-  stock: number;
+  stock: number; // Stock total (suma de variantes si hasVariants = true)
   status: "En stock" | "Bajo stock" | "Agotado";
   minStock?: number; // Umbral de stock mínimo personalizado para alerta de bajo stock
   supplier?: string; // Proveedor principal o taller asociado
   initialStockDate?: string; // Fecha en la que se dio de alta / ingresó por primera vez
   lastRestockDate?: string; // Fecha del último re-stock
+  hasVariants?: boolean; // Indica si el producto tiene variantes / modelos
+  variants?: ProductVariant[]; // Lista de variantes o modelos
 }
 
 export interface Supplier {
@@ -28,6 +39,8 @@ export interface Supplier {
 export interface StockMovement {
   id: string;
   productId: string;
+  variantId?: string; // ID del modelo/variante específica (si aplica)
+  variantName?: string; // Nombre del modelo/color (ej. "Negro")
   productName: string;
   sku: string;
   category: string;
@@ -45,6 +58,8 @@ export interface StockMovement {
 
 export interface SaleItem {
   productId: string;
+  variantId?: string;
+  variantName?: string;
   productName: string;
   sku: string;
   quantity: number;
