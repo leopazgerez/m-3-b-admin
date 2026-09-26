@@ -5,16 +5,17 @@ import { useState } from "react";
 import { ArrowUpRight, Plus, Calendar, Tag } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Link from "next/link";
-import { initialMovements } from "../page";
+import { useStore } from "@/lib/store";
 
 export default function IngresosSubmenuPage() {
+  const { expenses } = useStore();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const ingresos = initialMovements.filter(
+  const ingresos = expenses.filter(
     (m) =>
       m.type === "Ingreso" &&
-      (m.desc.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.cat.toLowerCase().includes(searchTerm.toLowerCase()))
+      (m.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.category.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const totalIngresos = ingresos.reduce((acc, curr) => acc + curr.amount, 0);
@@ -98,11 +99,11 @@ export default function IngresosSubmenuPage() {
                       className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
                     >
                       <div className="flex-1 min-w-[180px] font-semibold text-[#231E1A] text-sm truncate">
-                        {m.desc}
+                        {m.description}
                       </div>
                       <div className="w-40 shrink-0 text-[#7A6F63]">
                         <span className="bg-[#E3F1E8] text-[#3E8E5A] font-medium px-2.5 py-1 rounded-md text-xs whitespace-nowrap">
-                          {m.cat}
+                          {m.category}
                         </span>
                       </div>
                       <div className="w-28 shrink-0 text-[#7A6F63] flex items-center gap-1.5 whitespace-nowrap">

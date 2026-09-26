@@ -5,16 +5,18 @@ import { useState } from "react";
 import { ArrowDownRight, Plus, Calendar, Tag } from "lucide-react";
 import Badge from "@/components/ui/Badge";
 import Link from "next/link";
-import { initialMovements } from "../page";
+import { useStore } from "@/lib/store";
 
 export default function EgresosSubmenuPage() {
+  const { expenses } = useStore();
   const [searchTerm, setSearchTerm] = useState("");
 
-  const egresos = initialMovements.filter(
+  const egresos = expenses.filter(
     (m) =>
       m.type === "Egreso" &&
-      (m.desc.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.cat.toLowerCase().includes(searchTerm.toLowerCase()))
+      (m.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        m.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (m.supplier && m.supplier.toLowerCase().includes(searchTerm.toLowerCase())))
   );
 
   const totalEgresos = egresos.reduce((acc, curr) => acc + curr.amount, 0);
@@ -67,10 +69,13 @@ export default function EgresosSubmenuPage() {
               </span>
             </div>
 
-            <button className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs">
+            <Link
+              href="/gastos"
+              className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs"
+            >
               <Plus className="w-4 h-4" />
-              <span>Nuevo egreso</span>
-            </button>
+              <span>Registrar egreso</span>
+            </Link>
           </div>
         </div>
 
@@ -98,11 +103,11 @@ export default function EgresosSubmenuPage() {
                       className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
                     >
                       <div className="flex-1 min-w-[180px] font-semibold text-[#231E1A] text-sm truncate">
-                        {m.desc}
+                        {m.description}
                       </div>
                       <div className="w-40 shrink-0 text-[#7A6F63]">
                         <span className="bg-[#F7E3DD] text-[#C0492F] font-medium px-2.5 py-1 rounded-md text-xs whitespace-nowrap">
-                          {m.cat}
+                          {m.category}
                         </span>
                       </div>
                       <div className="w-28 shrink-0 text-[#7A6F63] flex items-center gap-1.5 whitespace-nowrap">

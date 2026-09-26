@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { Product, Sale, Expense, Client, ClientPayment, StockMovement, Supplier, ExpenseCategory } from "./types";
 import { initialProducts, initialSales, initialClients, initialStockMovements, initialSuppliers, initialExpenseCategories } from "./data";
-import { initialMovements } from "@/app/(admin)/gastos/page";
 
 interface StoreContextType {
   products: Product[];
@@ -57,6 +56,15 @@ interface StoreContextType {
   deleteExpenseCategory: (id: string) => void;
   addExpenseType: (type: string) => void;
   deleteExpenseType: (type: string) => void;
+  // Expense actions
+  addExpense: (expense: Omit<Expense, "id">) => void;
+  updateExpense: (id: string, expense: Partial<Expense>) => void;
+  deleteExpense: (id: string) => void;
+  payExpenseInstallment: (
+    expenseId: string,
+    installmentId: string,
+    paymentData: { paidDate: string; paidMethod: string; notes?: string }
+  ) => void;
 }
 
 const defaultProductCategories = ["Mates", "Bombillas", "Yerba", "Accesorios", "Termos", "Sets"];
@@ -65,19 +73,110 @@ const defaultExpenseTypes = ["Proveedores", "Embalaje", "Logística", "Publicida
 
 const StoreContext = createContext<StoreContextType | undefined>(undefined);
 
-const initialExpenses: Expense[] = initialMovements.map((m) => ({
-  id: m.id,
-  description: m.desc,
-  category: m.cat,
-  date: m.date,
-  type: m.type,
-  amount: m.amount,
-  status: m.status as "Pagado" | "Pendiente",
-}));
+const initialExpenses: Expense[] = [
+  {
+    id: "exp-1",
+    description: "Compra lote mates Torpedo y Camionero",
+    category: "Mercaderia",
+    date: "2026-09-18",
+    type: "Egreso",
+    amount: 145000,
+    status: "Pagado",
+    paymentMethod: "Transferencia",
+    paymentDate: "2026-09-18",
+    productId: "prod-2",
+    productName: "Mate Torpedo Premium",
+    supplier: "Taller Artesanal Salta",
+    notes: "Lote de 20 mates para reposición de stock",
+  },
+  {
+    id: "exp-2",
+    description: "Grabadora Láser Co2 40W para personalizaciones",
+    category: "Equipamiento",
+    date: "2026-09-10",
+    type: "Egreso",
+    amount: 240000,
+    status: "En cuotas",
+    supplier: "Maquinarias Gráficas SA",
+    isInstallments: true,
+    totalInstallments: 4,
+    installments: [
+      {
+        id: "inst-1",
+        number: 1,
+        amount: 60000,
+        dueDate: "2026-09-10",
+        status: "Pagado",
+        paidDate: "2026-09-10",
+        paidMethod: "Transferencia",
+        notes: "Anticipo / cuota 1 abonada",
+      },
+      {
+        id: "inst-2",
+        number: 2,
+        amount: 60000,
+        dueDate: "2026-10-10",
+        status: "Pendiente",
+      },
+      {
+        id: "inst-3",
+        number: 3,
+        amount: 60000,
+        dueDate: "2026-11-10",
+        status: "Pendiente",
+      },
+      {
+        id: "inst-4",
+        number: 4,
+        amount: 60000,
+        dueDate: "2026-12-10",
+        status: "Pendiente",
+      },
+    ],
+    notes: "Plan de financiación directa en 4 cuotas mensuales sin interés",
+  },
+  {
+    id: "exp-3",
+    description: "Cajas kraft para envíos y bolsas de tela",
+    category: "Insumos/packaging",
+    date: "2026-09-16",
+    type: "Egreso",
+    amount: 32000,
+    status: "Pagado",
+    paymentMethod: "Mercado Pago",
+    paymentDate: "2026-09-16",
+    supplier: "Envases Modernos SRL",
+    notes: "100 cajas reforzadas con logo impreso",
+  },
+  {
+    id: "exp-4",
+    description: "Servicio de fibra óptica e internet local",
+    category: "Gastos propios",
+    date: "2026-09-15",
+    type: "Egreso",
+    amount: 38500,
+    status: "Pagado",
+    paymentMethod: "Débito Automático",
+    paymentDate: "2026-09-15",
+    notes: "Factura mes en curso",
+  },
+  {
+    id: "exp-5",
+    description: "Envíos interprovinciales por Andreani",
+    category: "Logistica",
+    date: "2026-09-14",
+    type: "Egreso",
+    amount: 45600,
+    status: "Pagado",
+    paymentMethod: "Transferencia",
+    paymentDate: "2026-09-14",
+    notes: "Fletes de despacho mayorista",
+  },
+];
 
 // Bump this string whenever you change initialProducts, initialSales or initialClients
 // so that cached localStorage data is replaced with the fresh seed on next load.
-const DATA_VERSION = "2026-09-26-v7";
+const DATA_VERSION = "2026-09-26-v8";
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
@@ -727,6 +826,61 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Expense CRUD
+  const addExpense = (newExp: Omit<Expense, "id">) => {
+    const expenseId = `exp-${Date.now()}`;
+    const expense: Expense = {
+      ...newExp,
+      id: expenseId,
+    };
+    setExpenses((prev) => [expense, ...prev]);
+  };
+
+  const updateExpense = (id: string, updated: Partial<Expense>) => {
+    setExpenses((prev) =>
+      prev.map((e) => (e.id === id ? { ...e, ...updated } : e))
+    );
+  };
+
+  const deleteExpense = (id: string) => {
+    setExpenses((prev) => prev.filter((e) => e.id !== id));
+  };
+
+  const payExpenseInstallment = (
+    expenseId: string,
+    installmentId: string,
+    paymentData: { paidDate: string; paidMethod: string; notes?: string }
+  ) => {
+    setExpenses((prev) =>
+      prev.map((exp) => {
+        if (exp.id !== expenseId || !exp.installments) return exp;
+
+        const updatedInstallments = exp.installments.map((inst) => {
+          if (inst.id === installmentId) {
+            return {
+              ...inst,
+              status: "Pagado" as const,
+              paidDate: paymentData.paidDate,
+              paidMethod: paymentData.paidMethod,
+              notes: paymentData.notes || inst.notes,
+            };
+          }
+          return inst;
+        });
+
+        const allPaid = updatedInstallments.every((i) => i.status === "Pagado");
+
+        return {
+          ...exp,
+          installments: updatedInstallments,
+          status: allPaid ? "Pagado" : "En cuotas",
+          paymentDate: allPaid ? paymentData.paidDate : exp.paymentDate,
+          paymentMethod: allPaid ? paymentData.paidMethod : exp.paymentMethod,
+        };
+      })
+    );
+  };
+
   // Derived: list of category names for compatibility
   const expenseTypes = expenseCategories.map((c) => c.name);
 
@@ -772,6 +926,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         deleteExpenseCategory,
         addExpenseType,
         deleteExpenseType,
+        addExpense,
+        updateExpense,
+        deleteExpense,
+        payExpenseInstallment,
       }}
     >
       {children}

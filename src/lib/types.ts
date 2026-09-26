@@ -111,6 +111,17 @@ export interface ExpenseCategory {
   createdAt?: string;
 }
 
+export interface ExpenseInstallment {
+  id: string;
+  number: number;
+  amount: number;
+  dueDate: string; // YYYY-MM-DD
+  status: "Pendiente" | "Pagado";
+  paidDate?: string;
+  paidMethod?: string;
+  notes?: string;
+}
+
 export interface Expense {
   id: string;
   description: string;
@@ -118,7 +129,18 @@ export interface Expense {
   date: string;
   type: "Ingreso" | "Egreso";
   amount: number;
-  status: "Pagado" | "Pendiente";
+  status: "Pagado" | "Pendiente" | "En cuotas";
+  paymentMethod?: string;
+  paymentDate?: string;
+  // Campos en caso de Mercadería:
+  productId?: string;
+  productName?: string;
+  supplier?: string;
+  // Campos en caso de cuotas:
+  isInstallments?: boolean;
+  totalInstallments?: number;
+  installments?: ExpenseInstallment[];
+  notes?: string;
 }
 
 export interface MonthlyBalance {
