@@ -1,7 +1,9 @@
 "use client";
 
-import { Search, Bell, Info, Menu } from "lucide-react";
+import { useState } from "react";
+import { Search, Bell, Menu } from "lucide-react";
 import { useSidebar } from "./SidebarContext";
+import NotificationsPopover from "./NotificationsPopover";
 
 interface TopbarProps {
   title: string;
@@ -11,6 +13,8 @@ interface TopbarProps {
 
 export default function Topbar({ title, subtitle, onSearch }: TopbarProps) {
   const { toggleSidebar } = useSidebar();
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const today = new Date().toLocaleDateString("es-AR", {
     weekday: "long",
@@ -46,7 +50,7 @@ export default function Topbar({ title, subtitle, onSearch }: TopbarProps) {
         </div>
       </div>
 
-      {/* Right side: Search + Notification & Info actions */}
+      {/* Right side: Search + Notification action */}
       <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         {/* Search Field */}
         <div className="flex items-center gap-2 bg-[#FBF8F2] border border-[#E7DFD2] rounded-full px-3 py-1.5 sm:px-3.5 sm:py-2 w-36 sm:w-52 md:w-64 text-xs transition-focus focus-within:border-[#9C5A2E] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#EADBC6]/50">
@@ -59,24 +63,33 @@ export default function Topbar({ title, subtitle, onSearch }: TopbarProps) {
           />
         </div>
 
-        {/* Notifications */}
-        <button
-          type="button"
-          title="Notificaciones"
-          className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-[#FBF8F2] border border-[#E7DFD2] flex items-center justify-center text-[#7A6F63] hover:text-[#9C5A2E] hover:border-[#9C5A2E] transition-all relative shrink-0"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="w-2 h-2 rounded-full bg-[#C0492F] absolute top-2 sm:top-2.5 right-2 sm:right-2.5" />
-        </button>
+        {/* Notifications Button & Dropdown */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setIsNotificationsOpen((prev) => !prev)}
+            title="Notificaciones"
+            className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl border flex items-center justify-center transition-all relative shrink-0 cursor-pointer ${
+              isNotificationsOpen
+                ? "bg-[#EADBC6] border-[#9C5A2E] text-[#9C5A2E]"
+                : "bg-[#FBF8F2] border-[#E7DFD2] text-[#7A6F63] hover:text-[#9C5A2E] hover:border-[#9C5A2E]"
+            }`}
+          >
+            <Bell className="w-4 h-4" />
+            {unreadCount > 0 && (
+              <span className="min-w-[18px] h-[18px] px-1 bg-[#C0492F] text-white text-[10px] font-bold rounded-full flex items-center justify-center absolute -top-1 -right-1 shadow-2xs border-2 border-white">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
 
-        {/* Info / Help (hidden on extra small screens) */}
-        <button
-          type="button"
-          title="Ayuda del sistema"
-          className="hidden sm:flex w-10 h-10 rounded-xl bg-[#FBF8F2] border border-[#E7DFD2] items-center justify-center text-[#7A6F63] hover:text-[#9C5A2E] hover:border-[#9C5A2E] transition-all shrink-0"
-        >
-          <Info className="w-4 h-4" />
-        </button>
+          {/* Notifications Popover */}
+          <NotificationsPopover
+            isOpen={isNotificationsOpen}
+            onClose={() => setIsNotificationsOpen(false)}
+            onUnreadCountChange={setUnreadCount}
+          />
+        </div>
       </div>
     </header>
   );
