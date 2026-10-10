@@ -212,12 +212,6 @@ export default function VentasPage() {
         items,
         method: method || saleTypes[0] || "Efectivo",
         amount: totalAmount,
-        paidAmount:
-          status === "Completada"
-            ? totalAmount
-            : status === "Pendiente" && editingSale.status === "Completada"
-            ? 0
-            : Math.min(editingSale.paidAmount ?? 0, totalAmount),
         status,
         date: isoToStoredDate(saleDate || toLocalISODate()),
       });

@@ -24,6 +24,8 @@ function periodStart(period: Period): string {
   return toLocalISODate(d);
 }
 
+const periodLabels: Record<Period, string> = { Hoy: "de hoy", Semana: "de la semana", Mes: "del mes", Año: "del año" };
+
 const money = (n: number) => `$${Math.round(n).toLocaleString("es-AR")}`;
 
 export default function DashboardPage() {
@@ -41,7 +43,6 @@ export default function DashboardPage() {
   const net = salesTotal - expensesTotal;
   const totalUnits = products.reduce((acc, p) => acc + p.stock, 0);
   const lowStock = products.filter((p) => p.status !== "En stock").length;
-  const periodLabel = { Hoy: "de hoy", Semana: "de la semana", Mes: "del mes", Año: "del año" }[period];
 
   return (
     <>
@@ -100,14 +101,14 @@ export default function DashboardPage() {
         {/* 4 KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           <KpiCard
-            label={`Ventas ${periodLabel}`}
+            label={`Ventas ${periodLabels[period]}`}
             value={money(salesTotal)}
             delta="ventas no canceladas"
             icon={<DollarSign className="w-5 h-5" />}
             iconBgColor="bg-[#EADBC6]"
           />
           <KpiCard
-            label={`Gastos ${periodLabel}`}
+            label={`Gastos ${periodLabels[period]}`}
             value={money(expensesTotal)}
             delta="egresos registrados"
             icon={<Receipt className="w-5 h-5 text-[#D98A2B]" />}

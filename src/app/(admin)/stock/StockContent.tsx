@@ -924,9 +924,7 @@ export default function StockContent() {
                       </strong>
                       .
                     </>
-                  ) : (
-                    "Elegí un modelo: el stock del producto es la suma de sus modelos."
-                  )}
+                  ) : null}
                 </span>
               </div>
             )}

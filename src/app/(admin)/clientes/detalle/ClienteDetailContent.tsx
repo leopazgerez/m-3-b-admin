@@ -173,7 +173,10 @@ export default function ClienteDetailContent() {
       amount: p.amount,
       method: p.method,
     })),
-  ].sort((a, b) => parseDateToYYYYMMDD(b.date).localeCompare(parseDateToYYYYMMDD(a.date)));
+  ]
+    .map((entry) => ({ entry, key: parseDateToYYYYMMDD(entry.date) }))
+    .sort((a, b) => b.key.localeCompare(a.key))
+    .map(({ entry }) => entry);
 
   // ─── Not found ─────────────────────────────────────────────────────────────
   if (!client) {

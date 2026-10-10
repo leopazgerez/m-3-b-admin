@@ -179,6 +179,10 @@ const initialExpenses: Expense[] = [
 // so that cached localStorage data is replaced with the fresh seed on next load.
 const DATA_VERSION = "2026-09-26-v8";
 
+function stockStatus(stock: number, minStock = 10): Product["status"] {
+  return stock === 0 ? "Agotado" : stock <= minStock ? "Bajo stock" : "En stock";
+}
+
 // Applies sale items to product stock: sign -1 sells, +1 returns units to stock.
 // Every item counts (a cart can hold several variants of the same product).
 function applyItemsToStock(prods: Product[], items: SaleItem[] = [], sign: 1 | -1): Product[] {
@@ -199,10 +203,7 @@ function applyItemsToStock(prods: Product[], items: SaleItem[] = [], sign: 1 | -
     } else {
       stock = Math.max(0, prod.stock + sign * own.reduce((sum, i) => sum + i.quantity, 0));
     }
-    const minThreshold = prod.minStock ?? 10;
-    const status: Product["status"] =
-      stock === 0 ? "Agotado" : stock <= minThreshold ? "Bajo stock" : "En stock";
-    return { ...prod, stock, status, variants };
+    return { ...prod, stock, status: stockStatus(stock, prod.minStock), variants };
   });
 }
 
@@ -385,8 +386,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       : (Number(newProd.stock) || 0);
 
     const minStock = newProd.minStock !== undefined ? newProd.minStock : 10;
-    const initialStatus =
-      calculatedStock === 0 ? "Agotado" : calculatedStock <= minStock ? "Bajo stock" : "En stock";
+    const initialStatus = stockStatus(calculatedStock, minStock);
 
     const product: Product = {
       ...newProd,
@@ -463,14 +463,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
 
         const minStock = updated.minStock !== undefined ? updated.minStock : p.minStock ?? 10;
-        const newStatus =
-          updated.status !== undefined
-            ? updated.status
-            : newStock === 0
-            ? "Agotado"
-            : newStock <= minStock
-            ? "Bajo stock"
-            : "En stock";
+        const newStatus = updated.status ?? stockStatus(newStock, minStock);
 
         return {
           ...p,
@@ -515,9 +508,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     const previousStock = targetProduct.stock;
     const newStock = previousStock + quantity;
-    const minThreshold = targetProduct.minStock !== undefined ? targetProduct.minStock : 10;
-    const newStatus =
-      newStock === 0 ? "Agotado" : newStock <= minThreshold ? "Bajo stock" : "En stock";
+    const newStatus = stockStatus(newStock, targetProduct.minStock);
 
     const movementDate =
       date ||
@@ -609,12 +600,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const updateSale = (id: string, updated: Partial<Sale>) => {
     const old = sales.find((s) => s.id === id);
-    if (old && updated.items !== undefined) {
+    if (!old) return;
+    if (updated.items !== undefined && JSON.stringify(updated.items) !== JSON.stringify(old.items)) {
       setProducts((prev) => applyItemsToStock(applyItemsToStock(prev, old.items, 1), updated.items, -1));
     }
-    setSales((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, ...updated } : s))
-    );
+    // Keep paidAmount consistent with status/amount
+    const next = { ...old, ...updated };
+    if (next.status === "Completada") next.paidAmount = next.amount;
+    else if (next.status === "Pendiente" && old.status === "Completada") next.paidAmount = 0;
+    else next.paidAmount = Math.min(next.paidAmount ?? 0, next.amount);
+    setSales((prev) => prev.map((s) => (s.id === id ? next : s)));
   };
 
   const deleteSale = (id: string) => {

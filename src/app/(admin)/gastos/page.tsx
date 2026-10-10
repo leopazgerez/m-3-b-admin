@@ -8,7 +8,7 @@ import { useStore } from "@/lib/store";
 import { Expense, ExpenseInstallment } from "@/lib/types";
 import ConfirmDeleteModal from "@/components/ui/ConfirmDeleteModal";
 import FilterPanel from "@/components/ui/FilterPanel";
-import { isDateInRange, toLocalISODate } from "@/lib/dateUtils";
+import { isDateInRange, isoToStoredDate, toLocalISODate } from "@/lib/dateUtils";
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -111,11 +111,7 @@ function addMonths(dateStr: string, months: number): string {
 function formatDate(dateStr?: string): string {
   if (!dateStr) return "—";
   if (dateStr.includes("/")) return dateStr;
-  const parts = dateStr.split("-");
-  if (parts.length === 3) {
-    return `${parts[2]}/${parts[1]}/${parts[0]}`;
-  }
-  return dateStr;
+  return dateStr.split("-").length === 3 ? isoToStoredDate(dateStr) : dateStr;
 }
 
 export default function GastosPage() {

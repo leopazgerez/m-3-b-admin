@@ -100,19 +100,3 @@ export function isDateInRange(
 
   return true;
 }
-
-/**
- * Formats YYYY-MM-DD date to a human readable short format, e.g. "26 Sep"
- */
-export function formatDisplayDate(isoDate: string): string {
-  if (!isoDate) return "Hoy";
-  const parts = isoDate.split("-");
-  if (parts.length === 3) {
-    const month = parseInt(parts[1], 10);
-    const day = parseInt(parts[2], 10);
-    const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-    const monthStr = months[month - 1] || "";
-    return `${day} ${monthStr}`;
-  }
-  return isoDate;
-}
