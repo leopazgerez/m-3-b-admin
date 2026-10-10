@@ -3,6 +3,18 @@
  * and checking date range filters.
  */
 
+/** Local-time YYYY-MM-DD (toISOString is UTC and shifts the day after 21:00 in Argentina). */
+export function toLocalISODate(d: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** YYYY-MM-DD -> DD/MM/YYYY, the stored format for dates entered in the app. */
+export function isoToStoredDate(isoDate: string = toLocalISODate()): string {
+  const [y, m, d] = isoDate.split("-");
+  return `${d}/${m}/${y}`;
+}
+
 export function parseDateToYYYYMMDD(dateStr?: string): string {
   if (!dateStr || dateStr === "Sin registros" || dateStr === "Sin compras") {
     return "";
@@ -23,7 +35,7 @@ export function parseDateToYYYYMMDD(dateStr?: string): string {
 
   // If "Hoy"
   if (trimmed.toLowerCase().includes("hoy")) {
-    return new Date().toISOString().split("T")[0];
+    return toLocalISODate();
   }
 
   // DD/MM/YYYY or DD/MM/YYYY HH:mm
@@ -62,7 +74,7 @@ export function parseDateToYYYYMMDD(dateStr?: string): string {
   // Fallback to Date parser
   const parsed = new Date(trimmed);
   if (!isNaN(parsed.getTime())) {
-    return parsed.toISOString().split("T")[0];
+    return toLocalISODate(parsed);
   }
 
   return "";

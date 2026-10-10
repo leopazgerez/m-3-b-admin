@@ -12,10 +12,36 @@ import { monthlyBalances } from "@/lib/data";
 import { useStore } from "@/lib/store";
 import { DollarSign, Receipt, TrendingUp, Package, Plus } from "lucide-react";
 import { getAssetPath } from "@/lib/assets";
+import { isDateInRange, toLocalISODate } from "@/lib/dateUtils";
+
+type Period = "Hoy" | "Semana" | "Mes" | "Año";
+
+function periodStart(period: Period): string {
+  const d = new Date();
+  if (period === "Semana") d.setDate(d.getDate() - 7);
+  if (period === "Mes") d.setDate(1);
+  if (period === "Año") d.setMonth(0, 1);
+  return toLocalISODate(d);
+}
+
+const money = (n: number) => `$${Math.round(n).toLocaleString("es-AR")}`;
 
 export default function DashboardPage() {
-  const { sales, products } = useStore();
-  const [period, setPeriod] = useState<"Hoy" | "Semana" | "Mes" | "Año">("Mes");
+  const { sales, products, expenses } = useStore();
+  const [period, setPeriod] = useState<Period>("Mes");
+
+  const from = periodStart(period);
+  const to = toLocalISODate();
+  const salesTotal = sales
+    .filter((s) => s.status !== "Cancelada" && isDateInRange(s.date, from, to))
+    .reduce((acc, s) => acc + s.amount, 0);
+  const expensesTotal = expenses
+    .filter((e) => e.type === "Egreso" && isDateInRange(e.date, from, to))
+    .reduce((acc, e) => acc + e.amount, 0);
+  const net = salesTotal - expensesTotal;
+  const totalUnits = products.reduce((acc, p) => acc + p.stock, 0);
+  const lowStock = products.filter((p) => p.status !== "En stock").length;
+  const periodLabel = { Hoy: "de hoy", Semana: "de la semana", Mes: "del mes", Año: "del año" }[period];
 
   return (
     <>
@@ -74,37 +100,32 @@ export default function DashboardPage() {
         {/* 4 KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           <KpiCard
-            label="Ventas del mes"
-            value="$4.820.500"
-            delta="vs. mes anterior"
-            badgeText="+12,5%"
-            badgeType="success"
+            label={`Ventas ${periodLabel}`}
+            value={money(salesTotal)}
+            delta="ventas no canceladas"
             icon={<DollarSign className="w-5 h-5" />}
             iconBgColor="bg-[#EADBC6]"
           />
           <KpiCard
-            label="Gastos del mes"
-            value="$2.140.300"
-            delta="vs. mes anterior"
-            badgeText="+8,2%"
-            badgeType="danger"
+            label={`Gastos ${periodLabel}`}
+            value={money(expensesTotal)}
+            delta="egresos registrados"
             icon={<Receipt className="w-5 h-5 text-[#D98A2B]" />}
             iconBgColor="bg-[#FBEFD9]"
           />
           <KpiCard
             label="Ganancia neta"
-            value="$2.680.200"
-            delta="margen 55,6%"
-            badgeText="+18,4%"
-            badgeType="success"
+            value={money(net)}
+            delta={salesTotal > 0 ? `margen ${((net / salesTotal) * 100).toFixed(1).replace(".", ",")}%` : "sin ventas"}
+            badgeType={net >= 0 ? "success" : "danger"}
             icon={<TrendingUp className="w-5 h-5 text-[#3E8E5A]" />}
             iconBgColor="bg-[#E3F1E8]"
           />
           <KpiCard
             label="Estado de stock"
-            value="1.284 u."
-            delta="en 23 productos"
-            badgeText="12 bajos"
+            value={`${totalUnits.toLocaleString("es-AR")} u.`}
+            delta={`en ${products.length} productos`}
+            badgeText={lowStock > 0 ? `${lowStock} bajos` : undefined}
             badgeType="warning"
             icon={<Package className="w-5 h-5" />}
             iconBgColor="bg-[#EADBC6]"

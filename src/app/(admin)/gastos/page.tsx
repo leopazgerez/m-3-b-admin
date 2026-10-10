@@ -8,7 +8,7 @@ import { useStore } from "@/lib/store";
 import { Expense, ExpenseInstallment } from "@/lib/types";
 import ConfirmDeleteModal from "@/components/ui/ConfirmDeleteModal";
 import FilterPanel from "@/components/ui/FilterPanel";
-import { isDateInRange } from "@/lib/dateUtils";
+import { isDateInRange, toLocalISODate } from "@/lib/dateUtils";
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -104,7 +104,7 @@ function addMonths(dateStr: string, months: number): string {
   const d = new Date(dateStr + "T00:00:00");
   if (isNaN(d.getTime())) return dateStr;
   d.setMonth(d.getMonth() + months);
-  return d.toISOString().split("T")[0];
+  return toLocalISODate(d);
 }
 
 // Format YYYY-MM-DD to DD/MM/YYYY
@@ -151,7 +151,7 @@ export default function GastosPage() {
     installment: ExpenseInstallment;
   } | null>(null);
 
-  const [payDate, setPayDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [payDate, setPayDate] = useState(() => toLocalISODate());
   const [payMethod, setPayMethod] = useState(PAYMENT_METHODS[1]);
   const [payNotes, setPayNotes] = useState("");
 
@@ -160,10 +160,10 @@ export default function GastosPage() {
   const [formCategory, setFormCategory] = useState("");
   const [formType, setFormType] = useState<"Egreso" | "Ingreso">("Egreso");
   const [formAmount, setFormAmount] = useState<number | "">("");
-  const [formDate, setFormDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [formDate, setFormDate] = useState(() => toLocalISODate());
   const [formStatus, setFormStatus] = useState<"Pagado" | "Pendiente">("Pagado");
   const [formPaymentMethod, setFormPaymentMethod] = useState(PAYMENT_METHODS[1]);
-  const [formPaymentDate, setFormPaymentDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [formPaymentDate, setFormPaymentDate] = useState(() => toLocalISODate());
   const [formNotes, setFormNotes] = useState("");
 
   // Mercadería specific fields
@@ -173,7 +173,7 @@ export default function GastosPage() {
   // Cuotas fields
   const [formIsInstallments, setFormIsInstallments] = useState(false);
   const [formTotalInstallments, setFormTotalInstallments] = useState(3);
-  const [formFirstDueDate, setFormFirstDueDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [formFirstDueDate, setFormFirstDueDate] = useState(() => toLocalISODate());
   const [formFirstPaidNow, setFormFirstPaidNow] = useState(false);
   const [formFirstPaidMethod, setFormFirstPaidMethod] = useState(PAYMENT_METHODS[1]);
 
@@ -187,16 +187,16 @@ export default function GastosPage() {
     setFormCategory(expenseCategories[0]?.name || "Mercaderia");
     setFormType("Egreso");
     setFormAmount("");
-    setFormDate(new Date().toISOString().split("T")[0]);
+    setFormDate(toLocalISODate());
     setFormStatus("Pagado");
     setFormPaymentMethod(PAYMENT_METHODS[1]);
-    setFormPaymentDate(new Date().toISOString().split("T")[0]);
+    setFormPaymentDate(toLocalISODate());
     setFormNotes("");
     setFormProductId("");
     setFormSupplier("");
     setFormIsInstallments(false);
     setFormTotalInstallments(3);
-    setFormFirstDueDate(new Date().toISOString().split("T")[0]);
+    setFormFirstDueDate(toLocalISODate());
     setFormFirstPaidNow(false);
     setFormFirstPaidMethod(PAYMENT_METHODS[1]);
   };
@@ -1291,7 +1291,7 @@ export default function GastosPage() {
                               expense: inspectingExpense,
                               installment: inst,
                             });
-                            setPayDate(new Date().toISOString().split("T")[0]);
+                            setPayDate(toLocalISODate());
                           }}
                           className="bg-[#9C5A2E] hover:bg-[#7A3F1F] text-white px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all shadow-xs flex items-center gap-1"
                         >

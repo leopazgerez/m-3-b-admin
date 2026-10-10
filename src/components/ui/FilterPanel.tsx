@@ -2,6 +2,7 @@
 
 import React from "react";
 import { SlidersHorizontal, RotateCcw, Calendar, X } from "lucide-react";
+import { toLocalISODate } from "@/lib/dateUtils";
 
 interface FilterPanelProps {
   isOpen: boolean;
@@ -36,27 +37,23 @@ export default function FilterPanel({
 }: FilterPanelProps) {
   // Preset handlers
   const setPresetToday = () => {
-    const today = new Date().toISOString().split("T")[0];
+    const today = toLocalISODate();
     onDateFromChange?.(today);
     onDateToChange?.(today);
   };
 
   const setPresetLast7Days = () => {
     const now = new Date();
-    const today = now.toISOString().split("T")[0];
-    const past = new Date(now.setDate(now.getDate() - 7)).toISOString().split("T")[0];
-    onDateFromChange?.(past);
+    const today = toLocalISODate(now);
+    now.setDate(now.getDate() - 7);
+    onDateFromChange?.(toLocalISODate(now));
     onDateToChange?.(today);
   };
 
   const setPresetThisMonth = () => {
     const now = new Date();
-    const today = now.toISOString().split("T")[0];
-    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
-      .toISOString()
-      .split("T")[0];
-    onDateFromChange?.(firstDay);
-    onDateToChange?.(today);
+    onDateFromChange?.(toLocalISODate(new Date(now.getFullYear(), now.getMonth(), 1)));
+    onDateToChange?.(toLocalISODate(now));
   };
 
   const clearDates = () => {

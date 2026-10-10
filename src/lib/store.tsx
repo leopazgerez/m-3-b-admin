@@ -1,7 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Product, Sale, Expense, Client, ClientPayment, StockMovement, Supplier, ExpenseCategory } from "./types";
+import { Product, Sale, SaleItem, Expense, Client, ClientPayment, StockMovement, Supplier, ExpenseCategory } from "./types";
+import { isoToStoredDate } from "./dateUtils";
 import { initialProducts, initialSales, initialClients, initialStockMovements, initialSuppliers, initialExpenseCategories } from "./data";
 
 interface StoreContextType {
@@ -33,7 +34,7 @@ interface StoreContextType {
     registerExpense?: boolean;
   }) => void;
   // Sale actions
-  addSale: (sale: Omit<Sale, "id">) => void;
+  addSale: (sale: Omit<Sale, "id">) => Sale;
   updateSale: (id: string, sale: Partial<Sale>) => void;
   deleteSale: (id: string) => void;
   // Client actions
@@ -177,6 +178,33 @@ const initialExpenses: Expense[] = [
 // Bump this string whenever you change initialProducts, initialSales or initialClients
 // so that cached localStorage data is replaced with the fresh seed on next load.
 const DATA_VERSION = "2026-09-26-v8";
+
+// Applies sale items to product stock: sign -1 sells, +1 returns units to stock.
+// Every item counts (a cart can hold several variants of the same product).
+function applyItemsToStock(prods: Product[], items: SaleItem[] = [], sign: 1 | -1): Product[] {
+  if (items.length === 0) return prods;
+  return prods.map((prod) => {
+    const own = items.filter((i) => i.productId === prod.id);
+    if (own.length === 0) return prod;
+    let variants = prod.variants;
+    let stock: number;
+    if (prod.hasVariants && prod.variants && prod.variants.length > 0) {
+      variants = prod.variants.map((v) => {
+        const qty = own
+          .filter((i) => (i.variantId ? i.variantId === v.id : !!v.sku && i.sku === v.sku))
+          .reduce((sum, i) => sum + i.quantity, 0);
+        return qty ? { ...v, stock: Math.max(0, v.stock + sign * qty) } : v;
+      });
+      stock = variants.reduce((sum, v) => sum + v.stock, 0);
+    } else {
+      stock = Math.max(0, prod.stock + sign * own.reduce((sum, i) => sum + i.quantity, 0));
+    }
+    const minThreshold = prod.minStock ?? 10;
+    const status: Product["status"] =
+      stock === 0 ? "Agotado" : stock <= minThreshold ? "Bajo stock" : "En stock";
+    return { ...prod, stock, status, variants };
+  });
+}
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [products, setProducts] = useState<Product[]>(initialProducts);
@@ -434,7 +462,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           newStock = updated.stock !== undefined ? updated.stock : p.stock;
         }
 
-        const minStock = updated.minStock !== undefined ? updated.minStock : p.minStock || 10;
+        const minStock = updated.minStock !== undefined ? updated.minStock : p.minStock ?? 10;
         const newStatus =
           updated.status !== undefined
             ? updated.status
@@ -482,6 +510,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }) => {
     const targetProduct = products.find((p) => p.id === productId);
     if (!targetProduct || quantity <= 0) return;
+    // A product with variants keeps stock = sum of variants, so the units must go to one model.
+    if (targetProduct.hasVariants && targetProduct.variants?.length && !variantId) return;
 
     const previousStock = targetProduct.stock;
     const newStock = previousStock + quantity;
@@ -556,7 +586,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         id: `exp-${Date.now()}`,
         description: `Re-stock: ${quantity}u. ${targetVariant ? `${targetProduct.name} (${targetVariant.name})` : targetProduct.name} (${resolvedSupplier})`,
         category: "Proveedores",
-        date: movementDate.split(" ")[0] || "Hoy",
+        date: movementDate.split(" ")[0] || isoToStoredDate(),
         type: "Egreso",
         amount: totalCost,
         status: "Pagado",
@@ -566,60 +596,30 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Sale CRUD
-  const addSale = (newSale: Omit<Sale, "id">) => {
+  const addSale = (newSale: Omit<Sale, "id">): Sale => {
     const sale: Sale = {
       ...newSale,
       id: `sale-${Date.now()}`,
     };
     setSales((prev) => [sale, ...prev]);
-
-    // Automatically decrement product stock if items were specified (POS checkout)
-    if (newSale.items && newSale.items.length > 0) {
-      setProducts((prev) =>
-        prev.map((prod) => {
-          const matchedItem = newSale.items?.find(
-            (i) =>
-              i.productId === prod.id ||
-              i.sku === prod.sku ||
-              (prod.variants && prod.variants.some((v) => v.sku === i.sku || v.id === i.variantId))
-          );
-          if (matchedItem) {
-            let nextVariants = prod.variants;
-            if (prod.hasVariants && prod.variants) {
-              nextVariants = prod.variants.map((v) => {
-                if (v.id === matchedItem.variantId || v.sku === matchedItem.sku) {
-                  return { ...v, stock: Math.max(0, v.stock - matchedItem.quantity) };
-                }
-                return v;
-              });
-            }
-            const nextStock =
-              nextVariants && prod.hasVariants
-                ? nextVariants.reduce((sum, v) => sum + v.stock, 0)
-                : Math.max(0, prod.stock - matchedItem.quantity);
-            const minThreshold = prod.minStock !== undefined ? prod.minStock : 10;
-            const nextStatus =
-              nextStock === 0 ? "Agotado" : nextStock <= minThreshold ? "Bajo stock" : "En stock";
-            return {
-              ...prod,
-              stock: nextStock,
-              status: nextStatus,
-              variants: nextVariants,
-            };
-          }
-          return prod;
-        })
-      );
-    }
+    // POS checkout: decrement stock for every item sold
+    setProducts((prev) => applyItemsToStock(prev, newSale.items, -1));
+    return sale;
   };
 
   const updateSale = (id: string, updated: Partial<Sale>) => {
+    const old = sales.find((s) => s.id === id);
+    if (old && updated.items !== undefined) {
+      setProducts((prev) => applyItemsToStock(applyItemsToStock(prev, old.items, 1), updated.items, -1));
+    }
     setSales((prev) =>
       prev.map((s) => (s.id === id ? { ...s, ...updated } : s))
     );
   };
 
   const deleteSale = (id: string) => {
+    const old = sales.find((s) => s.id === id);
+    if (old) setProducts((prev) => applyItemsToStock(prev, old.items, 1));
     setSales((prev) => prev.filter((s) => s.id !== id));
   };
 
@@ -668,28 +668,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } else {
       // ── General payment: distribute across pending sales chronologically ──
       // This keeps KPI cards in sync (totalPaid / totalDebt derive from sales).
+      // Computed outside the updater so it stays pure (StrictMode may run it twice).
       let remaining = newPayment.amount;
-      setSales((prev) => {
-        const result = prev.map((s) => {
-          if (remaining <= 0) return s;
-          const isClientSale =
-            s.clientId === newPayment.clientId ||
-            s.clientName.toLowerCase() === newPayment.clientName.toLowerCase();
-          if (!isClientSale || s.status !== "Pendiente") return s;
-
-          const alreadyPaid = s.paidAmount ?? 0;
-          const stillOwed = s.amount - alreadyPaid;
-          const toApply = Math.min(remaining, stillOwed);
-          remaining -= toApply;
-          const newPaid = alreadyPaid + toApply;
+      const newPaidById = new Map<string, number>();
+      for (const s of sales) {
+        if (remaining <= 0) break;
+        const isClientSale =
+          s.clientId === newPayment.clientId ||
+          s.clientName.toLowerCase() === newPayment.clientName.toLowerCase();
+        if (!isClientSale || s.status !== "Pendiente") continue;
+        const alreadyPaid = s.paidAmount ?? 0;
+        const toApply = Math.min(remaining, s.amount - alreadyPaid);
+        remaining -= toApply;
+        newPaidById.set(s.id, alreadyPaid + toApply);
+      }
+      setSales((prev) =>
+        prev.map((s) => {
+          const newPaid = newPaidById.get(s.id);
+          if (newPaid === undefined) return s;
           return {
             ...s,
             paidAmount: newPaid,
             status: newPaid >= s.amount ? ("Completada" as const) : s.status,
           };
-        });
-        return result;
-      });
+        })
+      );
     }
   };
 
@@ -720,7 +723,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       id: `pay-${Date.now()}`,
       clientId,
       clientName,
-      date: "Hoy",
+      date: isoToStoredDate(),
       amount: debtAmount,
       method,
       notes: "Cancelación total de deuda",

@@ -901,9 +901,10 @@ export default function StockContent() {
                 <select
                   value={selectedVariantId}
                   onChange={(e) => setSelectedVariantId(e.target.value)}
+                  required
                   className="w-full bg-white border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] font-medium"
                 >
-                  <option value="">Ingreso general / Todos los modelos</option>
+                  <option value="" disabled>Elegí el modelo a reponer</option>
                   {selectedProductForRestock.variants.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.name} (Stock: {v.stock}u. · SKU: {v.sku})
@@ -924,7 +925,7 @@ export default function StockContent() {
                       .
                     </>
                   ) : (
-                    "Se sumará al stock general del producto."
+                    "Elegí un modelo: el stock del producto es la suma de sus modelos."
                   )}
                 </span>
               </div>

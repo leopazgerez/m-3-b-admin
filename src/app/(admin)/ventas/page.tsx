@@ -9,7 +9,7 @@ import Modal from "@/components/ui/Modal";
 import ConfirmDeleteModal from "@/components/ui/ConfirmDeleteModal";
 import { useState, useMemo } from "react";
 import FilterPanel from "@/components/ui/FilterPanel";
-import { isDateInRange } from "@/lib/dateUtils";
+import { isDateInRange, parseDateToYYYYMMDD, toLocalISODate, isoToStoredDate } from "@/lib/dateUtils";
 import {
   Calendar,
   CreditCard,
@@ -22,63 +22,6 @@ import {
   ShoppingBag,
   CheckCircle2,
 } from "lucide-react";
-
-function parseDateToInputFormat(dateStr?: string): string {
-  if (!dateStr) return new Date().toISOString().split("T")[0];
-  const trimmed = dateStr.trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
-  if (trimmed.toLowerCase().includes("hoy")) return new Date().toISOString().split("T")[0];
-
-  // DD/MM/YYYY
-  const ddmmyyyy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if (ddmmyyyy) {
-    return `${ddmmyyyy[3]}-${ddmmyyyy[2].padStart(2, "0")}-${ddmmyyyy[1].padStart(2, "0")}`;
-  }
-
-  // "19 Sep"
-  const dayMonth = trimmed.match(/^(\d{1,2})\s+([a-zA-ZáéíóúÁÉÍÓÚ]+)/i);
-  if (dayMonth) {
-    const day = dayMonth[1].padStart(2, "0");
-    const monthName = dayMonth[2].toLowerCase().slice(0, 3);
-    const monthsMap: Record<string, string> = {
-      ene: "01",
-      feb: "02",
-      mar: "03",
-      abr: "04",
-      may: "05",
-      jun: "06",
-      jul: "07",
-      ago: "08",
-      sep: "09",
-      oct: "10",
-      nov: "11",
-      dic: "12",
-    };
-    const month = monthsMap[monthName] || "09";
-    const currentYear = new Date().getFullYear();
-    return `${currentYear}-${month}-${day}`;
-  }
-
-  const d = new Date(trimmed);
-  if (!isNaN(d.getTime())) {
-    return d.toISOString().split("T")[0];
-  }
-
-  return new Date().toISOString().split("T")[0];
-}
-
-function formatDisplayDate(isoDate: string): string {
-  if (!isoDate) return "Hoy";
-  const parts = isoDate.split("-");
-  if (parts.length === 3) {
-    const month = parseInt(parts[1], 10);
-    const day = parseInt(parts[2], 10);
-    const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-    const monthStr = months[month - 1] || "";
-    return `${day} ${monthStr}`;
-  }
-  return isoDate;
-}
 
 export default function VentasPage() {
   const { sales, products, saleTypes, addSale, updateSale, deleteSale } = useStore();
@@ -113,7 +56,7 @@ export default function VentasPage() {
     setClientName(s.clientName);
     setMethod(s.method || saleTypes[0] || "Efectivo");
     setStatus(s.status);
-    setSaleDate(parseDateToInputFormat(s.date));
+    setSaleDate(parseDateToYYYYMMDD(s.date) || toLocalISODate());
 
     // Initialize items: preserve existing items array or fallback to legacy single product
     let initialItems: SaleItem[] = [];
@@ -269,9 +212,14 @@ export default function VentasPage() {
         items,
         method: method || saleTypes[0] || "Efectivo",
         amount: totalAmount,
-        paidAmount: status === "Completada" ? totalAmount : editingSale.paidAmount ?? 0,
+        paidAmount:
+          status === "Completada"
+            ? totalAmount
+            : status === "Pendiente" && editingSale.status === "Completada"
+            ? 0
+            : Math.min(editingSale.paidAmount ?? 0, totalAmount),
         status,
-        date: formatDisplayDate(saleDate),
+        date: isoToStoredDate(saleDate || toLocalISODate()),
       });
     }
 

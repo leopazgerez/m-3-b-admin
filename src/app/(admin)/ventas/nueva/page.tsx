@@ -8,6 +8,7 @@ import Modal from "@/components/ui/Modal";
 import { useStore } from "@/lib/store";
 import { Product, ProductVariant, SaleItem, Client } from "@/lib/types";
 import { getAssetPath } from "@/lib/assets";
+import { isoToStoredDate } from "@/lib/dateUtils";
 import {
   ScanBarcode,
   ShoppingCart,
@@ -459,7 +460,6 @@ export default function NuevaVentaPosPage() {
   const handleCheckout = () => {
     if (cart.length === 0) return;
 
-    const saleId = `sale-${cart.length}-${Math.floor(Math.random() * 100000)}`;
     const effectiveClientName = selectedClient ? selectedClient.name : (clientName.trim() || "Consumidor Final");
     const initials = selectedClient
       ? selectedClient.initials
@@ -485,21 +485,15 @@ export default function NuevaVentaPosPage() {
       clientEmail: selectedClient?.email,
       clientDni: selectedClient?.dni,
       productName: summaryProductName,
-      items: cart.map(({ productId, productName, sku, quantity, unitPrice, subtotal: itemSub }) => ({
-        productId,
-        productName,
-        sku,
-        quantity,
-        unitPrice,
-        subtotal: itemSub,
-      })),
-      date: "Hoy",
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      items: cart.map(({ product, ...item }) => item),
+      date: isoToStoredDate(),
       method: selectedMethod,
       amount: total,
       status: "Completada" as const,
     };
 
-    addSale(saleRecord);
+    const savedSale = addSale(saleRecord);
 
     const now = new Date();
     const formattedDate = now.toLocaleDateString("es-AR", {
@@ -511,7 +505,7 @@ export default function NuevaVentaPosPage() {
     });
 
     setCompletedSale({
-      id: saleId,
+      id: savedSale.id,
       clientName: effectiveClientName,
       clientDni: selectedClient?.dni,
       clientPhone: selectedClient?.phone,

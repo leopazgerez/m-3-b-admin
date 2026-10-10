@@ -5,6 +5,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useStore } from "@/lib/store";
 import Badge from "@/components/ui/Badge";
+import { isoToStoredDate, parseDateToYYYYMMDD } from "@/lib/dateUtils";
 import {
   ArrowLeft,
   Mail,
@@ -69,8 +70,10 @@ export default function ClienteDetailContent() {
     (p) => p.clientId === clientId || p.clientName === client?.name
   );
 
-  const totalPurchased = salesOfClient.reduce((acc, s) => acc + s.amount, 0);
-  const totalPaid = salesOfClient.reduce(
+  // Cancelled sales are not owed (settle/registerPayment only touch "Pendiente" sales)
+  const billableSales = salesOfClient.filter((s) => s.status !== "Cancelada");
+  const totalPurchased = billableSales.reduce((acc, s) => acc + s.amount, 0);
+  const totalPaid = billableSales.reduce(
     (acc, s) => acc + (s.paidAmount ?? (s.status === "Completada" ? s.amount : 0)),
     0
   );
@@ -123,7 +126,7 @@ export default function ClienteDetailContent() {
       registerPayment({
         clientId,
         clientName: client!.name,
-        date: "Hoy",
+        date: isoToStoredDate(),
         amount,
         method: payMethod,
         notes: payNotes || undefined,
@@ -140,7 +143,7 @@ export default function ClienteDetailContent() {
     registerPayment({
       clientId,
       clientName: client!.name,
-      date: "Hoy",
+      date: isoToStoredDate(),
       amount: remaining,
       method: saleTypes[0] || "Efectivo",
       saleId,
@@ -170,11 +173,7 @@ export default function ClienteDetailContent() {
       amount: p.amount,
       method: p.method,
     })),
-  ].sort((a, b) => {
-    if (a.date === "Hoy") return -1;
-    if (b.date === "Hoy") return 1;
-    return 0;
-  });
+  ].sort((a, b) => parseDateToYYYYMMDD(b.date).localeCompare(parseDateToYYYYMMDD(a.date)));
 
   // ─── Not found ─────────────────────────────────────────────────────────────
   if (!client) {
