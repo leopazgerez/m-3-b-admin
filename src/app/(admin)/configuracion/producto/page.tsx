@@ -17,7 +17,8 @@ export default function ConfigProductoPage() {
   const [editingCat, setEditingCat] = useState<ProductCategory | null>(null);
   const [editName, setEditName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [writeError, setWriteError] = useState<unknown>(null); // create / delete (page level)
+  const [createError, setCreateError] = useState<unknown>(null);
+  const [deleteError, setDeleteError] = useState<unknown>(null);
   const [editError, setEditError] = useState<unknown>(null); // rename (inside modal)
 
   useEffect(() => {
@@ -48,13 +49,14 @@ export default function ConfigProductoPage() {
 
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();
-    setWriteError(null);
-    write(() => api.post("/product-categories", { name: newCat.trim() }), setWriteError, () => setNewCat(""));
+    setCreateError(null);
+    write(() => api.post("/product-categories", { name: newCat.trim() }), setCreateError, () => setNewCat(""));
   };
 
   const handleRename = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCat) return;
+    if (editName.trim() === editingCat.name) return setEditingCat(null);
     setEditError(null);
     write(
       () => api.patch(`/product-categories/${editingCat.id}`, { name: editName.trim() }),
@@ -65,8 +67,8 @@ export default function ConfigProductoPage() {
 
   const handleDelete = () => {
     if (!deletingCat) return;
-    setWriteError(null);
-    write(() => api.del(`/product-categories/${deletingCat.id}`), setWriteError);
+    setDeleteError(null);
+    write(() => api.del(`/product-categories/${deletingCat.id}`), setDeleteError);
   };
 
   return (
@@ -141,10 +143,11 @@ export default function ConfigProductoPage() {
               <span>Agregar categoría</span>
             </button>
           </form>
-          <ApiErrorBanner error={writeError} />
+          <ApiErrorBanner error={createError} />
         </div>
 
         <ApiErrorBanner error={error} onRetry={reload} />
+        <ApiErrorBanner error={deleteError} />
 
         {/* Categories List */}
         <div className="bg-white rounded-2xl border border-[#E7DFD2] shadow-xs overflow-hidden flex flex-col w-full min-w-0">
@@ -157,7 +160,7 @@ export default function ConfigProductoPage() {
               </div>
 
               <div className="divide-y divide-[#F7F3EC]">
-                {!loading && items.length === 0 ? (
+                {!loading && !error && items.length === 0 ? (
                   <div className="p-12 text-center text-[#7A6F63] text-sm">
                     No se encontraron categorías.
                   </div>
@@ -186,6 +189,7 @@ export default function ConfigProductoPage() {
 
                         <div className="w-24 shrink-0 text-center flex items-center justify-center">
                           <button
+                            disabled={busy}
                             onClick={() => {
                               setEditingCat(cat);
                               setEditName(cat.name);
