@@ -74,12 +74,14 @@ function CustomerDetail({ id }: { id: number }) {
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const openPay = (t: PayTarget) => { setSuccess(null); setPayTarget(t); };
   const reloadAll = () => { customer.reload(); account.reload(); sales.reload(); };
 
   const handleVoid = async () => {
     if (!voiding) return;
     const entry = voiding;
     setVoidError(null);
+    setSuccess(null);
     setBusy(true);
     try {
       await api.del(`/payments/${entry.id}`);
@@ -163,7 +165,7 @@ function CustomerDetail({ id }: { id: number }) {
             <div className="flex flex-wrap gap-2 shrink-0">
               {isInDebt && (
                 <button
-                  onClick={() => setPayTarget({ mode: "total" })}
+                  onClick={() => openPay({ mode: "total" })}
                   disabled={busy}
                   className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-sm disabled:opacity-60"
                 >
@@ -172,7 +174,7 @@ function CustomerDetail({ id }: { id: number }) {
                 </button>
               )}
               <button
-                onClick={() => setPayTarget({ mode: "partial" })}
+                onClick={() => openPay({ mode: "partial" })}
                 disabled={busy}
                 className="flex items-center gap-2 bg-[#FBF8F2] border border-[#E7DFD2] text-[#231E1A] px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#F0E9DE] transition-all shadow-sm disabled:opacity-60"
               >
@@ -320,7 +322,7 @@ function CustomerDetail({ id }: { id: number }) {
                         <span className="font-bold text-[#231E1A] text-sm">{money(s.totalDue)}</span>
                         {s.outstanding > 0 && !s.cancelledAt && (
                           <button
-                            onClick={() => setPayTarget({ mode: "sale", sale: s })}
+                            onClick={() => openPay({ mode: "sale", sale: s })}
                             disabled={busy}
                             className="text-xs bg-[#3E8E5A] text-white px-3 py-1.5 rounded-lg hover:bg-[#2E6E45] transition-colors font-semibold disabled:opacity-60"
                           >
@@ -397,10 +399,10 @@ function PaymentModal({ customer, target, onClose, onDone }: {
     e.preventDefault();
     const body: PaymentFields = { amount: Number(amount), paymentMethodId: Number(methodId) };
     if (accountId) body.accountId = Number(accountId);
-    // Only a past day is sent (as the start of that local day); today/empty = now on the server.
+    // Only a past day is sent, as the END of that local day (never future: max=today, today is omitted) so it is not before a sale of that same day; today/empty = now on the server.
     if (paidOn && paidOn < today) {
       const [y, m, d] = paidOn.split("-").map(Number);
-      body.paidAt = new Date(y, m - 1, d).toISOString();
+      body.paidAt = new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
     }
     if (notes.trim()) body.notes = notes.trim();
     if (target.mode === "sale") body.saleId = target.sale.id;
@@ -428,7 +430,7 @@ function PaymentModal({ customer, target, onClose, onDone }: {
           <div className="text-xs text-[#A89C8C] mb-1">
             {target.mode === "sale" ? `Saldo de la venta #${target.sale.id}` : `Saldo pendiente de ${customer.fullName}`}
           </div>
-          <div className={`text-2xl font-bold ${customer.outstanding > 0 ? "text-[#C0492F]" : "text-[#3E8E5A]"}`}>
+          <div className={`text-2xl font-bold ${(target.mode === "sale" ? target.sale.outstanding : customer.outstanding) > 0 ? "text-[#C0492F]" : "text-[#3E8E5A]"}`}>
             {money(target.mode === "sale" ? target.sale.outstanding : customer.outstanding)}
           </div>
           {target.mode === "partial" && (
