@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Coffee, Trash2, Edit2, ScanBarcode, Eye, Boxes, Tag, Truck, ArrowUp, ArrowDown, Layers } from "lucide-react";
 import Topbar from "@/components/layout/Topbar";
-import { ApiErrorBanner, ConfirmDeleteModal, Pager } from "@/components/ui";
+import { ApiErrorBanner, ConfirmDeleteModal, Pager, StatusBadge } from "@/components/ui";
+import { money } from "@/lib/format";
 import FilterPanel from "@/components/ui/FilterPanel";
 import { api } from "@/lib/api";
 import { useOptions, usePagedList } from "@/lib/useApi";
@@ -12,7 +13,7 @@ import { instantRangeCriteria, type Criterion } from "@/lib/apiQuery";
 import { stockStatusLabel } from "@/lib/labels";
 import type { Product, ProductCategory, StockStatus, Supplier } from "@/lib/apiTypes";
 import ProductFormModal from "./ProductFormModal";
-import VariantsModal, { StatusBadge, money } from "./VariantsModal";
+import VariantsModal from "./VariantsModal";
 
 const STATUSES = Object.keys(stockStatusLabel) as StockStatus[];
 const filterSelectCls =

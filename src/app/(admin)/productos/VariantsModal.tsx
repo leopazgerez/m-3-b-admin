@@ -3,25 +3,13 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Coffee, Truck, Layers, Pencil, Trash2, History, PackagePlus, ScanBarcode, Plus } from "lucide-react";
-import { ApiErrorBanner, Badge, ConfirmDeleteModal, Modal } from "@/components/ui";
+import { ApiErrorBanner, ConfirmDeleteModal, Modal, StatusBadge } from "@/components/ui";
+import { money } from "@/lib/format";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/useApi";
-import { stockStatusLabel } from "@/lib/labels";
-import type { Product, StockStatus, UpdateVariantCommand, Variant, VariantDraft } from "@/lib/apiTypes";
+import type { Product, UpdateVariantCommand, Variant, VariantDraft } from "@/lib/apiTypes";
 import CostHistoryModal from "./CostHistoryModal";
 import BarcodeScanner from "./BarcodeScanner";
-
-const statusVariant: Record<StockStatus, "success" | "warning" | "danger"> = {
-  IN_STOCK: "success",
-  LOW: "warning",
-  OUT: "danger",
-};
-
-export function StatusBadge({ status }: { status: StockStatus }) {
-  return <Badge variant={statusVariant[status]}>{stockStatusLabel[status]}</Badge>;
-}
-
-export const money = (n: number) => `$${n.toLocaleString("es-AR")}`;
 
 const inputCls =
   "w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white";

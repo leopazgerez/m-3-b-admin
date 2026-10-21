@@ -1,12 +1,8 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import Topbar from "@/components/layout/Topbar";
-import Badge from "@/components/ui/Badge";
-import Modal from "@/components/ui/Modal";
-import { useStore } from "@/lib/store";
-import { Product, StockMovement } from "@/lib/types";
+import Link from "next/link";
 import {
   Boxes,
   PackagePlus,
@@ -19,264 +15,154 @@ import {
   Calendar,
   Coffee,
   Truck,
-  ArrowRight,
   SlidersHorizontal,
   Layers,
   Tag,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
-import Link from "next/link";
+import Topbar from "@/components/layout/Topbar";
+import { ApiErrorBanner, Pager, StatusBadge } from "@/components/ui";
 import FilterPanel from "@/components/ui/FilterPanel";
-import { isDateInRange } from "@/lib/dateUtils";
+import { api } from "@/lib/api";
+import { useApiResource, useOptions, usePagedList } from "@/lib/useApi";
+import { instantRangeCriteria, type Criterion } from "@/lib/apiQuery";
+import { movementTypeLabel, stockStatusLabel } from "@/lib/labels";
+import { money, variantLabel } from "@/lib/format";
+import { formatInstant } from "@/lib/dateUtils";
+import type {
+  MovementType, ProductCategory, StockMovement, StockRow, StockStatus, StockSummary, Supplier,
+} from "@/lib/apiTypes";
+import RestockModal from "./RestockModal";
+import AdjustmentModal from "./AdjustmentModal";
+
+const STATUSES = Object.keys(stockStatusLabel) as StockStatus[];
+const MOVEMENT_TYPES = Object.keys(movementTypeLabel) as MovementType[];
+const filterSelectCls =
+  "w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer";
+const searchCls =
+  "w-full bg-white border border-[#E7DFD2] rounded-xl pl-9 pr-3.5 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white transition-all shadow-2xs";
+
+// positive integer from a query param, else undefined (old links carried string ids)
+const idParam = (v: string | null) => (v && /^\d+$/.test(v) ? Number(v) : undefined);
+
+function useDebounced(value: string) {
+  const [debounced, setDebounced] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value.trim()), 300);
+    return () => clearTimeout(t);
+  }, [value]);
+  return debounced;
+}
+
+type Sort = { by: string; dir: "asc" | "desc" };
+
+function SortHeader({ sort, setSort, field, label, className }: {
+  sort: Sort; setSort: (s: Sort) => void; field: string; label: string; className: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => setSort(sort.by === field ? { by: field, dir: sort.dir === "asc" ? "desc" : "asc" } : { by: field, dir: "asc" })}
+      className={`${className} flex items-center gap-1 font-semibold hover:text-[#9C5A2E] cursor-pointer`}
+    >
+      {label}
+      {sort.by === field && (sort.dir === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />)}
+    </button>
+  );
+}
+
+type RestockState = { row?: StockRow; productId?: number; variantId?: number };
 
 export default function StockContent() {
   const searchParams = useSearchParams();
-  const {
-    products,
-    productCategories,
-    supplierNames,
-    stockMovements,
-    restockProduct,
-  } = useStore();
-
   const [activeTab, setActiveTab] = useState<"existencias" | "historial">("existencias");
 
-  // Filter & Search states (Tab Existencias)
+  // Existencias
   const [searchTerm, setSearchTerm] = useState("");
-  const [isExistenciasFilterOpen, setIsExistenciasFilterOpen] = useState(false);
-  const [existenciasDateFrom, setExistenciasDateFrom] = useState("");
-  const [existenciasDateTo, setExistenciasDateTo] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("Todas");
-  const [selectedStatus, setSelectedStatus] = useState<string>("Todos");
-  const [selectedSupplier, setSelectedSupplier] = useState<string>("Todos");
+  const search = useDebounced(searchTerm);
+  const [stockSort, setStockSort] = useState<Sort>({ by: "productName", dir: "asc" });
+  const [isStockFilterOpen, setIsStockFilterOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [supplierFilter, setSupplierFilter] = useState("");
 
-  // Filter & Search states (Tab Historial)
-  const [historySearchTerm, setHistorySearchTerm] = useState("");
+  // Historial
+  const [historyTerm, setHistoryTerm] = useState("");
+  const historySearch = useDebounced(historyTerm);
+  const [historySort, setHistorySort] = useState<Sort>({ by: "movedAt", dir: "desc" });
   const [isHistoryFilterOpen, setIsHistoryFilterOpen] = useState(false);
   const [historyDateFrom, setHistoryDateFrom] = useState("");
   const [historyDateTo, setHistoryDateTo] = useState("");
-  const [historyTypeFilter, setHistoryTypeFilter] = useState<string>("Todos");
+  const [typeFilter, setTypeFilter] = useState("");
 
-  // Re-stock Modal State
-  const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
-  const [selectedProductForRestock, setSelectedProductForRestock] = useState<Product | null>(null);
-  const [selectedVariantId, setSelectedVariantId] = useState<string>("");
-  const [restockQuantity, setRestockQuantity] = useState<string>("");
-  const [restockCostUnit, setRestockCostUnit] = useState<string>("");
-  const [restockSupplier, setRestockSupplier] = useState<string>("");
-  const [restockNotes, setRestockNotes] = useState<string>("");
-  const [restockDate, setRestockDate] = useState<string>("");
-  const [registerExpense, setRegisterExpense] = useState<boolean>(true);
-  const [restockSuccessFeedback, setRestockSuccessFeedback] = useState<string | null>(null);
+  // Modals
+  const [restock, setRestock] = useState<RestockState | null>(null);
+  const [adjusting, setAdjusting] = useState<{ row?: StockRow } | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
+  // /stock?productId=X[&variantId=Y] (from Productos) opens the restock modal with that variant preselected
+  const paramKey = searchParams.toString();
+  const [seenParams, setSeenParams] = useState<string | null>(null);
+  if (seenParams !== paramKey) {
+    setSeenParams(paramKey);
+    const productId = idParam(searchParams.get("productId"));
+    const variantId = idParam(searchParams.get("variantId"));
+    if (productId !== undefined || variantId !== undefined) setRestock({ productId, variantId });
+  }
 
+  const stockFilters: Criterion[] = [
+    ...(statusFilter ? [{ field: "status", operator: "EQUALS" as const, value: statusFilter }] : []),
+    ...(categoryFilter ? [{ field: "categoryId", operator: "EQUALS" as const, value: Number(categoryFilter) }] : []),
+    ...(supplierFilter ? [{ field: "supplierId", operator: "EQUALS" as const, value: Number(supplierFilter) }] : []),
+  ];
+  const stock = usePagedList<StockRow>("/stock", {
+    sortBy: stockSort.by,
+    sortDir: stockSort.dir,
+    search: search || undefined,
+    filters: stockFilters,
+  });
 
-  // Auto-open modal if URL query parameter productId is provided
-  useEffect(() => {
-    const paramProductId = searchParams.get("productId");
-    const paramVariantId = searchParams.get("variantId");
-    if (paramProductId) {
-      const match = products.find(
-        (p) => p.id === paramProductId || p.sku.toLowerCase() === paramProductId.toLowerCase()
-      );
-      if (match) {
-        openRestockModal(match, paramVariantId || undefined);
-      }
-    }
-  }, [searchParams, products]);
+  const historyFilters: Criterion[] = [
+    ...(typeFilter ? [{ field: "type", operator: "EQUALS" as const, value: typeFilter }] : []),
+    ...instantRangeCriteria("movedAt", historyDateFrom || undefined, historyDateTo || undefined),
+  ];
+  const movements = usePagedList<StockMovement>("/stock/movements", {
+    sortBy: historySort.by,
+    sortDir: historySort.dir,
+    search: historySearch || undefined,
+    filters: historyFilters,
+  });
 
-  // Open restock modal with clean state
-  const openRestockModal = (product?: Product, variantId?: string) => {
-    const target = product || products[0] || null;
-    setSelectedProductForRestock(target);
-    setSelectedVariantId(variantId || "");
-    setRestockQuantity("10");
-    setRestockCostUnit(target?.listPrice ? target.listPrice.toString() : "");
-    setRestockSupplier(target?.supplier || "");
-    const targetVar = variantId && target?.variants ? target.variants.find((v) => v.id === variantId) : null;
-    setRestockNotes(targetVar ? `Reposición modelo ${targetVar.name}` : "");
-    setRegisterExpense(true);
+  const summary = useApiResource(() => api.getOne<StockSummary>("/stock/summary"), []);
+  const categories = useOptions<ProductCategory>("/product-categories");
+  const suppliers = useOptions<Supplier>("/suppliers");
+  const optionsError = categories.error ?? suppliers.error;
 
-    const now = new Intl.DateTimeFormat("es-AR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date());
-    setRestockDate(now);
+  const stockActiveCount = (statusFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (supplierFilter ? 1 : 0);
+  const historyActiveCount = (historyDateFrom ? 1 : 0) + (historyDateTo ? 1 : 0) + (typeFilter ? 1 : 0);
 
-    setIsRestockModalOpen(true);
+  const handleDone = (message: string) => {
+    setRestock(null);
+    setAdjusting(null);
+    setFeedback(message);
+    stock.reload();
+    movements.reload();
+    summary.reload();
   };
 
-  // Handle product selection change inside modal
-  const handleProductChangeInModal = (prodId: string) => {
-    const found = products.find((p) => p.id === prodId) || null;
-    setSelectedProductForRestock(found);
-    setSelectedVariantId("");
-    if (found && found.listPrice) {
-      setRestockCostUnit(found.listPrice.toString());
-    }
-    if (found && found.supplier) {
-      setRestockSupplier(found.supplier);
-    }
-  };
-
-  // Submit restock
-  const handleRestockSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedProductForRestock) return;
-
-    const qty = parseInt(restockQuantity);
-    if (!qty || qty <= 0) return;
-
-    const costUnit = restockCostUnit ? parseFloat(restockCostUnit) : selectedProductForRestock.listPrice;
-
-    restockProduct({
-      productId: selectedProductForRestock.id,
-      variantId: selectedVariantId || undefined,
-      quantity: qty,
-      costPerUnit: costUnit,
-      supplier: restockSupplier || selectedProductForRestock.supplier || "Proveedor habitual",
-      notes: restockNotes || "Reposición de stock",
-      date: restockDate,
-      registerExpense,
-    });
-
-    const targetVar = selectedVariantId && selectedProductForRestock.variants
-      ? selectedProductForRestock.variants.find((v) => v.id === selectedVariantId)
-      : null;
-
-    const successMsg = targetVar
-      ? `¡Re-stock de +${qty} unidades registrado para ${selectedProductForRestock.name} (Modelo: ${targetVar.name})!`
-      : `¡Re-stock de +${qty} unidades registrado para ${selectedProductForRestock.name}!`;
-    setRestockSuccessFeedback(successMsg);
-    setTimeout(() => setRestockSuccessFeedback(null), 4000);
-
-    setIsRestockModalOpen(false);
-  };
-
-  // KPIs
-  const totalUnits = useMemo(() => {
-    return products.reduce((acc, p) => acc + (p.stock || 0), 0);
-  }, [products]);
-
-  const totalValuationCost = useMemo(() => {
-    return products.reduce((acc, p) => acc + (p.stock || 0) * (p.listPrice || 0), 0);
-  }, [products]);
-
-  const lowStockCount = useMemo(() => {
-    return products.filter(
-      (p) =>
-        p.status === "Bajo stock" ||
-        (p.stock > 0 && p.stock <= (p.minStock !== undefined ? p.minStock : 10))
-    ).length;
-  }, [products]);
-
-  const outOfStockCount = useMemo(() => {
-    return products.filter((p) => p.status === "Agotado" || p.stock === 0).length;
-  }, [products]);
-
-  // Filtered products for Tab Existencias
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const matchSearch =
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        Boolean(
-          p.hasVariants &&
-            p.variants?.some(
-              (v) =>
-                v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                v.sku.toLowerCase().includes(searchTerm.toLowerCase())
-            )
-        );
-      const matchCategory = selectedCategory === "Todas" || p.category === selectedCategory;
-      const matchSupplier =
-        selectedSupplier === "Todos" || p.supplier === selectedSupplier;
-
-      const matchStatus =
-        selectedStatus === "Todos" ||
-        (selectedStatus === "En stock" && p.status === "En stock") ||
-        (selectedStatus === "Bajo stock" && p.status === "Bajo stock") ||
-        (selectedStatus === "Agotado" && (p.status === "Agotado" || p.stock === 0));
-
-      const matchDate = isDateInRange(
-        p.lastRestockDate || p.initialStockDate,
-        existenciasDateFrom,
-        existenciasDateTo
-      );
-
-      return matchSearch && matchCategory && matchSupplier && matchStatus && matchDate;
-    });
-  }, [
-    products,
-    searchTerm,
-    selectedCategory,
-    selectedSupplier,
-    selectedStatus,
-    existenciasDateFrom,
-    existenciasDateTo,
-  ]);
-
-  const existenciasActiveCount =
-    (existenciasDateFrom ? 1 : 0) +
-    (existenciasDateTo ? 1 : 0) +
-    (selectedStatus !== "Todos" ? 1 : 0) +
-    (selectedCategory !== "Todas" ? 1 : 0) +
-    (selectedSupplier !== "Todos" ? 1 : 0);
-
-  const resetExistenciasFilters = () => {
-    setExistenciasDateFrom("");
-    setExistenciasDateTo("");
-    setSelectedStatus("Todos");
-    setSelectedCategory("Todas");
-    setSelectedSupplier("Todos");
-  };
-
-  // Filtered history movements
-  const filteredMovements = useMemo(() => {
-    return stockMovements.filter((m) => {
-      const matchSearch =
-        m.productName.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
-        m.sku.toLowerCase().includes(historySearchTerm.toLowerCase()) ||
-        Boolean(m.variantName && m.variantName.toLowerCase().includes(historySearchTerm.toLowerCase())) ||
-        (m.supplier && m.supplier.toLowerCase().includes(historySearchTerm.toLowerCase())) ||
-        (m.notes && m.notes.toLowerCase().includes(historySearchTerm.toLowerCase()));
-      const matchType = historyTypeFilter === "Todos" || m.type === historyTypeFilter;
-      const matchDate = isDateInRange(m.date, historyDateFrom, historyDateTo);
-
-      return matchSearch && matchType && matchDate;
-    });
-  }, [
-    stockMovements,
-    historySearchTerm,
-    historyTypeFilter,
-    historyDateFrom,
-    historyDateTo,
-  ]);
-
-  const historyActiveCount =
-    (historyDateFrom ? 1 : 0) +
-    (historyDateTo ? 1 : 0) +
-    (historyTypeFilter !== "Todos" ? 1 : 0);
-
-  const resetHistoryFilters = () => {
-    setHistoryDateFrom("");
-    setHistoryDateTo("");
-    setHistoryTypeFilter("Todos");
-  };
+  const s = summary.data;
 
   return (
     <div className="flex flex-col flex-1 min-w-0 bg-[#FBF8F2] min-h-screen">
       <Topbar
         title="Control de Stock"
         subtitle="Monitoreo de existencias, reposición y trazabilidad histórica"
-        onSearch={(q) => setSearchTerm(q)}
+        onSearch={setSearchTerm}
       />
 
       <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1400px] w-full mx-auto flex flex-col gap-6">
-        {/* Header with Title and Restock action */}
+        {/* Header with Title and actions */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5">
@@ -288,7 +174,7 @@ export default function StockContent() {
               </span>
             </div>
             <p className="text-xs text-[#7A6F63] mt-1">
-              Monitoreo de existencias, reposición y trazabilidad histórica de ingresos
+              Monitoreo de existencias, reposición y trazabilidad histórica de movimientos
             </p>
           </div>
 
@@ -300,7 +186,14 @@ export default function StockContent() {
               Ver catálogo de productos
             </Link>
             <button
-              onClick={() => openRestockModal()}
+              onClick={() => setAdjusting({})}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#E7DFD2] bg-white text-xs font-semibold text-[#9C5A2E] hover:bg-[#FBF8F2] transition-colors shadow-2xs cursor-pointer"
+            >
+              <SlidersHorizontal className="w-4 h-4" />
+              <span>Registrar ajuste</span>
+            </button>
+            <button
+              onClick={() => setRestock({})}
               className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs cursor-pointer"
             >
               <PackagePlus className="w-4 h-4" />
@@ -309,15 +202,15 @@ export default function StockContent() {
           </div>
         </div>
 
-        {/* Success feedback toast */}
-        {restockSuccessFeedback && (
-          <div className="bg-[#EAF5EE] border border-[#3E8E5A]/30 text-[#2D6A42] p-4 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-xs animate-in fade-in slide-in-from-top-2">
+        {/* Success feedback */}
+        {feedback && (
+          <div className="bg-[#EAF5EE] border border-[#3E8E5A]/30 text-[#2D6A42] p-4 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-xs">
             <div className="flex items-center gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-[#3E8E5A] shrink-0" />
-              <span className="font-medium">{restockSuccessFeedback}</span>
+              <span className="font-medium">{feedback}</span>
             </div>
             <button
-              onClick={() => setRestockSuccessFeedback(null)}
+              onClick={() => setFeedback(null)}
               className="text-[#2D6A42] hover:text-[#1F4A2E] font-bold text-sm px-1 cursor-pointer"
             >
               ✕
@@ -325,533 +218,234 @@ export default function StockContent() {
           </div>
         )}
 
-        {/* Top KPI Cards */}
+        <ApiErrorBanner error={summary.error} onRetry={summary.reload} />
+
+        {/* KPI Cards (GET /stock/summary) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Total Unidades */}
           <div className="bg-white rounded-2xl p-5 border border-[#E7DFD2] shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#7A6F63] uppercase tracking-wider">
-                Unidades en Stock
-              </span>
+              <span className="text-xs font-semibold text-[#7A6F63] uppercase tracking-wider">Unidades en Stock</span>
               <div className="w-8 h-8 rounded-lg bg-[#EADBC6] flex items-center justify-center text-[#9C5A2E]">
                 <Boxes className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3">
               <div className="text-2xl font-bold font-heading text-[#231E1A]">
-                {totalUnits.toLocaleString("es-AR")}{" "}
+                {s ? s.totalUnits.toLocaleString("es-AR") : "—"}{" "}
                 <span className="text-xs font-normal text-[#A89C8C]">unidades</span>
               </div>
-              <span className="text-[11px] text-[#A89C8C] mt-1 block">
-                Distribuidas en {products.length} productos activos
-              </span>
             </div>
           </div>
 
-          {/* Valorización al Costo */}
           <div className="bg-white rounded-2xl p-5 border border-[#E7DFD2] shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#7A6F63] uppercase tracking-wider">
-                Valor del Stock (Costo)
-              </span>
+              <span className="text-xs font-semibold text-[#7A6F63] uppercase tracking-wider">Valor del Stock (Costo)</span>
               <div className="w-8 h-8 rounded-lg bg-[#EAF5EE] flex items-center justify-center text-[#3E8E5A]">
                 <TrendingUp className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3">
-              <div className="text-2xl font-bold font-heading text-[#231E1A]">
-                ${totalValuationCost.toLocaleString("es-AR")}
-              </div>
-              <span className="text-[11px] text-[#3E8E5A] mt-1 block font-medium">
-                Capital total inmovilizado
-              </span>
+              <div className="text-2xl font-bold font-heading text-[#231E1A]">{s ? money(s.costValuation) : "—"}</div>
+              <span className="text-[11px] text-[#3E8E5A] mt-1 block font-medium">Capital total inmovilizado</span>
             </div>
           </div>
 
-          {/* Bajo stock */}
           <div className="bg-white rounded-2xl p-5 border border-[#E7DFD2] shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#7A6F63] uppercase tracking-wider">
-                Bajo Stock
-              </span>
+              <span className="text-xs font-semibold text-[#7A6F63] uppercase tracking-wider">Bajo Stock</span>
               <div className="w-8 h-8 rounded-lg bg-[#FBEFD9] flex items-center justify-center text-[#D98A2B]">
                 <AlertTriangle className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3">
               <div className="text-2xl font-bold font-heading text-[#D98A2B]">
-                {lowStockCount}{" "}
-                <span className="text-xs font-normal text-[#A89C8C]">artículos</span>
+                {s ? s.lowCount : "—"} <span className="text-xs font-normal text-[#A89C8C]">artículos</span>
               </div>
-              <span className="text-[11px] text-[#A89C8C] mt-1 block">
-                Por debajo del umbral mínimo de seguridad
-              </span>
+              <span className="text-[11px] text-[#A89C8C] mt-1 block">En o por debajo del stock mínimo</span>
             </div>
           </div>
 
-          {/* Sin stock / Agotados */}
           <div className="bg-white rounded-2xl p-5 border border-[#E7DFD2] shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#7A6F63] uppercase tracking-wider">
-                Sin Stock (Agotados)
-              </span>
+              <span className="text-xs font-semibold text-[#7A6F63] uppercase tracking-wider">Sin Stock (Agotados)</span>
               <div className="w-8 h-8 rounded-lg bg-[#F7E3DD] flex items-center justify-center text-[#C0492F]">
                 <XCircle className="w-4 h-4" />
               </div>
             </div>
             <div className="mt-3">
               <div className="text-2xl font-bold font-heading text-[#C0492F]">
-                {outOfStockCount}{" "}
-                <span className="text-xs font-normal text-[#A89C8C]">artículos</span>
+                {s ? s.outCount : "—"} <span className="text-xs font-normal text-[#A89C8C]">artículos</span>
               </div>
-              <span className="text-[11px] text-[#A89C8C] mt-1 block">
-                Requieren reposición inmediata
-              </span>
+              <span className="text-[11px] text-[#A89C8C] mt-1 block">Requieren reposición inmediata</span>
             </div>
           </div>
         </div>
 
         {/* Tab Navigation */}
         <div className="flex items-center gap-2 border-b border-[#E7DFD2] pb-1">
-          <button
-            onClick={() => setActiveTab("existencias")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === "existencias"
-                ? "bg-[#9C5A2E] text-white shadow-xs"
-                : "text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#EADBC6]/30"
-            }`}
-          >
-            <Boxes className="w-4 h-4" />
-            <span>Existencias y Estado de Stock</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[10px] ${
-                activeTab === "existencias"
-                  ? "bg-white/20 text-white"
-                  : "bg-[#E7DFD2] text-[#7A6F63]"
+          {([
+            ["existencias", Boxes, "Existencias y Estado de Stock"],
+            ["historial", History, "Historial de Movimientos"],
+          ] as const).map(([tab, Icon, text]) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === tab
+                  ? "bg-[#9C5A2E] text-white shadow-xs"
+                  : "text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#EADBC6]/30"
               }`}
             >
-              {products.length}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("historial")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === "historial"
-                ? "bg-[#9C5A2E] text-white shadow-xs"
-                : "text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#EADBC6]/30"
-            }`}
-          >
-            <History className="w-4 h-4" />
-            <span>Historial de Reposiciones</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[10px] ${
-                activeTab === "historial"
-                  ? "bg-white/20 text-white"
-                  : "bg-[#E7DFD2] text-[#7A6F63]"
-              }`}
-            >
-              {stockMovements.length}
-            </span>
-          </button>
+              <Icon className="w-4 h-4" />
+              <span>{text}</span>
+            </button>
+          ))}
         </div>
 
-        {/* TAB 1: EXISTENCIAS Y ESTADO DE STOCK */}
+        {/* TAB 1: EXISTENCIAS */}
         {activeTab === "existencias" && (
           <div className="flex flex-col gap-4">
-            {/* Filters bar */}
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
               <div className="flex-1 min-w-0 max-w-3xl">
                 <FilterPanel
-                  isOpen={isExistenciasFilterOpen}
-                  onToggle={() => setIsExistenciasFilterOpen(!isExistenciasFilterOpen)}
-                  activeCount={existenciasActiveCount}
-                  onReset={resetExistenciasFilters}
-                  dateFrom={existenciasDateFrom}
-                  dateTo={existenciasDateTo}
-                  onDateFromChange={setExistenciasDateFrom}
-                  onDateToChange={setExistenciasDateTo}
-                  resultCount={filteredProducts.length}
+                  isOpen={isStockFilterOpen}
+                  onToggle={() => setIsStockFilterOpen(!isStockFilterOpen)}
+                  activeCount={stockActiveCount}
+                  onReset={() => { setStatusFilter(""); setCategoryFilter(""); setSupplierFilter(""); }}
+                  resultCount={stock.total}
                 >
-                  {/* Estado de stock */}
                   <div className="flex flex-col gap-1.5">
                     <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
                       <Boxes className="w-3.5 h-3.5 text-[#9C5A2E]" />
                       <span>Estado:</span>
                     </label>
-                    <select
-                      value={selectedStatus}
-                      onChange={(e) => setSelectedStatus(e.target.value)}
-                      className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
-                    >
-                      <option value="Todos">Todos los estados</option>
-                      <option value="En stock">En stock</option>
-                      <option value="Bajo stock">Bajo stock</option>
-                      <option value="Agotado">Agotado</option>
+                    <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={filterSelectCls}>
+                      <option value="">Todos los estados</option>
+                      {STATUSES.map((st) => <option key={st} value={st}>{stockStatusLabel[st]}</option>)}
                     </select>
                   </div>
 
-                  {/* Categoría */}
                   <div className="flex flex-col gap-1.5">
                     <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
                       <Tag className="w-3.5 h-3.5 text-[#9C5A2E]" />
                       <span>Categoría:</span>
                     </label>
-                    <select
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
-                    >
-                      <option value="Todas">Todas las categorías</option>
-                      {productCategories.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
+                    <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className={filterSelectCls}>
+                      <option value="">Todas las categorías</option>
+                      {categories.options.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
                   </div>
 
-                  {/* Proveedor */}
                   <div className="flex flex-col gap-1.5">
                     <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
                       <Truck className="w-3.5 h-3.5 text-[#9C5A2E]" />
                       <span>Proveedor:</span>
                     </label>
-                    <select
-                      value={selectedSupplier}
-                      onChange={(e) => setSelectedSupplier(e.target.value)}
-                      className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
-                    >
-                      <option value="Todos">Todos los proveedores</option>
-                      {supplierNames.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
+                    <select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} className={filterSelectCls}>
+                      <option value="">Todos los proveedores</option>
+                      {suppliers.options.map((sp) => <option key={sp.id} value={sp.id}>{sp.name}</option>)}
                     </select>
                   </div>
                 </FilterPanel>
               </div>
 
-              {/* Search */}
               <div className="relative w-full sm:w-72 shrink-0">
                 <Search className="w-4 h-4 text-[#A89C8C] absolute left-3.5 top-1/2 -translate-y-1/2" />
                 <input
                   type="text"
-                  placeholder="Buscar producto por nombre o SKU…"
+                  maxLength={100}
+                  placeholder="Buscar producto, modelo o SKU…"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-white border border-[#E7DFD2] rounded-xl pl-9 pr-3.5 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white transition-all shadow-2xs"
+                  className={searchCls}
                 />
               </div>
             </div>
 
-            {/* Table of Products Stock */}
+            <ApiErrorBanner error={optionsError} onRetry={() => { categories.reload(); suppliers.reload(); }} />
+            <ApiErrorBanner error={stock.error} onRetry={stock.reload} />
+
             <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">
               <div className="overflow-x-auto w-full">
                 <div className="min-w-[920px]">
-                  {/* Table Header */}
-                  <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
-                    <div className="flex-1 min-w-[220px]">PRODUCTO</div>
-                    <div className="w-28 shrink-0">CÓDIGO / SKU</div>
-                    <div className="w-28 shrink-0">CATEGORÍA</div>
-                    <div className="w-24 shrink-0 text-center">STOCK ACTUAL</div>
-                    <div className="w-28 shrink-0">NIVEL / ESTADO</div>
-                    <div className="w-36 shrink-0">ÚLTIMO RE-STOCK</div>
-                    <div className="w-32 shrink-0 text-right">ACCIÓN</div>
+                  <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
+                    <SortHeader sort={stockSort} setSort={setStockSort} field="productName" label="PRODUCTO" className="flex-1 min-w-[220px]" />
+                    <SortHeader sort={stockSort} setSort={setStockSort} field="sku" label="CÓDIGO / SKU" className="w-28 shrink-0" />
+                    <SortHeader sort={stockSort} setSort={setStockSort} field="categoryName" label="CATEGORÍA" className="w-28 shrink-0" />
+                    <SortHeader sort={stockSort} setSort={setStockSort} field="onHand" label="STOCK ACTUAL" className="w-24 shrink-0 justify-center" />
+                    <SortHeader sort={stockSort} setSort={setStockSort} field="status" label="ESTADO" className="w-28 shrink-0" />
+                    <SortHeader sort={stockSort} setSort={setStockSort} field="unitCost" label="COSTO UNIT." className="w-24 shrink-0 justify-end" />
+                    <div className="w-44 shrink-0 text-right font-semibold">ACCIÓN</div>
                   </div>
 
-                  {/* Table Rows */}
                   <div className="divide-y divide-[#F7F3EC]">
-                    {filteredProducts.length === 0 ? (
+                    {!stock.loading && !stock.error && stock.items.length === 0 ? (
                       <div className="p-12 text-center text-[#7A6F63] text-sm">
                         No se encontraron productos con los filtros seleccionados.
                       </div>
                     ) : (
-                      filteredProducts.map((p) => {
-                        const minStock = p.minStock || 10;
-                        const ratio = Math.min(100, Math.round((p.stock / Math.max(minStock * 2, 20)) * 100));
-
-                        return (
-                          <div key={p.id} className="flex flex-col">
-                            <div className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors">
-                              {/* Product Info */}
-                              <div className="flex-1 min-w-[220px] flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-xl bg-[#EADBC6] flex items-center justify-center text-[#9C5A2E] shrink-0 shadow-inner">
-                                  <Coffee className="w-5 h-5" />
-                                </div>
-                                <div className="flex flex-col min-w-0 flex-1">
-                                  <span className="font-semibold text-[#231E1A] truncate text-sm">
-                                    {p.name}
-                                  </span>
-                                  {p.supplier && (
-                                    <span className="text-[11px] text-[#9C5A2E] font-medium truncate flex items-center gap-1 mt-0.5">
-                                      <Truck className="w-3 h-3 shrink-0" />
-                                      <span>{p.supplier}</span>
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* SKU */}
-                              <div className="w-28 shrink-0 font-mono text-xs text-[#7A6F63]">
-                                {p.sku}
-                              </div>
-
-                              {/* Category */}
-                              <div className="w-28 shrink-0 text-[#7A6F63]">
-                                <span className="bg-[#FBF8F2] border border-[#E7DFD2] px-2.5 py-0.5 rounded-md text-xs">
-                                  {p.category}
-                                </span>
-                              </div>
-
-                              {/* Current Stock */}
-                              <div className="w-24 shrink-0 text-center">
-                                <span
-                                  className={`text-base font-bold ${
-                                    p.stock === 0
-                                      ? "text-[#C0492F]"
-                                      : p.stock <= minStock
-                                      ? "text-[#D98A2B]"
-                                      : "text-[#231E1A]"
-                                  }`}
-                                >
-                                  {p.stock}
-                                </span>
-                                <span className="text-[10px] text-[#A89C8C] block">
-                                  mín. {minStock} u.
-                                </span>
-                              </div>
-
-                              {/* Status with Progress bar */}
-                              <div className="w-28 shrink-0 flex flex-col gap-1.5">
-                                <Badge
-                                  variant={
-                                    p.status === "En stock"
-                                      ? "success"
-                                      : p.status === "Bajo stock"
-                                      ? "warning"
-                                      : "danger"
-                                  }
-                                >
-                                  {p.status}
-                                </Badge>
-                                {/* Stock ratio visual bar */}
-                                <div className="w-full bg-[#E7DFD2]/60 h-1.5 rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full transition-all duration-300 ${
-                                      p.stock === 0
-                                        ? "bg-[#C0492F] w-0"
-                                        : p.stock <= minStock
-                                        ? "bg-[#D98A2B]"
-                                        : "bg-[#3E8E5A]"
-                                    }`}
-                                    style={{ width: `${p.stock === 0 ? 0 : Math.max(12, ratio)}%` }}
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Last Restock / Ingress Date */}
-                              <div className="w-36 shrink-0 flex flex-col text-[11px] text-[#7A6F63]">
-                                {p.lastRestockDate ? (
-                                  <>
-                                    <span className="font-medium text-[#231E1A]">
-                                      {p.lastRestockDate}
-                                    </span>
-                                    <span className="text-[10px] text-[#3E8E5A]">Re-stock</span>
-                                  </>
-                                ) : p.initialStockDate ? (
-                                  <>
-                                    <span className="font-medium text-[#231E1A]">
-                                      {p.initialStockDate}
-                                    </span>
-                                    <span className="text-[10px] text-[#7A6F63]">Ingreso inicial</span>
-                                  </>
-                                ) : (
-                                  <span className="text-[#A89C8C]">Sin registros</span>
-                                )}
-                              </div>
-
-                              {/* Action: Re-stock button */}
-                              <div className="w-32 shrink-0 text-right">
-                                <button
-                                  onClick={() => openRestockModal(p)}
-                                  className="inline-flex items-center gap-1.5 bg-[#9C5A2E]/10 hover:bg-[#9C5A2E] text-[#9C5A2E] hover:text-white px-3 py-1.5 rounded-xl font-semibold text-xs transition-all cursor-pointer shadow-2xs"
-                                >
-                                  <PackagePlus className="w-3.5 h-3.5" />
-                                  <span>Re-stock</span>
-                                </button>
-                              </div>
+                      stock.items.map((r) => (
+                        <div key={r.variantId} className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors">
+                          <div className="flex-1 min-w-[220px] flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-[#EADBC6] flex items-center justify-center text-[#9C5A2E] shrink-0 shadow-inner">
+                              <Coffee className="w-5 h-5" />
                             </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 2: HISTORIAL DE REPOSICIONES Y MOVIMIENTOS */}
-        {activeTab === "historial" && (
-          <div className="flex flex-col gap-4">
-            {/* Filter bar */}
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-              <div className="flex-1 min-w-0 max-w-3xl">
-                <FilterPanel
-                  isOpen={isHistoryFilterOpen}
-                  onToggle={() => setIsHistoryFilterOpen(!isHistoryFilterOpen)}
-                  activeCount={historyActiveCount}
-                  onReset={resetHistoryFilters}
-                  dateFrom={historyDateFrom}
-                  dateTo={historyDateTo}
-                  onDateFromChange={setHistoryDateFrom}
-                  onDateToChange={setHistoryDateTo}
-                  resultCount={filteredMovements.length}
-                >
-                  {/* Tipo de ingreso */}
-                  <div className="flex flex-col gap-1.5">
-                    <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
-                      <PackagePlus className="w-3.5 h-3.5 text-[#9C5A2E]" />
-                      <span>Tipo de ingreso:</span>
-                    </label>
-                    <select
-                      value={historyTypeFilter}
-                      onChange={(e) => setHistoryTypeFilter(e.target.value)}
-                      className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer"
-                    >
-                      <option value="Todos">Todos los tipos</option>
-                      <option value="Re-stock">Re-stock (Reposición)</option>
-                      <option value="Ingreso inicial">Ingreso inicial (Alta)</option>
-                    </select>
-                  </div>
-                </FilterPanel>
-              </div>
-
-              {/* Search */}
-              <div className="relative w-full sm:w-80 shrink-0">
-                <Search className="w-4 h-4 text-[#A89C8C] absolute left-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Buscar por producto, SKU, notas…"
-                  value={historySearchTerm}
-                  onChange={(e) => setHistorySearchTerm(e.target.value)}
-                  className="w-full bg-white border border-[#E7DFD2] rounded-xl pl-9 pr-3.5 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white transition-all shadow-2xs"
-                />
-              </div>
-            </div>
-
-            {/* Table of Movements */}
-            <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">
-              <div className="overflow-x-auto w-full">
-                <div className="min-w-[960px]">
-                  {/* Table Header */}
-                  <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
-                    <div className="w-36 shrink-0">FECHA Y HORA</div>
-                    <div className="w-32 shrink-0">TIPO DE INGRESO</div>
-                    <div className="flex-1 min-w-[200px]">PRODUCTO</div>
-                    <div className="w-24 shrink-0 text-center">CANTIDAD</div>
-                    <div className="w-32 shrink-0 text-center">STOCK ANTERIOR → NUEVO</div>
-                    <div className="w-32 shrink-0 text-right">COSTO TOTAL</div>
-                    <div className="w-48 shrink-0">PROVEEDOR / DETALLE</div>
-                  </div>
-
-                  {/* Movements Rows */}
-                  <div className="divide-y divide-[#F7F3EC]">
-                    {filteredMovements.length === 0 ? (
-                      <div className="p-12 text-center text-[#7A6F63] text-sm">
-                        No se registraron movimientos con los filtros seleccionados.
-                      </div>
-                    ) : (
-                      filteredMovements.map((m) => (
-                        <div
-                          key={m.id}
-                          className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors"
-                        >
-                          {/* Date & Time */}
-                          <div className="w-36 shrink-0 flex items-center gap-2 text-[#7A6F63]">
-                            <Calendar className="w-3.5 h-3.5 text-[#A89C8C] shrink-0" />
-                            <span className="font-medium text-[#231E1A]">{m.date}</span>
-                          </div>
-
-                          {/* Movement Type */}
-                          <div className="w-32 shrink-0">
-                            {m.type === "Re-stock" ? (
-                              <span className="inline-flex items-center gap-1 bg-[#EAF5EE] text-[#2D6A42] border border-[#3E8E5A]/20 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">
-                                <PackagePlus className="w-3 h-3 text-[#3E8E5A]" />
-                                Re-stock
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 bg-[#E8EEF5] text-[#2B5480] border border-[#3A6B9B]/20 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">
-                                <Boxes className="w-3 h-3 text-[#3A6B9B]" />
-                                Ingreso inicial
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Product */}
-                          <div className="flex-1 min-w-[200px] flex flex-col min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold text-[#231E1A] truncate text-sm">
-                                {m.productName}
-                              </span>
-                              {m.variantName && (
-                                <span className="bg-[#EADBC6]/70 text-[#9C5A2E] text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 flex items-center gap-1 border border-[#E7DFD2]">
-                                  <Layers className="w-2.5 h-2.5" />
-                                  <span>{m.variantName}</span>
+                            <div className="flex flex-col min-w-0 flex-1">
+                              <span className="font-semibold text-[#231E1A] truncate text-sm">{r.productName}</span>
+                              {r.variantName !== "STANDARD" && (
+                                <span className="text-[11px] text-[#7A6F63] truncate flex items-center gap-1">
+                                  <Layers className="w-3 h-3 shrink-0" />
+                                  <span>{r.variantName}</span>
+                                </span>
+                              )}
+                              {r.supplierName && (
+                                <span className="text-[11px] text-[#9C5A2E] font-medium truncate flex items-center gap-1 mt-0.5">
+                                  <Truck className="w-3 h-3 shrink-0" />
+                                  <span>{r.supplierName}</span>
                                 </span>
                               )}
                             </div>
-                            <span className="text-[11px] text-[#A89C8C] font-mono">
-                              SKU: {m.sku} · {m.category}
-                            </span>
                           </div>
 
-                          {/* Quantity */}
+                          <div className="w-28 shrink-0 font-mono text-xs text-[#7A6F63] truncate">{r.sku ?? "—"}</div>
+
+                          <div className="w-28 shrink-0 text-[#7A6F63]">
+                            {r.categoryName ? (
+                              <span className="bg-[#FBF8F2] border border-[#E7DFD2] px-2.5 py-0.5 rounded-md text-xs">{r.categoryName}</span>
+                            ) : "—"}
+                          </div>
+
                           <div className="w-24 shrink-0 text-center">
-                            <span className="inline-block bg-[#EAF5EE] text-[#2D6A42] font-bold px-2 py-0.5 rounded-md text-xs">
-                              +{m.quantity} u.
+                            <span className={`text-base font-bold ${
+                              r.status === "OUT" ? "text-[#C0492F]" : r.status === "LOW" ? "text-[#D98A2B]" : "text-[#231E1A]"
+                            }`}>
+                              {r.onHand}
                             </span>
+                            <span className="text-[10px] text-[#A89C8C] block">mín. {r.minStock} u.</span>
                           </div>
 
-                          {/* Previous -> New Stock */}
-                          <div className="w-32 shrink-0 flex items-center justify-center gap-2 font-mono text-xs text-[#7A6F63]">
-                            <span>{m.previousStock}</span>
-                            <ArrowRight className="w-3 h-3 text-[#A89C8C]" />
-                            <span className="font-bold text-[#231E1A]">{m.newStock}</span>
+                          <div className="w-28 shrink-0"><StatusBadge status={r.status} /></div>
+
+                          <div className="w-24 shrink-0 text-right text-[#231E1A]">
+                            {r.unitCost != null ? money(r.unitCost) : "—"}
                           </div>
 
-                          {/* Total Cost */}
-                          <div className="w-32 shrink-0 text-right">
-                            {m.totalCost ? (
-                              <>
-                                <span className="font-bold text-[#231E1A] block">
-                                  ${m.totalCost.toLocaleString("es-AR")}
-                                </span>
-                                {m.costPerUnit && (
-                                  <span className="text-[10px] text-[#A89C8C] block">
-                                    ${m.costPerUnit.toLocaleString("es-AR")} / u.
-                                  </span>
-                                )}
-                              </>
-                            ) : (
-                              <span className="text-[#A89C8C]">—</span>
-                            )}
-                          </div>
-
-                          {/* Supplier / Notes */}
-                          <div className="w-48 shrink-0 flex flex-col min-w-0">
-                            <div className="flex items-center gap-1 text-[#231E1A] font-medium truncate">
-                              <Truck className="w-3 h-3 text-[#A89C8C] shrink-0" />
-                              <span className="truncate">{m.supplier || "—"}</span>
-                            </div>
-                            {m.notes && (
-                              <span className="text-[11px] text-[#A89C8C] truncate italic">
-                                {m.notes}
-                              </span>
-                            )}
+                          <div className="w-44 shrink-0 flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => setAdjusting({ row: r })}
+                              title="Registrar ajuste o rotura"
+                              className="inline-flex items-center gap-1 text-[#7A6F63] hover:text-[#9C5A2E] px-2 py-1.5 rounded-xl hover:bg-[#EADBC6]/40 font-semibold text-xs transition-all cursor-pointer"
+                            >
+                              <SlidersHorizontal className="w-3.5 h-3.5" />
+                              <span>Ajuste</span>
+                            </button>
+                            <button
+                              onClick={() => setRestock({ row: r })}
+                              className="inline-flex items-center gap-1.5 bg-[#9C5A2E]/10 hover:bg-[#9C5A2E] text-[#9C5A2E] hover:text-white px-3 py-1.5 rounded-xl font-semibold text-xs transition-all cursor-pointer shadow-2xs"
+                            >
+                              <PackagePlus className="w-3.5 h-3.5" />
+                              <span>Re-stock</span>
+                            </button>
                           </div>
                         </div>
                       ))
@@ -859,244 +453,147 @@ export default function StockContent() {
                   </div>
                 </div>
               </div>
+              <div className="px-6">
+                <Pager hasPrev={stock.hasPrev} hasNext={stock.hasNext} onPrev={stock.prev} onNext={stock.next} total={stock.total} loading={stock.loading} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: HISTORIAL DE MOVIMIENTOS */}
+        {activeTab === "historial" && (
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+              <div className="flex-1 min-w-0 max-w-3xl">
+                <FilterPanel
+                  isOpen={isHistoryFilterOpen}
+                  onToggle={() => setIsHistoryFilterOpen(!isHistoryFilterOpen)}
+                  activeCount={historyActiveCount}
+                  onReset={() => { setHistoryDateFrom(""); setHistoryDateTo(""); setTypeFilter(""); }}
+                  dateFrom={historyDateFrom}
+                  dateTo={historyDateTo}
+                  onDateFromChange={setHistoryDateFrom}
+                  onDateToChange={setHistoryDateTo}
+                  resultCount={movements.total}
+                >
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                      <PackagePlus className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                      <span>Tipo de movimiento:</span>
+                    </label>
+                    <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={filterSelectCls}>
+                      <option value="">Todos los tipos</option>
+                      {MOVEMENT_TYPES.map((t) => <option key={t} value={t}>{movementTypeLabel[t]}</option>)}
+                    </select>
+                  </div>
+                </FilterPanel>
+              </div>
+
+              <div className="relative w-full sm:w-80 shrink-0">
+                <Search className="w-4 h-4 text-[#A89C8C] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  maxLength={100}
+                  placeholder="Buscar por producto, SKU, proveedor, notas…"
+                  value={historyTerm}
+                  onChange={(e) => setHistoryTerm(e.target.value)}
+                  className={searchCls}
+                />
+              </div>
+            </div>
+
+            <ApiErrorBanner error={movements.error} onRetry={movements.reload} />
+
+            <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">
+              <div className="overflow-x-auto w-full">
+                <div className="min-w-[960px]">
+                  <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
+                    <SortHeader sort={historySort} setSort={setHistorySort} field="movedAt" label="FECHA Y HORA" className="w-36 shrink-0" />
+                    <SortHeader sort={historySort} setSort={setHistorySort} field="type" label="TIPO" className="w-32 shrink-0" />
+                    <SortHeader sort={historySort} setSort={setHistorySort} field="productName" label="PRODUCTO" className="flex-1 min-w-[200px]" />
+                    <SortHeader sort={historySort} setSort={setHistorySort} field="quantity" label="CANTIDAD" className="w-24 shrink-0 justify-center" />
+                    <SortHeader sort={historySort} setSort={setHistorySort} field="totalCost" label="COSTO TOTAL" className="w-32 shrink-0 justify-end" />
+                    <div className="w-48 shrink-0 font-semibold">PROVEEDOR / DETALLE</div>
+                  </div>
+
+                  <div className="divide-y divide-[#F7F3EC]">
+                    {!movements.loading && !movements.error && movements.items.length === 0 ? (
+                      <div className="p-12 text-center text-[#7A6F63] text-sm">
+                        No se registraron movimientos con los filtros seleccionados.
+                      </div>
+                    ) : (
+                      movements.items.map((m) => (
+                        <div key={m.id} className="px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors">
+                          <div className="w-36 shrink-0 flex items-center gap-2 text-[#7A6F63]">
+                            <Calendar className="w-3.5 h-3.5 text-[#A89C8C] shrink-0" />
+                            <span className="font-medium text-[#231E1A]">{formatInstant(m.movedAt)}</span>
+                          </div>
+
+                          <div className="w-32 shrink-0">
+                            <span className="inline-flex items-center bg-[#FBF8F2] text-[#7A3F1F] border border-[#E7DFD2] px-2.5 py-0.5 rounded-full text-[11px] font-semibold">
+                              {movementTypeLabel[m.type]}
+                            </span>
+                          </div>
+
+                          <div className="flex-1 min-w-[200px] flex flex-col min-w-0">
+                            <span className="font-semibold text-[#231E1A] truncate text-sm">{variantLabel(m)}</span>
+                            <span className="text-[11px] text-[#A89C8C] font-mono">SKU: {m.sku ?? "—"}</span>
+                          </div>
+
+                          <div className="w-24 shrink-0 text-center">
+                            <span className={`inline-block font-bold px-2 py-0.5 rounded-md text-xs ${
+                              m.quantity > 0 ? "bg-[#EAF5EE] text-[#2D6A42]" : "bg-[#F7E3DD] text-[#C0492F]"
+                            }`}>
+                              {m.quantity > 0 ? `+${m.quantity}` : m.quantity} u.
+                            </span>
+                          </div>
+
+                          <div className="w-32 shrink-0 text-right">
+                            {m.totalCost != null ? (
+                              <>
+                                <span className="font-bold text-[#231E1A] block">{money(m.totalCost)}</span>
+                                {m.unitCost != null && (
+                                  <span className="text-[10px] text-[#A89C8C] block">{money(m.unitCost)} / u.</span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-[#A89C8C]">—</span>
+                            )}
+                          </div>
+
+                          <div className="w-48 shrink-0 flex flex-col min-w-0">
+                            <div className="flex items-center gap-1 text-[#231E1A] font-medium truncate">
+                              <Truck className="w-3 h-3 text-[#A89C8C] shrink-0" />
+                              <span className="truncate">{m.supplierName ?? "—"}</span>
+                            </div>
+                            {m.notes && <span className="text-[11px] text-[#A89C8C] truncate italic">{m.notes}</span>}
+                            {m.createdBy && <span className="text-[10px] text-[#A89C8C] truncate">por {m.createdBy}</span>}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="px-6">
+                <Pager hasPrev={movements.hasPrev} hasNext={movements.hasNext} onPrev={movements.prev} onNext={movements.next} total={movements.total} loading={movements.loading} />
+              </div>
             </div>
           </div>
         )}
       </main>
 
-      {/* Modal: Registrar Re-stock */}
-      <Modal
-        isOpen={isRestockModalOpen}
-        onClose={() => setIsRestockModalOpen(false)}
-        title="Registrar Re-stock de Producto"
-      >
-        <form onSubmit={handleRestockSubmit} className="flex flex-col gap-4 text-xs">
-          {/* Select Product */}
-          <div>
-            <label className="font-medium text-[#231E1A] block mb-1">
-              Seleccionar Producto <span className="text-[#C0492F]">*</span>
-            </label>
-            <select
-              value={selectedProductForRestock?.id || ""}
-              onChange={(e) => handleProductChangeInModal(e.target.value)}
-              className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
-            >
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.sku}) — Stock actual: {p.stock} u.
-                </option>
-              ))}
-            </select>
-          </div>
+      {restock && (
+        <RestockModal
+          row={restock.row}
+          productId={restock.productId}
+          variantId={restock.variantId}
+          onClose={() => setRestock(null)}
+          onDone={handleDone}
+        />
+      )}
 
-          {/* Select Variant / Model if product has variants */}
-          {selectedProductForRestock?.hasVariants &&
-            selectedProductForRestock.variants &&
-            selectedProductForRestock.variants.length > 0 && (
-              <div className="bg-[#FAF7F2] p-3 rounded-xl border border-[#E7DFD2] flex flex-col gap-1.5 shadow-2xs">
-                <label className="font-semibold text-xs text-[#231E1A] flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-[#9C5A2E]" />
-                  <span>Modelo o Color a reponer:</span>
-                </label>
-                <select
-                  value={selectedVariantId}
-                  onChange={(e) => setSelectedVariantId(e.target.value)}
-                  required
-                  className="w-full bg-white border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] font-medium"
-                >
-                  <option value="" disabled>Elegí el modelo a reponer</option>
-                  {selectedProductForRestock.variants.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.name} (Stock: {v.stock}u. · SKU: {v.sku})
-                    </option>
-                  ))}
-                </select>
-                <span className="text-[10px] text-[#7A6F63]">
-                  {selectedVariantId ? (
-                    <>
-                      Se sumará específicamente al modelo{" "}
-                      <strong className="text-[#9C5A2E]">
-                        {
-                          selectedProductForRestock.variants.find(
-                            (v) => v.id === selectedVariantId
-                          )?.name
-                        }
-                      </strong>
-                      .
-                    </>
-                  ) : null}
-                </span>
-              </div>
-            )}
-
-          {/* Current Stock vs New Stock Preview Card */}
-          {selectedProductForRestock && (() => {
-            const activeVar =
-              selectedVariantId && selectedProductForRestock.variants
-                ? selectedProductForRestock.variants.find((v) => v.id === selectedVariantId)
-                : null;
-            const currentCount = activeVar ? activeVar.stock : selectedProductForRestock.stock;
-            const addedCount = parseInt(restockQuantity) || 0;
-            const nextCount = currentCount + addedCount;
-
-            return (
-              <div className="bg-[#FBF8F2] border border-[#E7DFD2] rounded-2xl p-4 flex items-center justify-between gap-4">
-                <div>
-                  <span className="text-[11px] text-[#7A6F63] block">
-                    {activeVar ? `Stock actual (${activeVar.name})` : "Stock actual del producto"}
-                  </span>
-                  <span className="text-xl font-bold text-[#231E1A]">
-                    {currentCount}{" "}
-                    <span className="text-xs font-normal text-[#A89C8C]">unidades</span>
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 text-[#9C5A2E] font-bold">
-                  <span>+{addedCount}</span>
-                  <ArrowRight className="w-4 h-4 text-[#A89C8C]" />
-                </div>
-
-                <div className="text-right">
-                  <span className="text-[11px] text-[#7A6F63] block">
-                    {activeVar ? `Nuevo stock (${activeVar.name})` : "Nuevo stock resultante"}
-                  </span>
-                  <span className="text-xl font-bold text-[#3E8E5A]">
-                    {nextCount}{" "}
-                    <span className="text-xs font-normal text-[#A89C8C]">unidades</span>
-                  </span>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Quantity and Unit Cost Inputs */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="font-medium text-[#231E1A] block mb-1">
-                Cantidad a ingresar <span className="text-[#C0492F]">*</span>
-              </label>
-              <input
-                type="number"
-                min="1"
-                required
-                placeholder="Ej. 15"
-                value={restockQuantity}
-                onChange={(e) => setRestockQuantity(e.target.value)}
-                className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
-              />
-            </div>
-
-            <div>
-              <label className="font-medium text-[#231E1A] block mb-1">
-                Costo unitario ($)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                placeholder="Ej. 12500"
-                value={restockCostUnit}
-                onChange={(e) => setRestockCostUnit(e.target.value)}
-                className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
-              />
-            </div>
-          </div>
-
-          {/* Total Cost preview */}
-          {parseInt(restockQuantity) > 0 && parseFloat(restockCostUnit) > 0 && (
-            <div className="bg-[#EAF5EE] border border-[#3E8E5A]/20 rounded-xl p-3 flex items-center justify-between text-xs">
-              <span className="text-[#2D6A42] font-medium">Inversión total del lote:</span>
-              <span className="font-bold text-[#2D6A42] text-sm">
-                ${((parseInt(restockQuantity) || 0) * (parseFloat(restockCostUnit) || 0)).toLocaleString("es-AR")}
-              </span>
-            </div>
-          )}
-
-          {/* Supplier and Date */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="font-medium text-[#231E1A] block mb-1">
-                Proveedor / Taller
-              </label>
-              <input
-                type="text"
-                list="restock-suppliers-list"
-                placeholder="Ej. Taller Artesanal Salta"
-                value={restockSupplier}
-                onChange={(e) => setRestockSupplier(e.target.value)}
-                className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
-              />
-              <datalist id="restock-suppliers-list">
-                {supplierNames.map((s) => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
-            </div>
-
-            <div>
-              <label className="font-medium text-[#231E1A] block mb-1">
-                Fecha del re-stock
-              </label>
-              <input
-                type="text"
-                value={restockDate}
-                onChange={(e) => setRestockDate(e.target.value)}
-                className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
-              />
-            </div>
-          </div>
-
-          {/* Notes / Reason */}
-          <div>
-            <label className="font-medium text-[#231E1A] block mb-1">
-              Notas / Referencia del lote (opcional)
-            </label>
-            <input
-              type="text"
-              placeholder="Ej. Reposición para temporada alta, calabazas seleccionadas..."
-              value={restockNotes}
-              onChange={(e) => setRestockNotes(e.target.value)}
-              className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white"
-            />
-          </div>
-
-          {/* Expense checkbox integration */}
-          <label className="flex items-center gap-2.5 p-3 rounded-xl bg-[#FBF8F2] border border-[#E7DFD2] cursor-pointer hover:bg-[#F7F3EC] transition-colors">
-            <input
-              type="checkbox"
-              checked={registerExpense}
-              onChange={(e) => setRegisterExpense(e.target.checked)}
-              className="w-4 h-4 text-[#9C5A2E] rounded border-[#E7DFD2] focus:ring-[#9C5A2E] cursor-pointer"
-            />
-            <div className="flex flex-col">
-              <span className="font-semibold text-[#231E1A] text-xs">
-                Registrar egreso contable en Gastos
-              </span>
-              <span className="text-[11px] text-[#7A6F63]">
-                Genera automáticamente una entrada de egreso bajo el rubro Proveedores
-              </span>
-            </div>
-          </label>
-
-          {/* Modal Actions */}
-          <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#F7F3EC]">
-            <button
-              type="button"
-              onClick={() => setIsRestockModalOpen(false)}
-              className="px-4 py-2 rounded-xl text-[#7A6F63] hover:bg-[#FBF8F2] transition-colors cursor-pointer"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              className="bg-[#9C5A2E] text-white px-5 py-2 rounded-xl font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs cursor-pointer flex items-center gap-2"
-            >
-              <PackagePlus className="w-4 h-4" />
-              <span>Confirmar Re-stock</span>
-            </button>
-          </div>
-        </form>
-      </Modal>
+      {adjusting && <AdjustmentModal row={adjusting.row} onClose={() => setAdjusting(null)} onDone={handleDone} />}
     </div>
   );
 }

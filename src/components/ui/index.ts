@@ -6,3 +6,4 @@ export type { ConfirmDeleteModalProps } from "./ConfirmDeleteModal";
 export { default as ApiErrorBanner } from "./ApiErrorBanner";
 export { default as Pager } from "./Pager";
 export { default as PendingApi } from "./PendingApi";
+export { default as StatusBadge } from "./StatusBadge";

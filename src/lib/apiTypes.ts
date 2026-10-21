@@ -88,7 +88,8 @@ export interface RestockRequest {
   variantId: number; quantity: number; unitCost: number; supplierId?: number; receivedAt?: string; notes?: string;
   expenseCategoryId: number; installments?: number; firstDueDate?: string; payFirstNow?: PayNow;
 }
-export interface StockAdjustmentRequest { variantId: number; type: MovementType; quantity: number; notes?: string }
+/** DAMAGE: quantity > 0 units out; ADJUSTMENT: signed, ≠ 0. notes (the reason) required, ≤ 500. */
+export interface StockAdjustmentRequest { variantId: number; type: "DAMAGE" | "ADJUSTMENT"; quantity: number; notes: string }
 
 // ── Customers & finance ── (CustomerView, AccountEntry, PaymentView, PaymentMethodView, FinancialAccountView)
 export interface Customer {
