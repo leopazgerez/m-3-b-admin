@@ -257,7 +257,7 @@ export default function Sidebar() {
                   }`}
                 >
                   <CreditCard className="w-4 h-4 text-[#3E8E5A]" />
-                  <span>Venta</span>
+                  <span>Cobros</span>
                 </Link>
                 <Link
                   href="/configuracion/gastos"
