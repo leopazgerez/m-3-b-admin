@@ -1,20 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getAssetPath } from "@/lib/assets";
+import { ApiError } from "@/lib/api";
+import { login } from "@/lib/auth";
+import { getSession } from "@/lib/session";
+import { ApiErrorBanner } from "@/components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@matestripleb.com");
-  const [password, setPassword] = useState("••••••••");
-  const [remember, setRemember] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<unknown>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (getSession()) router.replace("/dashboard");
+  }, [router]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    router.push("/dashboard");
+    setSubmitting(true);
+    setError(null);
+    try {
+      await login(email, password);
+      router.replace("/dashboard");
+    } catch (err) {
+      setError(err);
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -29,6 +46,7 @@ export default function LoginPage() {
         {/* Brand Header */}
         <div className="relative z-10 flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-white flex items-center justify-center shadow-lg p-0.5 border border-[#322A23] overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={getAssetPath("/favicon.png")}
               alt="Mates Triple B"
@@ -65,6 +83,7 @@ export default function LoginPage() {
           {/* Mobile Brand Logo */}
           <div className="lg:hidden flex items-center gap-3 pb-2 border-b border-[#F7F3EC]">
             <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shadow-2xs p-0.5 border border-[#E7DFD2] overflow-hidden">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={getAssetPath("/favicon.png")}
                 alt="Mates Triple B"
@@ -122,29 +141,21 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Options */}
-            <div className="flex items-center justify-between pt-1 text-xs">
-              <label className="flex items-center gap-2 text-[#7A6F63] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={remember}
-                  onChange={(e) => setRemember(e.target.checked)}
-                  className="rounded border-[#E7DFD2] text-[#9C5A2E] focus:ring-[#9C5A2E]"
-                />
-                <span>Recordarme</span>
-              </label>
-              <button
-                type="button"
-                className="text-[#9C5A2E] hover:underline font-semibold"
-              >
-                ¿Olvidaste tu contraseña?
-              </button>
-            </div>
+            {error != null && (
+              error instanceof ApiError && error.status === 401 ? (
+                <div role="alert" className="rounded-xl border border-[#C0492F]/30 bg-[#F7E3DD] px-4 py-3 text-[#C0492F]">
+                  Email o contraseña incorrectos
+                </div>
+              ) : (
+                <ApiErrorBanner error={error} />
+              )
+            )}
 
             {/* Submit */}
             <button
               type="submit"
-              className="mt-2 flex items-center justify-center gap-2 bg-[#9C5A2E] text-white py-3 rounded-xl font-semibold text-xs hover:bg-[#7A3F1F] transition-all shadow-xs cursor-pointer"
+              disabled={submitting}
+              className="mt-2 flex disabled:opacity-60 disabled:cursor-not-allowed items-center justify-center gap-2 bg-[#9C5A2E] text-white py-3 rounded-xl font-semibold text-xs hover:bg-[#7A3F1F] transition-all shadow-xs cursor-pointer"
             >
               <span>Ingresar al panel</span>
               <ArrowRight className="w-4 h-4" />
