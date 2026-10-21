@@ -34,13 +34,14 @@ type Position = { qk: string; cursor?: string; before?: string };
 export function usePagedList<T>(path: string, query: Omit<ListQuery, "cursor" | "before">) {
   const qk = path + JSON.stringify(query);
   const [pos, setPos] = useState<Position>({ qk });
-  const cur = pos.qk === qk ? pos : { qk }; // query change => first page
+  if (pos.qk !== qk) setPos({ qk }); // query change => first page, and forget the old cursor
+  const cur = pos.qk === qk ? pos : { qk };
   const { data, error, loading, reload } = useLoad<Page<T>>(
     () => api.getPage<T>(path, { ...query, cursor: cur.cursor, before: cur.before }),
     `${qk}|${cur.cursor ?? ""}|${cur.before ?? ""}`,
   );
-  const next = useCallback(() => { if (data?.nextCursor) setPos({ qk, cursor: data.nextCursor }); }, [data, qk]);
-  const prev = useCallback(() => { if (data?.prevCursor) setPos({ qk, before: data.prevCursor }); }, [data, qk]);
+  const next = useCallback(() => { if (!loading && data?.nextCursor) setPos({ qk, cursor: data.nextCursor }); }, [data, qk, loading]);
+  const prev = useCallback(() => { if (!loading && data?.prevCursor) setPos({ qk, before: data.prevCursor }); }, [data, qk, loading]);
   return {
     items: data?.items ?? [],
     total: data?.total ?? 0,

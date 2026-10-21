@@ -4,7 +4,7 @@ export default function ApiErrorBanner({ error, onRetry }: { error: unknown; onR
   if (!error) return null;
   const e = error instanceof ApiError ? error : null;
   return (
-    <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-[#E7DFD2] bg-[#F7E3DD] px-4 py-3 text-sm text-[#C0492F]">
+    <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-[#C0492F]/30 bg-[#F7E3DD] px-4 py-3 text-sm text-[#C0492F]">
       <div>
         {e ? (
           <>
