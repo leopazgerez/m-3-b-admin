@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import type {
   CreateProductRequest, Product, ProductCategory, Supplier, UpdateProductCommand, UpdateVariantCommand,
 } from "@/lib/apiTypes";
-import BarcodeScanner from "./BarcodeScanner";
+import BarcodeScanner from "@/components/ui/BarcodeScanner";
 
 const inputCls =
   "w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white";
