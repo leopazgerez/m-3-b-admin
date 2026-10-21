@@ -6,11 +6,11 @@ import Link from "next/link";
 import { ApiErrorBanner, Badge, ConfirmDeleteModal, Modal, Pager } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useApiResource, useOptions, usePagedList } from "@/lib/useApi";
-import { money } from "@/lib/format";
+import { money, paymentStatusVariant as statusVariant } from "@/lib/format";
 import { formatInstant, pastDayToInstant, toLocalISODate } from "@/lib/dateUtils";
 import { paymentStatusLabel, saleTypeLabel } from "@/lib/labels";
 import type {
-  AccountEntry, Customer, FinancialAccount, PaymentFields, PaymentMethod, PaymentStatus, Sale,
+  AccountEntry, Customer, FinancialAccount, PaymentFields, PaymentMethod, Sale,
 } from "@/lib/apiTypes";
 import {
   ArrowLeft,
@@ -35,10 +35,6 @@ const label = "block text-xs font-semibold text-[#231E1A] mb-1.5";
 
 const getInitials = (name: string) =>
   name.split(" ").filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
-
-const statusVariant: Record<PaymentStatus, "success" | "warning" | "danger" | "neutral"> = {
-  PAID: "success", PARTIAL: "warning", PENDING: "warning", CANCELLED: "danger", "N/A": "neutral",
-};
 
 /** What the payment modal pays: the whole debt, part of it (FIFO), or one sale. */
 type PayTarget = { mode: "total" | "partial" } | { mode: "sale"; sale: Sale };

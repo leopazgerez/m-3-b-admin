@@ -74,7 +74,7 @@ export default function ConfirmDeleteModal({
             <p className="leading-relaxed">
               ¿Estás seguro de que deseas eliminar{" "}
               {itemName ? (
-                <strong className="text-[#231E1A] font-semibold">"{itemName}"</strong>
+                <strong className="text-[#231E1A] font-semibold">&quot;{itemName}&quot;</strong>
               ) : (
                 "este elemento"
               )}

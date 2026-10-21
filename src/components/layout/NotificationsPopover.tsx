@@ -2,7 +2,12 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useStore } from "@/lib/store";
+import { ApiErrorBanner } from "@/components/ui";
+import { api } from "@/lib/api";
+import { useApiResource } from "@/lib/useApi";
+import { money, variantLabel } from "@/lib/format";
+import { formatDate } from "@/lib/dateUtils";
+import type { ExpenseRow, StockRow } from "@/lib/apiTypes";
 import {
   Bell,
   AlertTriangle,
@@ -12,18 +17,16 @@ import {
   CheckCircle2,
   X,
   CreditCard,
-  Boxes,
 } from "lucide-react";
 
 export interface NotificationItem {
   id: string;
-  type: "stock_critical" | "stock_warning" | "expense_pending" | "restock_info";
-  category: "stock" | "gastos";
+  type: "stock_critical" | "stock_warning" | "expense_overdue";
   title: string;
   description: string;
   time: string;
-  actionLabel?: string;
-  actionHref?: string;
+  actionLabel: string;
+  actionHref: string;
 }
 
 interface NotificationsPopoverProps {
@@ -32,127 +35,77 @@ interface NotificationsPopoverProps {
   onUnreadCountChange?: (count: number) => void;
 }
 
+const READ_KEY = "mates_admin_notifications_read";
+
+function loadReadIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(READ_KEY);
+    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveReadIds(ids: Set<string>) {
+  try {
+    localStorage.setItem(READ_KEY, JSON.stringify([...ids]));
+  } catch {
+    // storage unavailable: read state just won't survive a reload
+  }
+}
+
+async function loadNotifications(): Promise<NotificationItem[]> {
+  const [stock, expenses] = await Promise.all([
+    api.getAll<StockRow>("/stock", {
+      sortBy: "onHand",
+      sortDir: "asc",
+      filters: [{ field: "status", operator: "IN", value: ["LOW", "OUT"] }],
+    }),
+    api.getAll<ExpenseRow>("/expenses", {
+      filters: [{ field: "status", operator: "EQUALS", value: "OVERDUE" }],
+    }),
+  ]);
+  return [
+    ...stock.map((r): NotificationItem => ({
+      id: `stock-${r.variantId}`,
+      type: r.status === "OUT" ? "stock_critical" : "stock_warning",
+      title: r.status === "OUT" ? "Sin stock" : "Bajo stock",
+      description:
+        r.status === "OUT"
+          ? `${variantLabel(r)} no tiene unidades disponibles para la venta.`
+          : `${variantLabel(r)} tiene ${r.onHand} u. (mínimo: ${r.minStock} u.).`,
+      time: r.sku ?? "Stock",
+      actionLabel: "Reponer",
+      actionHref: `/stock?productId=${r.productId}&variantId=${r.variantId}`,
+    })),
+    ...expenses.map((e): NotificationItem => ({
+      id: `expense-${e.id}`,
+      type: "expense_overdue",
+      title: "Gasto vencido",
+      description: `${e.description}: adeuda ${money(e.pending)} (${e.categoryName}).`,
+      time: formatDate(e.incurredOn),
+      actionLabel: "Ver gastos",
+      actionHref: "/gastos",
+    })),
+  ];
+}
+
 export default function NotificationsPopover({
   isOpen,
   onClose,
   onUnreadCountChange,
 }: NotificationsPopoverProps) {
-  const { products, expenses, stockMovements } = useStore();
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [readIds, setReadIds] = useState<Set<string>>(loadReadIds);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-
-  // Generate dynamic notifications based on system data
-  const notifications = useMemo(() => {
-    const list: NotificationItem[] = [];
-
-    // 1. Productos totalmente agotados
-    products
-      .filter((p) => p.stock === 0)
-      .forEach((p) => {
-        list.push({
-          id: `stock-empty-${p.id}`,
-          type: "stock_critical",
-          category: "stock",
-          title: "Stock Agotado",
-          description: `${p.name} (${p.sku}) no cuenta con unidades disponibles para la venta.`,
-          time: "Inventario crítico",
-          actionLabel: "Reponer",
-          actionHref: `/stock?productId=${encodeURIComponent(p.id)}`,
-        });
-      });
-
-    // 2. Modelos específicos agotados (si el producto tiene modelos individuales)
-    products.forEach((p) => {
-      if (p.hasVariants && p.variants && p.variants.length > 0 && p.stock > 0) {
-        p.variants
-          .filter((v) => v.stock === 0)
-          .forEach((v) => {
-            list.push({
-              id: `stock-var-empty-${p.id}-${v.id}`,
-              type: "stock_critical",
-              category: "stock",
-              title: "Modelo Agotado",
-              description: `${p.name}: El modelo "${v.name}" se encuentra sin existencias.`,
-              time: "Variante agotada",
-              actionLabel: "Reponer modelo",
-              actionHref: `/stock?productId=${encodeURIComponent(p.id)}&variantId=${encodeURIComponent(v.id)}`,
-            });
-          });
-      }
-    });
-
-    // 3. Productos con bajo stock
-    products
-      .filter((p) => p.stock > 0 && p.stock <= (p.minStock || 10))
-      .forEach((p) => {
-        list.push({
-          id: `stock-low-${p.id}`,
-          type: "stock_warning",
-          category: "stock",
-          title: "Bajo Stock",
-          description: `${p.name} tiene solo ${p.stock} u. restantes (umbral mínimo: ${p.minStock || 10} u.).`,
-          time: "Alerta de stock",
-          actionLabel: "Reponer",
-          actionHref: `/stock?productId=${encodeURIComponent(p.id)}`,
-        });
-      });
-
-    // 4. Cuotas de gastos pendientes o por vencer
-    expenses.forEach((e) => {
-      if (e.isInstallments && e.installments) {
-        e.installments
-          .filter((inst) => inst.status === "Pendiente")
-          .forEach((inst) => {
-            list.push({
-              id: `expense-inst-${e.id}-${inst.id}`,
-              type: "expense_pending",
-              category: "gastos",
-              title: "Cuota de Gasto Pendiente",
-              description: `${e.description}: Cuota ${inst.number}/${e.totalInstallments} por $${inst.amount.toLocaleString("es-AR")} (Vencimiento: ${inst.dueDate}).`,
-              time: `Vence ${inst.dueDate}`,
-              actionLabel: "Ver gastos",
-              actionHref: "/gastos",
-            });
-          });
-      } else if (!e.isInstallments && e.status === "Pendiente") {
-        list.push({
-          id: `expense-pend-${e.id}`,
-          type: "expense_pending",
-          category: "gastos",
-          title: "Gasto Pendiente de Pago",
-          description: `${e.description} por $${e.amount.toLocaleString("es-AR")} (${e.category}).`,
-          time: e.date || "Pendiente",
-          actionLabel: "Ver gastos",
-          actionHref: "/gastos",
-        });
-      }
-    });
-
-    // 5. Últimos movimientos de reposición registrados
-    stockMovements.slice(0, 2).forEach((m) => {
-      list.push({
-        id: `stock-restock-${m.id}`,
-        type: "restock_info",
-        category: "stock",
-        title: "Ingreso de Mercadería",
-        description: `Se ingresaron +${m.quantity} u. de ${m.productName}${m.variantName ? ` (${m.variantName})` : ""}.`,
-        time: m.date,
-        actionLabel: "Ver stock",
-        actionHref: "/stock",
-      });
-    });
-
-    return list;
-  }, [products, expenses, stockMovements]);
+  const { data, error, reload } = useApiResource(loadNotifications, []);
+  const notifications = useMemo(() => data ?? [], [data]);
 
   // Filter out dismissed
   const visibleNotifications = useMemo(() => {
     return notifications.filter((n) => !dismissedIds.has(n.id));
   }, [notifications, dismissedIds]);
-
-
 
   // Unread items
   const unreadCount = useMemo(() => {
@@ -190,18 +143,11 @@ export default function NotificationsPopover({
     };
   }, [isOpen, onClose]);
 
-  const markAllAsRead = () => {
-    const allIds = new Set(readIds);
-    visibleNotifications.forEach((n) => allIds.add(n.id));
-    setReadIds(allIds);
-  };
-
-  const markSingleAsRead = (id: string) => {
-    setReadIds((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      return next;
-    });
+  const markAsRead = (ids: string[]) => {
+    const next = new Set(readIds);
+    ids.forEach((id) => next.add(id));
+    saveReadIds(next);
+    setReadIds(next);
   };
 
   const dismissNotification = (id: string) => {
@@ -245,7 +191,7 @@ export default function NotificationsPopover({
         {unreadCount > 0 && (
           <button
             type="button"
-            onClick={markAllAsRead}
+            onClick={() => markAsRead(visibleNotifications.map((n) => n.id))}
             className="text-[11px] font-semibold text-[#9C5A2E] hover:text-[#7A3F1F] flex items-center gap-1 hover:underline cursor-pointer"
             title="Marcar todas como leídas"
           >
@@ -257,7 +203,13 @@ export default function NotificationsPopover({
 
       {/* Notifications List */}
       <div className="max-h-[420px] overflow-y-auto divide-y divide-[#F7F3EC] bg-white">
-        {visibleNotifications.length === 0 ? (
+        {error ? (
+          <div className="p-4">
+            <ApiErrorBanner error={error} onRetry={reload} />
+          </div>
+        ) : !data ? (
+          <div className="p-8 text-center text-xs text-[#7A6F63]">Cargando…</div>
+        ) : visibleNotifications.length === 0 ? (
           <div className="p-8 text-center flex flex-col items-center justify-center gap-2">
             <div className="w-12 h-12 rounded-full bg-[#EAF5EE] text-[#2D6A42] flex items-center justify-center">
               <CheckCircle2 className="w-6 h-6" />
@@ -274,7 +226,7 @@ export default function NotificationsPopover({
             return (
               <div
                 key={item.id}
-                onClick={() => markSingleAsRead(item.id)}
+                onClick={() => markAsRead([item.id])}
                 className={`p-3.5 flex items-start gap-3 transition-colors hover:bg-[#FBF8F2]/60 relative group ${
                   !isRead ? "bg-[#FAF7F2]/40" : ""
                 }`}
@@ -291,19 +243,15 @@ export default function NotificationsPopover({
                       ? "bg-[#F7E3DD] text-[#C0492F]"
                       : item.type === "stock_warning"
                       ? "bg-[#FBEFD9] text-[#D98A2B]"
-                      : item.type === "expense_pending"
-                      ? "bg-[#FDF3E7] text-[#9C5A2E]"
-                      : "bg-[#EAF5EE] text-[#2D6A42]"
+                      : "bg-[#FDF3E7] text-[#9C5A2E]"
                   }`}
                 >
                   {item.type === "stock_critical" ? (
                     <XCircle className="w-4 h-4" />
                   ) : item.type === "stock_warning" ? (
                     <AlertTriangle className="w-4 h-4" />
-                  ) : item.type === "expense_pending" ? (
-                    <CreditCard className="w-4 h-4" />
                   ) : (
-                    <Boxes className="w-4 h-4" />
+                    <CreditCard className="w-4 h-4" />
                   )}
                 </div>
 
@@ -324,18 +272,14 @@ export default function NotificationsPopover({
 
                   {/* Actions row */}
                   <div className="flex items-center justify-between mt-2 pt-1">
-                    {item.actionHref ? (
-                      <Link
-                        href={item.actionHref}
-                        onClick={onClose}
-                        className="text-[11px] font-semibold text-[#9C5A2E] hover:text-[#7A3F1F] flex items-center gap-1 hover:underline cursor-pointer"
-                      >
-                        <span>{item.actionLabel || "Ver detalle"}</span>
-                        <ArrowRight className="w-3 h-3" />
-                      </Link>
-                    ) : (
-                      <span />
-                    )}
+                    <Link
+                      href={item.actionHref}
+                      onClick={onClose}
+                      className="text-[11px] font-semibold text-[#9C5A2E] hover:text-[#7A3F1F] flex items-center gap-1 hover:underline cursor-pointer"
+                    >
+                      <span>{item.actionLabel}</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
 
                     {/* Dismiss button */}
                     <button

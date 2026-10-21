@@ -8,7 +8,7 @@ import FilterPanel from "@/components/ui/FilterPanel";
 import { api } from "@/lib/api";
 import { useApiResource, usePagedList } from "@/lib/useApi";
 import { instantRangeCriteria, type Criterion } from "@/lib/apiQuery";
-import { money, variantLabel } from "@/lib/format";
+import { buyerName, money, paymentStatusVariant as statusVariant, variantLabel } from "@/lib/format";
 import { formatInstant } from "@/lib/dateUtils";
 import { adjustmentTypeLabel, paymentStatusLabel, saleTypeLabel } from "@/lib/labels";
 import type { PaymentStatus, Sale, SaleType, StockRow } from "@/lib/apiTypes";
@@ -16,13 +16,6 @@ import { Calendar, Edit2, Eye, Plus, Search, Ban, ArrowUp, ArrowDown } from "luc
 
 const filterSelectCls =
   "w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer";
-
-const statusVariant: Record<PaymentStatus, "success" | "warning" | "danger" | "neutral"> = {
-  PAID: "success", PARTIAL: "warning", PENDING: "warning", CANCELLED: "danger", "N/A": "neutral",
-};
-
-/** Sales without a customer carry the buyer's name in notes. */
-const buyerName = (s: Sale) => s.customerName ?? (s.notes?.trim() || "Consumidor final");
 
 export default function VentasPage() {
   const [searchTerm, setSearchTerm] = useState("");

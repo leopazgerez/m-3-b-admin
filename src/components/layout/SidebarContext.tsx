@@ -17,9 +17,11 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   // Cerrar el sidebar automáticamente cuando cambia la ruta
-  useEffect(() => {
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
     setIsOpen(false);
-  }, [pathname]);
+  }
 
   // Bloquear scroll de fondo cuando el drawer móvil está abierto
   useEffect(() => {

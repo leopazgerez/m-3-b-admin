@@ -98,13 +98,13 @@ export default function ConfigProductoPage() {
             href="/configuracion/venta"
             className="px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap"
           >
-            Venta (Tipos)
+            Cobros
           </Link>
           <Link
             href="/configuracion/gastos"
             className="px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap"
           >
-            Gastos (Tipos)
+            Gastos (Categorías)
           </Link>
         </div>
 

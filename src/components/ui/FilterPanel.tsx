@@ -31,7 +31,6 @@ export default function FilterPanel({
   dateTo = "",
   onDateFromChange,
   onDateToChange,
-  dateLabel = "Rango de fecha",
   children,
   resultCount,
 }: FilterPanelProps) {
