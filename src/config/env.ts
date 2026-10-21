@@ -10,14 +10,14 @@ const normalizeUrl = (url: string | undefined, fallback: string): string => {
 
 export const env = {
   /**
-   * URL base completa de los endpoints de la API (ej: 'http://localhost:8000/api')
+   * URL base completa de los endpoints de la API (ej: 'http://localhost:8080/api')
    */
-  apiUrl: normalizeUrl(process.env.NEXT_PUBLIC_API_URL, "http://localhost:8000/api"),
+  apiUrl: normalizeUrl(process.env.NEXT_PUBLIC_API_URL, "http://localhost:8080/api"),
 
   /**
-   * Host base del servidor backend sin prefijo de ruta (ej: 'http://localhost:8000')
+   * Host base del servidor backend sin prefijo de ruta (ej: 'http://localhost:8080')
    */
-  apiHost: normalizeUrl(process.env.NEXT_PUBLIC_API_HOST, "http://localhost:8000"),
+  apiHost: normalizeUrl(process.env.NEXT_PUBLIC_API_HOST, "http://localhost:8080"),
 
   /**
    * Sub-ruta base si se aloja en un subdominio/subdirectorio (ej: GitHub Pages '/m-3-b-admin')
