@@ -12,8 +12,6 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  TrendingUp,
-  TrendingDown,
   Tag,
   CreditCard,
   ReceiptText,
@@ -52,8 +50,6 @@ export default function Sidebar() {
   ];
 
   const isGastosActive = pathname === "/gastos" || pathname.startsWith("/gastos/");
-  const isIngresosActive = pathname === "/gastos/ingresos";
-  const isEgresosActive = pathname === "/gastos/egresos";
 
   const isConfigActive = pathname === "/configuracion" || pathname.startsWith("/configuracion/");
   const isConfigProductoActive = pathname === "/configuracion/producto";
@@ -168,30 +164,6 @@ export default function Sidebar() {
                   }`}
                 >
                   <span>Todos los gastos</span>
-                </Link>
-                <Link
-                  href="/gastos/ingresos"
-                  onClick={closeSidebar}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-all ${
-                    isIngresosActive
-                      ? "bg-[#9C5A2E] text-[#F5EAD6] font-semibold"
-                      : "text-[#C9BCA9] hover:text-[#F5EAD6] hover:bg-[#322A23]"
-                  }`}
-                >
-                  <TrendingUp className="w-4 h-4 text-[#3E8E5A]" />
-                  <span>Ingresos</span>
-                </Link>
-                <Link
-                  href="/gastos/egresos"
-                  onClick={closeSidebar}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-all ${
-                    isEgresosActive
-                      ? "bg-[#9C5A2E] text-[#F5EAD6] font-semibold"
-                      : "text-[#C9BCA9] hover:text-[#F5EAD6] hover:bg-[#322A23]"
-                  }`}
-                >
-                  <TrendingDown className="w-4 h-4 text-[#C0492F]" />
-                  <span>Egresos</span>
                 </Link>
                 <Link
                   href="/configuracion/gastos"

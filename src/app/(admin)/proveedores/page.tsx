@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { usePagedList } from "@/lib/useApi";
 import { dateRangeCriteria, type Criterion } from "@/lib/apiQuery";
 import { supplierTypeLabel } from "@/lib/labels";
+import { formatDate as fmtDate } from "@/lib/dateUtils";
 import type { Supplier, SupplierFields, SupplierType } from "@/lib/apiTypes";
 import {
   Plus,
@@ -42,9 +43,6 @@ const avatarColors = [
 ];
 
 const getAvatarColor = (id: number) => avatarColors[id % avatarColors.length];
-
-// YYYY-MM-DD -> DD/MM/YYYY, no timezone conversion
-const fmtDate = (d: string | null) => (d ? d.split("-").reverse().join("/") : "—");
 
 const inputCls =
   "w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-sm text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white transition-colors";

@@ -7,7 +7,7 @@ import { ApiErrorBanner, Badge, ConfirmDeleteModal, Modal, Pager } from "@/compo
 import { api, ApiError } from "@/lib/api";
 import { useApiResource, useOptions, usePagedList } from "@/lib/useApi";
 import { money } from "@/lib/format";
-import { formatInstant, toLocalISODate } from "@/lib/dateUtils";
+import { formatInstant, pastDayToInstant, toLocalISODate } from "@/lib/dateUtils";
 import { paymentStatusLabel, saleTypeLabel } from "@/lib/labels";
 import type {
   AccountEntry, Customer, FinancialAccount, PaymentFields, PaymentMethod, PaymentStatus, Sale,
@@ -400,10 +400,8 @@ function PaymentModal({ customer, target, onClose, onDone }: {
     const body: PaymentFields = { amount: Number(amount), paymentMethodId: Number(methodId) };
     if (accountId) body.accountId = Number(accountId);
     // Only a past day is sent, as the END of that local day (never future: max=today, today is omitted) so it is not before a sale of that same day; today/empty = now on the server.
-    if (paidOn && paidOn < today) {
-      const [y, m, d] = paidOn.split("-").map(Number);
-      body.paidAt = new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
-    }
+    const paidAt = pastDayToInstant(paidOn, today);
+    if (paidAt) body.paidAt = paidAt;
     if (notes.trim()) body.notes = notes.trim();
     if (target.mode === "sale") body.saleId = target.sale.id;
     setError(null);
