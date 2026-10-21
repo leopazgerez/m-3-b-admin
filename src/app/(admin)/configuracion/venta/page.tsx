@@ -145,7 +145,7 @@ export default function ConfigVentaPage() {
           >
             Cobros
           </Link>
-          <Link href="/configuracion/gastos" className={tab}>Gastos (Tipos)</Link>
+          <Link href="/configuracion/gastos" className={tab}>Gastos (Categorías)</Link>
         </div>
 
         <ApiErrorBanner error={deleteError} />
