@@ -58,6 +58,7 @@ export default function Topbar({ title, subtitle, onSearch }: TopbarProps) {
           <input
             type="text"
             placeholder="Buscar..."
+            maxLength={100}
             onChange={(e) => onSearch && onSearch(e.target.value)}
             className="bg-transparent border-none outline-none w-full text-[#231E1A] placeholder-[#A89C8C] text-xs"
           />
