@@ -262,7 +262,7 @@ export default function ConfigVentaPage() {
         title={editMethod === "new" ? "Nuevo medio de pago" : "Editar medio de pago"}
         maxWidth="max-w-md"
       >
-        <form onSubmit={saveMethod} noValidate className="p-6 flex flex-col gap-4">
+        <form onSubmit={saveMethod} className="p-6 flex flex-col gap-4">
           <label className="flex flex-col gap-1 text-xs text-[#7A6F63]">
             Nombre
             <input type="text" required maxLength={100} value={mName} onChange={(e) => setMName(e.target.value)} className={inputCls} />

@@ -3,6 +3,7 @@
 import { ApiErrorBanner, Modal, Pager } from "@/components/ui";
 import { usePagedList } from "@/lib/useApi";
 import { costSourceLabel } from "@/lib/labels";
+import { money } from "@/lib/format";
 import { formatInstant } from "@/lib/dateUtils";
 import type { CostHistoryEntry, Variant } from "@/lib/apiTypes";
 
@@ -13,7 +14,7 @@ export default function CostHistoryModal({ variant, onClose }: { variant: Varian
   );
 
   return (
-    <Modal isOpen onClose={onClose} title={`Historial de costo · ${variant.name}`} maxWidth="max-w-xl">
+    <Modal isOpen onClose={onClose} title={`Historial de costo · ${variant.name === "STANDARD" ? "Estándar" : variant.name}`} maxWidth="max-w-xl">
       <div className="flex flex-col gap-4 text-xs">
         <ApiErrorBanner error={error} onRetry={reload} />
         <div className="border border-[#E7DFD2] rounded-xl overflow-hidden bg-white">
@@ -30,7 +31,7 @@ export default function CostHistoryModal({ variant, onClose }: { variant: Varian
               items.map((c) => (
                 <div key={c.id} className="px-4 py-2.5 flex items-center gap-3 text-[#231E1A]">
                   <div className="flex-1">{formatInstant(c.effectiveAt)}</div>
-                  <div className="w-24 text-right font-semibold">${c.unitCost.toLocaleString("es-AR")}</div>
+                  <div className="w-24 text-right font-semibold">{money(c.unitCost)}</div>
                   <div className="w-20 text-[#7A6F63]">{costSourceLabel[c.source]}</div>
                   <div className="w-28 text-[#7A6F63] truncate">{c.createdBy ?? "—"}</div>
                 </div>

@@ -15,6 +15,7 @@ const inputCls =
   "w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white";
 
 interface VariantFields { name: string; sku: string; price: string; cost: string }
+const STANDARD = "STANDARD"; // backend name of a simple product's only variant
 const emptyDraft = { name: "", sku: "", price: "", cost: "", initialStock: "" };
 
 /** Product detail: its variants with inline edit, add, delete, cost history and restock links. */
@@ -62,7 +63,7 @@ export default function VariantsModal({ productId, onClose, onChanged }: {
     if (!editing || !v) return;
     // PATCH: only changed keys; sku "" clears it.
     const body: UpdateVariantCommand = {};
-    if (editing.name.trim() !== v.name) body.name = editing.name.trim();
+    if (v.name !== STANDARD && editing.name.trim() !== v.name) body.name = editing.name.trim();
     if (editing.sku.trim() !== (v.sku ?? "")) body.sku = editing.sku.trim();
     if (Number(editing.price) !== v.price) body.price = Number(editing.price);
     if (Number(editing.cost) !== v.cost) body.cost = Number(editing.cost);
@@ -151,8 +152,12 @@ export default function VariantsModal({ productId, onClose, onChanged }: {
                     editing?.id === v.id ? (
                       <form key={v.id} onSubmit={saveEdit} className="p-3 flex flex-col gap-2.5 bg-[#FBF8F2]/60">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          <input required maxLength={80} placeholder="Nombre" value={editing.name}
-                            onChange={(e) => setEditing({ ...editing, name: e.target.value })} className={inputCls} />
+                          {v.name === STANDARD ? (
+                            <input disabled value="Estándar" className={`${inputCls} opacity-60`} />
+                          ) : (
+                            <input required maxLength={80} placeholder="Nombre" value={editing.name}
+                              onChange={(e) => setEditing({ ...editing, name: e.target.value })} className={inputCls} />
+                          )}
                           <div className="relative">
                             <input maxLength={40} placeholder="SKU (vacío = sin código)" value={editing.sku}
                               onChange={(e) => setEditing({ ...editing, sku: e.target.value })} className={`${inputCls} font-mono pr-8`} />
@@ -185,7 +190,7 @@ export default function VariantsModal({ productId, onClose, onChanged }: {
                       <div key={v.id} className="p-3 flex items-center gap-3 hover:bg-[#FBF8F2]/60 min-w-[620px]">
                         <div className="flex-1 min-w-0">
                           <span className="font-semibold text-[#231E1A] block truncate">
-                            {v.name}
+                            {v.name === STANDARD ? "Estándar" : v.name}
                             {!v.active && <span className="ml-2 text-[10px] font-medium text-[#A89C8C]">(inactivo)</span>}
                           </span>
                           <span className="font-mono text-[10px] text-[#7A6F63] flex items-center gap-1 mt-0.5">

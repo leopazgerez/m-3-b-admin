@@ -95,6 +95,7 @@ export default function StockContent() {
   const [historyDateFrom, setHistoryDateFrom] = useState("");
   const [historyDateTo, setHistoryDateTo] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [purchaseOrderId, setPurchaseOrderId] = useState<number | undefined>();
 
   // Modals
   const [restock, setRestock] = useState<RestockState | null>(null);
@@ -109,6 +110,9 @@ export default function StockContent() {
     const productId = idParam(searchParams.get("productId"));
     const variantId = idParam(searchParams.get("variantId"));
     if (productId !== undefined || variantId !== undefined) setRestock({ productId, variantId });
+    // /stock?tab=historial&purchaseOrderId=N (from a restock expense) lists that purchase's movements
+    const po = idParam(searchParams.get("purchaseOrderId"));
+    if (po !== undefined) { setPurchaseOrderId(po); setActiveTab("historial"); }
   }
 
   const stockFilters: Criterion[] = [
@@ -125,6 +129,7 @@ export default function StockContent() {
 
   const historyFilters: Criterion[] = [
     ...(typeFilter ? [{ field: "type", operator: "EQUALS" as const, value: typeFilter }] : []),
+    ...(purchaseOrderId !== undefined ? [{ field: "purchaseOrderId", operator: "EQUALS" as const, value: purchaseOrderId }] : []),
     ...instantRangeCriteria("movedAt", historyDateFrom || undefined, historyDateTo || undefined),
   ];
   const movements = usePagedList<StockMovement>("/stock/movements", {
@@ -140,7 +145,7 @@ export default function StockContent() {
   const optionsError = categories.error ?? suppliers.error;
 
   const stockActiveCount = (statusFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (supplierFilter ? 1 : 0);
-  const historyActiveCount = (historyDateFrom ? 1 : 0) + (historyDateTo ? 1 : 0) + (typeFilter ? 1 : 0);
+  const historyActiveCount = (historyDateFrom ? 1 : 0) + (historyDateTo ? 1 : 0) + (typeFilter ? 1 : 0) + (purchaseOrderId !== undefined ? 1 : 0);
 
   const handleDone = (message: string) => {
     setRestock(null);
@@ -469,7 +474,7 @@ export default function StockContent() {
                   isOpen={isHistoryFilterOpen}
                   onToggle={() => setIsHistoryFilterOpen(!isHistoryFilterOpen)}
                   activeCount={historyActiveCount}
-                  onReset={() => { setHistoryDateFrom(""); setHistoryDateTo(""); setTypeFilter(""); }}
+                  onReset={() => { setHistoryDateFrom(""); setHistoryDateTo(""); setTypeFilter(""); setPurchaseOrderId(undefined); }}
                   dateFrom={historyDateFrom}
                   dateTo={historyDateTo}
                   onDateFromChange={setHistoryDateFrom}

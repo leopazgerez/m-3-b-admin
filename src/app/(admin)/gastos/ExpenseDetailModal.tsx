@@ -85,7 +85,7 @@ export default function ExpenseDetailModal({ id, onClose, onChanged }: {
                 </div>
                 {e.notes && <p className="text-[11px] text-[#7A6F63] mt-1.5">{e.notes}</p>}
                 {e.restockId != null && (
-                  <Link href="/stock" className="inline-flex items-center gap-1 mt-1.5 text-[#9C5A2E] font-semibold hover:underline">
+                  <Link href={`/stock?tab=historial&purchaseOrderId=${e.restockId}`} className="inline-flex items-center gap-1 mt-1.5 text-[#9C5A2E] font-semibold hover:underline">
                     <Package className="w-3.5 h-3.5" />
                     Ver reposición (orden #{e.restockId})
                   </Link>

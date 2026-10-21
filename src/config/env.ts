@@ -15,11 +15,6 @@ export const env = {
   apiUrl: normalizeUrl(process.env.NEXT_PUBLIC_API_URL, "http://localhost:8080/api"),
 
   /**
-   * Host base del servidor backend sin prefijo de ruta (ej: 'http://localhost:8080')
-   */
-  apiHost: normalizeUrl(process.env.NEXT_PUBLIC_API_HOST, "http://localhost:8080"),
-
-  /**
    * Sub-ruta base si se aloja en un subdominio/subdirectorio (ej: GitHub Pages '/m-3-b-admin')
    */
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",

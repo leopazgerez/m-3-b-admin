@@ -46,10 +46,10 @@ Documento para el dueño de m3b-api. Lista lo que no encajó entre el admin (ya 
 
 ## 7. Los gastos no se pueden vincular a su reposición
 
-- **Qué pasa:** `restockId` del gasto es un id de orden de compra, pero no hay endpoint ni filtro para listar reposiciones por `purchaseOrderId`. `stock/movements` tiene ese campo como filtro; hay que confirmarlo.
-- **Dónde se vio:** Gastos, detalle del gasto ("Ver reposición" lleva a `/stock` sin filtrar, decisión R10).
-- **Impacto:** el enlace de la reposición no lleva al registro correcto.
-- **Sugerencia:** exponer `GET /restocks?purchaseOrderId=` o documentar el filtro de movimientos y enlazar a él.
+- **Qué pasa:** `restockId` del gasto es un id de orden de compra y no hay un endpoint de reposiciones, pero `GET /stock/movements` ya admite el filtro `purchaseOrderId` (`JdbcStockReadModel` `MOVEMENT_FIELDS`), así que no hace falta ningún cambio en el backend.
+- **Dónde se vio:** Gastos, detalle del gasto ("Ver reposición").
+- **Qué hace el admin ahora:** el enlace abre `/stock?tab=historial&purchaseOrderId=<restockId>`; Stock abre el Historial filtrado por esa orden de compra.
+- **Impacto:** resuelto sin cambios en el backend.
 
 ## 8. Proveedores no tiene conteos agregados
 

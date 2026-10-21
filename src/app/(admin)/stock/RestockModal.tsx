@@ -51,7 +51,7 @@ export default function RestockModal({ row, productId, variantId, onClose, onDon
 
   const pick = (r: StockRow | null) => {
     setVariant(r);
-    if (r && unitCost === "" && r.unitCost != null) setUnitCost(String(r.unitCost));
+    if (r) setUnitCost(r.unitCost != null ? String(r.unitCost) : "");
   };
 
   const submit = async (e: React.FormEvent) => {

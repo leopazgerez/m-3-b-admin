@@ -307,7 +307,9 @@ export default function NuevaVentaPosPage() {
           </div>
 
           {/* ── Right: checkout ── */}
-          <form id="checkout-panel" onSubmit={submit} className="lg:col-span-4 flex flex-col gap-4 scroll-mt-6">
+          <form id="checkout-panel" onSubmit={submit}
+          onKeyDown={(e) => { if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") e.preventDefault(); }}
+          className="lg:col-span-4 flex flex-col gap-4 scroll-mt-6">
             <div className="bg-[#211C18] text-[#F5EAD6] rounded-2xl border border-[#322A23] p-5 shadow-xl flex flex-col gap-5">
               <div className="flex items-center justify-between border-b border-[#322A23] pb-3">
                 <span className="font-heading font-bold text-sm tracking-tight">Caja de Cobro</span>
