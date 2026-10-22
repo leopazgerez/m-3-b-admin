@@ -7,7 +7,9 @@ import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/useApi";
 import { money, variantLabel } from "@/lib/format";
 import { formatDate } from "@/lib/dateUtils";
-import type { ExpenseRow, StockRow } from "@/lib/apiTypes";
+import type { Alerts } from "@/lib/apiTypes";
+import { installmentAlertLabel } from "@/lib/labels";
+import { pruneReadIds } from "@/lib/reports";
 import {
   Bell,
   AlertTriangle,
@@ -55,37 +57,31 @@ function saveReadIds(ids: Set<string>) {
 }
 
 async function loadNotifications(): Promise<NotificationItem[]> {
-  const [stock, expenses] = await Promise.all([
-    api.getAll<StockRow>("/stock", {
-      sortBy: "onHand",
-      sortDir: "asc",
-      filters: [{ field: "status", operator: "IN", value: ["LOW", "OUT"] }],
-    }),
-    api.getAll<ExpenseRow>("/expenses", {
-      filters: [{ field: "status", operator: "EQUALS", value: "OVERDUE" }],
-    }),
-  ]);
+  const { stock, installments } = await api.getOne<Alerts>("/reports/alerts", { days: 7 });
   return [
-    ...stock.map((r): NotificationItem => ({
-      id: `stock-${r.variantId}`,
-      type: r.status === "OUT" ? "stock_critical" : "stock_warning",
-      title: r.status === "OUT" ? "Sin stock" : "Bajo stock",
-      description:
-        r.status === "OUT"
-          ? `${variantLabel(r)} no tiene unidades disponibles para la venta.`
-          : `${variantLabel(r)} tiene ${r.onHand} u. (mínimo: ${r.minStock} u.).`,
-      time: r.sku ?? "Stock",
-      actionLabel: "Reponer",
-      actionHref: `/stock?productId=${r.productId}&variantId=${r.variantId}`,
-    })),
-    ...expenses.map((e): NotificationItem => ({
-      id: `expense-${e.id}`,
+    ...stock.map((r): NotificationItem => {
+      const label = variantLabel({ productName: r.product, variantName: r.variantName });
+      return {
+        id: `stock-${r.variantId}`,
+        type: r.status === "OUT" ? "stock_critical" : "stock_warning",
+        title: r.status === "OUT" ? "Sin stock" : "Bajo stock",
+        description:
+          r.status === "OUT"
+            ? `${label} no tiene unidades disponibles para la venta.`
+            : `${label} tiene ${r.onHand} u. (mínimo: ${r.minStock} u.).`,
+        time: r.sku ?? "Stock",
+        actionLabel: "Reponer",
+        actionHref: `/stock?productId=${r.productId}&variantId=${r.variantId}`,
+      };
+    }),
+    ...installments.map((i): NotificationItem => ({
+      id: `installment-${i.expenseId}-${i.installmentNo}`,
       type: "expense_overdue",
-      title: "Gasto vencido",
-      description: `${e.description}: adeuda ${money(e.pending)} (${e.categoryName}).`,
-      time: formatDate(e.incurredOn),
-      actionLabel: "Ver gastos",
-      actionHref: "/gastos",
+      title: installmentAlertLabel[i.status],
+      description: `${i.description} · cuota ${i.installmentNo}: ${money(i.pending)} (vence ${formatDate(i.dueDate)}).`,
+      time: formatDate(i.dueDate),
+      actionLabel: "Ver gasto",
+      actionHref: `/gastos?expenseId=${i.expenseId}`,
     })),
   ];
 }
@@ -146,8 +142,10 @@ export default function NotificationsPopover({
   const markAsRead = (ids: string[]) => {
     const next = new Set(readIds);
     ids.forEach((id) => next.add(id));
-    saveReadIds(next);
-    setReadIds(next);
+    // prune only once alerts loaded, otherwise an empty list would wipe the read state
+    const kept = data ? new Set(pruneReadIds([...next], notifications.map((n) => n.id))) : next;
+    saveReadIds(kept);
+    setReadIds(kept);
   };
 
   const dismissNotification = (id: string) => {

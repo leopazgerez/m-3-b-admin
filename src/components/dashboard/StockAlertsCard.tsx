@@ -6,20 +6,15 @@ import { ApiErrorBanner } from "../ui";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/useApi";
 import { variantLabel } from "@/lib/format";
-import type { StockRow } from "@/lib/apiTypes";
+import type { Alerts } from "@/lib/apiTypes";
 
 export default function StockAlertsCard() {
   const { data, loading, error, reload } = useApiResource(
-    () =>
-      api.getPage<StockRow>("/stock", {
-        length: 5,
-        sortBy: "onHand",
-        sortDir: "asc",
-        filters: [{ field: "status", operator: "IN", value: ["LOW", "OUT"] }],
-      }),
+    () => api.getOne<Alerts>("/reports/alerts", { days: 7 }),
     [],
   );
-  const alerts = data?.items ?? [];
+  const stock = data?.stock ?? [];
+  const alerts = stock.slice(0, 5);
 
   return (
     <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col w-full lg:w-[380px] min-w-0 shadow-xs overflow-hidden">
@@ -33,7 +28,7 @@ export default function StockAlertsCard() {
             href="/stock"
             className="bg-[#F7E3DD] text-[#C0492F] text-[11px] font-bold px-2.5 py-0.5 rounded-full shrink-0 hover:bg-[#F7E3DD]/80 transition-colors"
           >
-            {data.total} críticos
+            {stock.length} críticos
           </Link>
         )}
       </div>
@@ -65,7 +60,7 @@ export default function StockAlertsCard() {
               </div>
               <div className="flex flex-col min-w-0 flex-1">
                 <span className="text-xs font-semibold text-[#231E1A] leading-tight truncate">
-                  {variantLabel(item)}
+                  {variantLabel({ productName: item.product, variantName: item.variantName })}
                 </span>
                 <span className="text-[11px] text-[#A89C8C] truncate">
                   {item.sku ? `${item.sku} · ` : ""}
