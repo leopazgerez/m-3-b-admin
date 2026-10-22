@@ -43,3 +43,5 @@ export const installmentStatusLabel: Record<InstallmentStatus, string> = {
 export const paymentStatusLabel: Record<PaymentStatus, string> = {
   PENDING: "Pendiente", PARTIAL: "Parcial", PAID: "Pagada", "N/A": "No aplica", CANCELLED: "Anulada",
 };
+
+export const installmentAlertLabel: Record<"OVERDUE" | "DUE_SOON", string> = { OVERDUE: "Vencida", DUE_SOON: "Vence pronto" };

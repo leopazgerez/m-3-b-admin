@@ -185,3 +185,23 @@ export interface ExpenseSummaryLine {
 export interface ExpenseSummary {
   from: string | null; to: string | null; total: number; paid: number; pending: number; categories: ExpenseSummaryLine[];
 }
+
+export interface SalesSummary {
+  from: string; to: string;
+  sales: { count: number; total: number; cost: number; grossProfit: number; grossMarginPct: number | null };
+  expenses: { total: number };
+  net: number; netMarginPct: number | null;
+  cash: { collected: number; paid: number; net: number };
+}
+export interface MonthlyBalance { month: string; income: number; expenses: number }
+export interface CategorySalesLine { categoryId: number | null; name: string; units: number; total: number; pct: number | null }
+export interface CategorySales { from: string; to: string; total: number; categories: CategorySalesLine[] }
+export interface AlertStock {
+  variantId: number; productId: number; product: string; variantName: string; sku: string | null;
+  onHand: number; minStock: number; status: "OUT" | "LOW";
+}
+export interface AlertInstallment {
+  expenseId: number; installmentNo: number; description: string; dueDate: string;
+  amount: number; pending: number; status: "OVERDUE" | "DUE_SOON";
+}
+export interface Alerts { stock: AlertStock[]; installments: AlertInstallment[] }
