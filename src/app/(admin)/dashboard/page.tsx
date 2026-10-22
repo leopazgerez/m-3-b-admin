@@ -1,19 +1,31 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/layout/Topbar";
 import { ApiErrorBanner, KpiCard, PendingApi } from "@/components/ui";
 import RecentSalesTable from "@/components/dashboard/RecentSalesTable";
 import StockAlertsCard from "@/components/dashboard/StockAlertsCard";
+import PeriodSelector from "@/components/dashboard/PeriodSelector";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/useApi";
-import type { StockSummary } from "@/lib/apiTypes";
-import { Package, Plus } from "lucide-react";
+import type { SalesSummary, StockSummary } from "@/lib/apiTypes";
+import { formatDate, toLocalISODate } from "@/lib/dateUtils";
+import { money } from "@/lib/format";
+import { pctLabel, periodParams, type DashboardPeriod } from "@/lib/reports";
+import { Banknote, HandCoins, Package, Plus, Receipt, TrendingUp, Wallet, Wallet2 } from "lucide-react";
 import { getAssetPath } from "@/lib/assets";
 
 export default function DashboardPage() {
   const summary = useApiResource(() => api.getOne<StockSummary>("/stock/summary"), []);
   const s = summary.data;
+  const [period, setPeriod] = useState<DashboardPeriod>({ kind: "current" });
+  const params = periodParams(period, toLocalISODate());
+  const report = useApiResource(
+    async () => (params ? api.getOne<SalesSummary>("/reports/summary", params) : null),
+    [params],
+  );
+  const r = report.data;
   const alerts = s ? s.lowCount + s.outCount : 0;
 
   return (
@@ -21,7 +33,6 @@ export default function DashboardPage() {
       <Topbar title="Dashboard" />
 
       <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full">
-        {/* Header Section with Timeframe & CTA */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-white border border-[#E7DFD2] p-1 shadow-2xs flex items-center justify-center shrink-0">
@@ -54,11 +65,67 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <PeriodSelector value={period} onChange={setPeriod} invalid={!params} />
+          {r && params && (
+            <span className="text-xs text-[#7A6F63]">
+              {formatDate(r.from)} – {formatDate(r.to)}
+            </span>
+          )}
+        </div>
+
         {/* KPIs */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
-          <div className="lg:col-span-3">
-            <PendingApi title="Ventas, gastos y ganancia neta" endpoint="GET /api/reports/summary" />
-          </div>
+        {report.error && params && <ApiErrorBanner error={report.error} onRetry={report.reload} />}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <KpiCard
+            label="Ventas"
+            value={r ? money(r.sales.total) : "…"}
+            delta={r ? `${r.sales.count} ventas` : "cargando"}
+            icon={<Receipt className="w-5 h-5" />}
+          />
+          <KpiCard
+            label="Ganancia bruta"
+            value={r ? money(r.sales.grossProfit) : "…"}
+            delta="ventas menos costo"
+            badgeText={r ? pctLabel(r.sales.grossMarginPct) : undefined}
+            icon={<TrendingUp className="w-5 h-5" />}
+          />
+          <KpiCard
+            label="Gastos"
+            value={r ? money(r.expenses.total) : "…"}
+            delta="egresos del período"
+            icon={<Wallet className="w-5 h-5" />}
+          />
+          <KpiCard
+            label="Neto"
+            value={r ? money(r.net) : "…"}
+            delta="ganancia bruta menos gastos"
+            badgeText={r ? pctLabel(r.netMarginPct) : undefined}
+            badgeType={r && r.net < 0 ? "danger" : "success"}
+            icon={<Wallet2 className="w-5 h-5" />}
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <KpiCard
+            label="Cobrado"
+            value={r ? money(r.cash.collected) : "…"}
+            delta="base caja"
+            icon={<Banknote className="w-5 h-5" />}
+          />
+          <KpiCard
+            label="Pagado"
+            value={r ? money(r.cash.paid) : "…"}
+            delta="base caja"
+            icon={<HandCoins className="w-5 h-5" />}
+          />
+          <KpiCard
+            label="Caja neta"
+            value={r ? money(r.cash.net) : "…"}
+            delta="cobrado menos pagado"
+            badgeText={r && r.cash.net < 0 ? "negativa" : undefined}
+            badgeType="danger"
+            icon={<Wallet className="w-5 h-5" />}
+          />
           {summary.error ? (
             <ApiErrorBanner error={summary.error} onRetry={summary.reload} />
           ) : (
