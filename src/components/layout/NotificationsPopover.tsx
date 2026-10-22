@@ -75,11 +75,11 @@ async function loadNotifications(): Promise<NotificationItem[]> {
       };
     }),
     ...installments.map((i): NotificationItem => ({
-      id: `installment-${i.expenseId}-${i.installmentNo}`,
+      id: `installment-${i.expenseId}-${i.installmentNo}-${i.status}`,
       type: "expense_overdue",
       title: installmentAlertLabel[i.status],
-      description: `${i.description} · cuota ${i.installmentNo}: ${money(i.pending)} (vence ${formatDate(i.dueDate)}).`,
-      time: formatDate(i.dueDate),
+      description: `${i.description} · cuota ${i.installmentNo}: ${money(i.pending)}.`,
+      time: `${i.status === "OVERDUE" ? "venció" : "vence"} ${formatDate(i.dueDate)}`,
       actionLabel: "Ver gasto",
       actionHref: `/gastos?expenseId=${i.expenseId}`,
     })),

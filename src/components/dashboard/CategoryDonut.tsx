@@ -7,7 +7,7 @@ import { money } from "@/lib/format";
 import { pctLabel } from "@/lib/reports";
 import type { CategorySales } from "@/lib/apiTypes";
 
-const COLORS = ["#9C5A2E", "#C87941", "#3E8E5A", "#D98A2B", "#7A6F63", "#E7DFD2"];
+const COLORS = ["#9C5A2E", "#C87941", "#3E8E5A", "#D98A2B", "#7A6F63", "#5B7C99"];
 
 export default function CategoryDonut({ params }: { params: { from?: string; to?: string } | null }) {
   const { data, error, reload } = useApiResource(

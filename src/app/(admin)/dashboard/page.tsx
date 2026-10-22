@@ -28,6 +28,7 @@ export default function DashboardPage() {
     [params],
   );
   const r = report.data;
+  const ph = params ? "…" : "—";
   const alerts = s ? s.lowCount + s.outCount : 0;
 
   return (
@@ -81,28 +82,29 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <KpiCard
             label="Ventas"
-            value={r ? money(r.sales.total) : "…"}
-            delta={r ? `${r.sales.count} ventas` : "cargando"}
+            value={r ? money(r.sales.total) : ph}
+            delta={r ? `${r.sales.count} ventas` : params ? "cargando" : "—"}
             icon={<Receipt className="w-5 h-5" />}
           />
           <KpiCard
             label="Ganancia bruta"
-            value={r ? money(r.sales.grossProfit) : "…"}
+            value={r ? money(r.sales.grossProfit) : ph}
             delta="ventas menos costo"
-            badgeText={r ? pctLabel(r.sales.grossMarginPct) : undefined}
+            badgeText={r && r.sales.grossMarginPct !== null ? pctLabel(r.sales.grossMarginPct) : undefined}
+            badgeType={r && r.sales.grossProfit < 0 ? "danger" : "success"}
             icon={<TrendingUp className="w-5 h-5" />}
           />
           <KpiCard
             label="Gastos"
-            value={r ? money(r.expenses.total) : "…"}
+            value={r ? money(r.expenses.total) : ph}
             delta="egresos del período"
             icon={<Wallet className="w-5 h-5" />}
           />
           <KpiCard
             label="Neto"
-            value={r ? money(r.net) : "…"}
-            delta="ganancia bruta menos gastos"
-            badgeText={r ? pctLabel(r.netMarginPct) : undefined}
+            value={r ? money(r.net) : ph}
+            delta="ventas menos gastos"
+            badgeText={r && r.netMarginPct !== null ? pctLabel(r.netMarginPct) : undefined}
             badgeType={r && r.net < 0 ? "danger" : "success"}
             icon={<Wallet2 className="w-5 h-5" />}
           />
@@ -110,19 +112,19 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <KpiCard
             label="Cobrado"
-            value={r ? money(r.cash.collected) : "…"}
+            value={r ? money(r.cash.collected) : ph}
             delta="base caja"
             icon={<Banknote className="w-5 h-5" />}
           />
           <KpiCard
             label="Pagado"
-            value={r ? money(r.cash.paid) : "…"}
+            value={r ? money(r.cash.paid) : ph}
             delta="base caja"
             icon={<HandCoins className="w-5 h-5" />}
           />
           <KpiCard
             label="Caja neta"
-            value={r ? money(r.cash.net) : "…"}
+            value={r ? money(r.cash.net) : ph}
             delta="cobrado menos pagado"
             badgeText={r && r.cash.net < 0 ? "negativa" : undefined}
             badgeType="danger"

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Topbar from "@/components/layout/Topbar";
 import { ApiErrorBanner, Badge, ConfirmDeleteModal, Pager } from "@/components/ui";
 import FilterPanel from "@/components/ui/FilterPanel";
@@ -26,6 +26,7 @@ const filterSelectCls =
 
 export default function GastosContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("incurredOn");
@@ -327,7 +328,7 @@ export default function GastosContent() {
       )}
 
       {detailId != null && (
-        <ExpenseDetailModal id={detailId} onClose={() => setDetailId(null)} onChanged={changed} />
+        <ExpenseDetailModal id={detailId} onClose={() => { setDetailId(null); if (expenseParam) router.replace("/gastos"); }} onChanged={changed} />
       )}
 
       <ConfirmDeleteModal
