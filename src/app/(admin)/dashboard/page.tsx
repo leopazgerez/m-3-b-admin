@@ -3,10 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/layout/Topbar";
-import { ApiErrorBanner, KpiCard, PendingApi } from "@/components/ui";
+import { ApiErrorBanner, KpiCard } from "@/components/ui";
 import RecentSalesTable from "@/components/dashboard/RecentSalesTable";
 import StockAlertsCard from "@/components/dashboard/StockAlertsCard";
 import BalanceChart from "@/components/dashboard/BalanceChart";
+import CategoryDonut from "@/components/dashboard/CategoryDonut";
 import PeriodSelector from "@/components/dashboard/PeriodSelector";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/useApi";
@@ -148,7 +149,7 @@ export default function DashboardPage() {
             <BalanceChart />
           </div>
           <div className="w-full lg:w-[380px] shrink-0 min-w-0">
-            <PendingApi title="Ventas por categoría" endpoint="GET /api/reports/sales-by-category" />
+            <CategoryDonut params={params} />
           </div>
         </div>
 
