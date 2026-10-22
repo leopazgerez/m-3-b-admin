@@ -6,6 +6,7 @@ import Topbar from "@/components/layout/Topbar";
 import { ApiErrorBanner, KpiCard, PendingApi } from "@/components/ui";
 import RecentSalesTable from "@/components/dashboard/RecentSalesTable";
 import StockAlertsCard from "@/components/dashboard/StockAlertsCard";
+import BalanceChart from "@/components/dashboard/BalanceChart";
 import PeriodSelector from "@/components/dashboard/PeriodSelector";
 import { api } from "@/lib/api";
 import { useApiResource } from "@/lib/useApi";
@@ -144,7 +145,7 @@ export default function DashboardPage() {
         {/* Charts Row */}
         <div className="flex flex-col lg:flex-row items-stretch gap-5 min-w-0 w-full">
           <div className="flex-1 min-w-0 w-full">
-            <PendingApi title="Balance mensual" endpoint="GET /api/reports/monthly-balance" />
+            <BalanceChart />
           </div>
           <div className="w-full lg:w-[380px] shrink-0 min-w-0">
             <PendingApi title="Ventas por categoría" endpoint="GET /api/reports/sales-by-category" />
