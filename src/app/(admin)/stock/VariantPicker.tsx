@@ -105,7 +105,7 @@ export default function VariantPicker({ value, onChange, productId, variantId, d
           ))
         )}
       </div>
-      <Pager hasPrev={hasPrev} hasNext={hasNext} onPrev={prev} onNext={next} total={total} loading={loading} />
+      <Pager flush hasPrev={hasPrev} hasNext={hasNext} onPrev={prev} onNext={next} total={total} loading={loading} />
     </div>
   );
 }

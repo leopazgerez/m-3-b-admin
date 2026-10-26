@@ -56,7 +56,7 @@ function SearchList({ onPick, onNew }: { onPick: (c: Customer) => void; onNew: (
         )}
       </div>
 
-      <Pager hasPrev={list.hasPrev} hasNext={list.hasNext} onPrev={list.prev} onNext={list.next} total={list.total} loading={list.loading} />
+      <Pager flush hasPrev={list.hasPrev} hasNext={list.hasNext} onPrev={list.prev} onNext={list.next} total={list.total} loading={list.loading} />
 
       <button type="button" onClick={onNew}
         className="self-start text-xs text-[#9C5A2E] hover:underline flex items-center gap-1.5 font-semibold cursor-pointer">

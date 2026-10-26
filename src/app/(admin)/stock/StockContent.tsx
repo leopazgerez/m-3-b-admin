@@ -458,9 +458,7 @@ export default function StockContent() {
                   </div>
                 </div>
               </div>
-              <div className="px-6">
-                <Pager hasPrev={stock.hasPrev} hasNext={stock.hasNext} onPrev={stock.prev} onNext={stock.next} total={stock.total} loading={stock.loading} />
-              </div>
+              <Pager hasPrev={stock.hasPrev} hasNext={stock.hasNext} onPrev={stock.prev} onNext={stock.next} total={stock.total} loading={stock.loading} />
             </div>
           </div>
         )}
@@ -580,9 +578,7 @@ export default function StockContent() {
                   </div>
                 </div>
               </div>
-              <div className="px-6">
-                <Pager hasPrev={movements.hasPrev} hasNext={movements.hasNext} onPrev={movements.prev} onNext={movements.next} total={movements.total} loading={movements.loading} />
-              </div>
+              <Pager hasPrev={movements.hasPrev} hasNext={movements.hasNext} onPrev={movements.prev} onNext={movements.next} total={movements.total} loading={movements.loading} />
             </div>
           </div>
         )}

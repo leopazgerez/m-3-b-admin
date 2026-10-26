@@ -38,7 +38,7 @@ export default function CostHistoryModal({ variant, onClose }: { variant: Varian
               ))
             )}
           </div>
-          <Pager hasPrev={hasPrev} hasNext={hasNext} onPrev={prev} onNext={next} total={total} loading={loading} />
+          <Pager flush hasPrev={hasPrev} hasNext={hasNext} onPrev={prev} onNext={next} total={total} loading={loading} />
         </div>
       </div>
     </Modal>
