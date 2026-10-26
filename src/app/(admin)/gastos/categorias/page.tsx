@@ -1,1 +1,5 @@
-export { default } from "../../configuracion/gastos/page";
+import ExpenseCategoriesManager from "@/components/expenses/ExpenseCategoriesManager";
+
+export default function GastosCategoriasPage() {
+  return <ExpenseCategoriesManager />;
+}

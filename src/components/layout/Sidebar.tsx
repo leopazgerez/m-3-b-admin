@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Package,
@@ -12,32 +12,33 @@ import {
   Settings,
   LogOut,
   ChevronDown,
-  TrendingUp,
-  TrendingDown,
   Tag,
   CreditCard,
   ReceiptText,
   X,
   Truck,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { getAssetPath } from "@/lib/assets";
+import { logout, useCurrentUser } from "@/lib/auth";
 import { useSidebar } from "./SidebarContext";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const user = useCurrentUser();
+  const initials = user.fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
   const { isOpen, closeSidebar } = useSidebar();
-  const [gastosOpen, setGastosOpen] = useState(false);
-  const [configOpen, setConfigOpen] = useState(false);
+  const [gastosOpen, setGastosOpen] = useState(pathname.startsWith("/gastos"));
+  const [configOpen, setConfigOpen] = useState(pathname.startsWith("/configuracion"));
 
-  useEffect(() => {
-    if (pathname.startsWith("/gastos")) {
-      setGastosOpen(true);
-    }
-    if (pathname.startsWith("/configuracion")) {
-      setConfigOpen(true);
-    }
-  }, [pathname]);
+  // open the section of the current route (adjusting state during render, not in an effect)
+  const [seenPath, setSeenPath] = useState(pathname);
+  if (seenPath !== pathname) {
+    setSeenPath(pathname);
+    if (pathname.startsWith("/gastos")) setGastosOpen(true);
+    if (pathname.startsWith("/configuracion")) setConfigOpen(true);
+  }
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -49,8 +50,6 @@ export default function Sidebar() {
   ];
 
   const isGastosActive = pathname === "/gastos" || pathname.startsWith("/gastos/");
-  const isIngresosActive = pathname === "/gastos/ingresos";
-  const isEgresosActive = pathname === "/gastos/egresos";
 
   const isConfigActive = pathname === "/configuracion" || pathname.startsWith("/configuracion/");
   const isConfigProductoActive = pathname === "/configuracion/producto";
@@ -80,6 +79,7 @@ export default function Sidebar() {
         <div className="flex items-center justify-between pb-6 pt-2">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl overflow-hidden bg-white flex items-center justify-center shrink-0 shadow-md border border-[#322A23] p-0.5">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={getAssetPath("/favicon.png")}
                 alt="Mates Triple B"
@@ -166,30 +166,6 @@ export default function Sidebar() {
                   <span>Todos los gastos</span>
                 </Link>
                 <Link
-                  href="/gastos/ingresos"
-                  onClick={closeSidebar}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-all ${
-                    isIngresosActive
-                      ? "bg-[#9C5A2E] text-[#F5EAD6] font-semibold"
-                      : "text-[#C9BCA9] hover:text-[#F5EAD6] hover:bg-[#322A23]"
-                  }`}
-                >
-                  <TrendingUp className="w-4 h-4 text-[#3E8E5A]" />
-                  <span>Ingresos</span>
-                </Link>
-                <Link
-                  href="/gastos/egresos"
-                  onClick={closeSidebar}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-all ${
-                    isEgresosActive
-                      ? "bg-[#9C5A2E] text-[#F5EAD6] font-semibold"
-                      : "text-[#C9BCA9] hover:text-[#F5EAD6] hover:bg-[#322A23]"
-                  }`}
-                >
-                  <TrendingDown className="w-4 h-4 text-[#C0492F]" />
-                  <span>Egresos</span>
-                </Link>
-                <Link
                   href="/configuracion/gastos"
                   onClick={closeSidebar}
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-all ${
@@ -253,7 +229,7 @@ export default function Sidebar() {
                   }`}
                 >
                   <CreditCard className="w-4 h-4 text-[#3E8E5A]" />
-                  <span>Venta</span>
+                  <span>Cobros</span>
                 </Link>
                 <Link
                   href="/configuracion/gastos"
@@ -288,23 +264,27 @@ export default function Sidebar() {
         <div className="pt-4 border-t border-[#322A23] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-full bg-[#EADBC6] text-[#7A3F1F] flex items-center justify-center font-bold text-xs font-heading shadow-inner">
-              LP
+              {initials}
             </div>
             <div className="flex flex-col">
               <span className="text-[13px] font-semibold text-[#F5EAD6] leading-tight">
-                Leonel Paz
+                {user.fullName}
               </span>
               <span className="text-[11px] text-[#A89C8C]">Administrador</span>
             </div>
           </div>
-          <Link
-            href="/login"
-            onClick={closeSidebar}
+          <button
+            type="button"
+            onClick={() => {
+              logout();
+              closeSidebar();
+              router.replace("/login");
+            }}
             title="Cerrar sesión"
-            className="text-[#A89C8C] hover:text-[#F7E3DD] p-1.5 rounded-md hover:bg-[#322A23] transition-colors"
+            className="text-[#A89C8C] hover:text-[#F7E3DD] p-1.5 rounded-md hover:bg-[#322A23] transition-colors cursor-pointer"
           >
             <LogOut className="w-4 h-4" />
-          </Link>
+          </button>
         </div>
       </aside>
     </>

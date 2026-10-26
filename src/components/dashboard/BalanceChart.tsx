@@ -1,69 +1,71 @@
 "use client";
 
-import { MonthlyBalance } from "@/lib/types";
+import { ApiErrorBanner } from "../ui";
+import { api } from "@/lib/api";
+import { useApiResource } from "@/lib/useApi";
+import { money } from "@/lib/format";
+import { barRatio, monthLabel } from "@/lib/reports";
+import type { MonthlyBalance } from "@/lib/apiTypes";
 
-interface BalanceChartProps {
-  data: MonthlyBalance[];
-}
+// non-zero values keep a visible (>=1%) bar
+const pct = (v: number, max: number) => (v > 0 ? Math.max(1, Math.round(barRatio(v, max) * 100)) : 0);
 
-export default function BalanceChart({ data }: BalanceChartProps) {
-  const maxVal = Math.max(...data.flatMap((d) => [d.income, d.expense])) * 1.15;
+export default function BalanceChart() {
+  const { data, error, reload } = useApiResource(
+    () => api.getOne<MonthlyBalance[]>("/reports/monthly-balance", { months: 6 }),
+    [],
+  );
+  const rows = data ?? [];
+  const max = Math.max(0, ...rows.flatMap((d) => [d.income, d.expenses]));
 
   return (
     <div className="bg-white rounded-2xl border border-[#E7DFD2] p-4 sm:p-5 flex flex-col justify-between w-full min-w-0 shadow-xs h-full min-h-[260px]">
-      {/* Header with Title and Legend - responsive wrapping */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 pb-2 border-b border-[#F7F3EC] sm:border-transparent">
         <div className="flex flex-col">
-          <h3 className="font-heading font-bold text-base text-[#231E1A]">
-            Balance mensual
-          </h3>
-          <span className="text-xs text-[#7A6F63]">
-            Ingresos vs. egresos · últimos 6 meses
-          </span>
+          <h3 className="font-heading font-bold text-base text-[#231E1A]">Cobrado vs. pagado</h3>
+          <span className="text-xs text-[#7A6F63]">Base caja: cobros a clientes y pagos de gastos</span>
         </div>
-
-        {/* Legend */}
         <div className="flex items-center gap-4 text-xs shrink-0 self-start sm:self-auto">
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-[#3E8E5A] shrink-0" />
-            <span className="text-[#7A6F63] font-medium">Ingresos</span>
+            <span className="text-[#7A6F63] font-medium">Cobrado</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-[#9C5A2E] shrink-0" />
-            <span className="text-[#7A6F63] font-medium">Egresos</span>
+            <span className="text-[#7A6F63] font-medium">Pagado</span>
           </div>
         </div>
       </div>
 
-      {/* Bar Plot with horizontal safety scroll if needed */}
-      <div className="w-full overflow-x-auto min-w-0 pt-3">
-        <div className="min-w-[280px] flex items-end justify-between pt-2 pb-1 border-b border-[#F7F3EC] h-40">
-          {data.map((item) => {
-            const incomeHeight = Math.round((item.income / maxVal) * 100);
-            const expenseHeight = Math.round((item.expense / maxVal) * 100);
-
-            return (
-              <div key={item.month} className="flex flex-col items-center gap-2 group flex-1">
+      {error && <ApiErrorBanner error={error} onRetry={reload} />}
+      {!error && !data && <div className="p-6 text-center text-xs text-[#7A6F63]">Cargando…</div>}
+      {data && (
+        <div className="w-full overflow-x-auto min-w-0 pt-3">
+          <div
+            role="img"
+            aria-label={rows.map((d) => `${monthLabel(d.month)}: cobrado ${money(d.income)}, pagado ${money(d.expenses)}`).join("; ")}
+            className="min-w-[280px] flex items-end justify-between pt-2 pb-1 border-b border-[#F7F3EC] h-40">
+            {rows.map((item) => (
+              <div key={item.month} className="flex flex-col items-center gap-2 flex-1">
                 <div className="flex items-end gap-1 sm:gap-1.5 h-32 relative">
-                  {/* Income Bar */}
                   <div
-                    style={{ height: `${incomeHeight}%` }}
-                    className="w-3.5 sm:w-5 bg-[#3E8E5A] rounded-t-sm hover:brightness-110 transition-all duration-300 relative cursor-pointer group-hover:shadow-sm"
-                    title={`Ingresos ${item.month}: $${item.income.toLocaleString("es-AR")}`}
+                    style={{ height: `${pct(item.income, max)}%` }}
+                    className="w-3.5 sm:w-5 bg-[#3E8E5A] rounded-t-sm hover:brightness-110 transition-all duration-300"
+                    title={`Cobrado ${monthLabel(item.month)}: ${money(item.income)}`}
                   />
-                  {/* Expense Bar */}
                   <div
-                    style={{ height: `${expenseHeight}%` }}
-                    className="w-3.5 sm:w-5 bg-[#9C5A2E] rounded-t-sm hover:brightness-110 transition-all duration-300 relative cursor-pointer group-hover:shadow-sm"
-                    title={`Egresos ${item.month}: $${item.expense.toLocaleString("es-AR")}`}
+                    style={{ height: `${pct(item.expenses, max)}%` }}
+                    className="w-3.5 sm:w-5 bg-[#9C5A2E] rounded-t-sm hover:brightness-110 transition-all duration-300"
+                    title={`Pagado ${monthLabel(item.month)}: ${money(item.expenses)}`}
                   />
                 </div>
-                <span className="text-xs font-medium text-[#7A6F63]">{item.month}</span>
+                <span className="text-xs font-medium text-[#7A6F63]">{monthLabel(item.month)}</span>
               </div>
-            );
-          })}
+            ))}
+          </div>
+          {max === 0 && <p className="pt-2 text-center text-xs text-[#7A6F63]">Sin movimientos de caja</p>}
         </div>
-      </div>
+      )}
     </div>
   );
 }

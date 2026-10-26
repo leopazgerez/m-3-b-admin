@@ -49,7 +49,7 @@ export default function Modal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className={`bg-white rounded-2xl border border-[#E7DFD2] w-full ${maxWidth} max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-150 overflow-hidden my-auto`}
+        className={`bg-white rounded-2xl border border-[#E7DFD2] w-full ${maxWidth} max-h-[90dvh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-150 overflow-hidden my-auto`}
       >
         {/* Fixed Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[#F7F3EC] shrink-0 bg-white z-10">

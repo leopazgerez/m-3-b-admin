@@ -31,7 +31,7 @@ export default function FilterPanel({
   dateTo = "",
   onDateFromChange,
   onDateToChange,
-  dateLabel = "Rango de fecha",
+  dateLabel,
   children,
   resultCount,
 }: FilterPanelProps) {
@@ -162,6 +162,7 @@ export default function FilterPanel({
             </div>
           </div>
 
+          {dateLabel && <p className="text-xs font-semibold text-[#7A6F63] -mb-2">{dateLabel}</p>}
           {/* Grid with Rango de Fecha (Desde y Hasta) and Custom Properties */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
             {/* Rango de Fecha: Desde */}

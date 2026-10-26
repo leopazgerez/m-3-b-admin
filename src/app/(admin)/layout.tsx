@@ -1,6 +1,6 @@
 "use client";
 
-import { StoreProvider } from "@/lib/store";
+import { AuthGuard } from "@/lib/auth";
 import { SidebarProvider } from "@/components/layout/SidebarContext";
 import Sidebar from "@/components/layout/Sidebar";
 
@@ -10,7 +10,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <StoreProvider>
+    <AuthGuard>
       <SidebarProvider>
         <div className="flex h-screen w-full overflow-hidden bg-[#F7F3EC]">
           {/* Sidebar (desktop estático, mobile drawer) */}
@@ -22,6 +22,6 @@ export default function AdminLayout({
           </div>
         </div>
       </SidebarProvider>
-    </StoreProvider>
+    </AuthGuard>
   );
 }
