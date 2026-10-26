@@ -74,3 +74,6 @@ claude.json
 .roo/
 .roorules
 .copilot/
+
+# graphify
+graphify-out/
