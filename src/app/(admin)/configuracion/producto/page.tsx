@@ -221,7 +221,7 @@ export default function ConfigProductoPage() {
       </main>
 
       <Modal isOpen={!!editingCat} onClose={() => setEditingCat(null)} title="Renombrar categoría" maxWidth="max-w-md">
-        <form onSubmit={handleRename} className="p-6 flex flex-col gap-4">
+        <form onSubmit={handleRename} className="flex flex-col gap-4">
           <input
             type="text"
             required

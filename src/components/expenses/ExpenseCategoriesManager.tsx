@@ -216,7 +216,7 @@ export default function ExpenseCategoriesManager() {
         title={editing === "new" ? "Crear nueva categoría de gasto" : "Modificar categoría de gasto"}
         maxWidth="max-w-xl"
       >
-        <form onSubmit={save} className="p-6 flex flex-col gap-4 text-xs">
+        <form onSubmit={save} className="flex flex-col gap-4 text-xs">
           <label className="flex flex-col gap-1 text-[#7A6F63]">
             Nombre de la categoría
             <input type="text" required autoFocus maxLength={100} value={fName} onChange={(e) => setFName(e.target.value)} className={inputCls} />

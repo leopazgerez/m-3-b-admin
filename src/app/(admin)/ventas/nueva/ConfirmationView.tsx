@@ -22,7 +22,7 @@ export default function ConfirmationView({
   const row = "flex justify-between text-[#7A6F63]";
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
-      <div className="bg-white text-[#231E1A] rounded-2xl border border-[#E7DFD2] w-full max-w-md max-h-[95vh] overflow-y-auto shadow-2xl flex flex-col">
+      <div className="bg-white text-[#231E1A] rounded-2xl border border-[#E7DFD2] w-full max-w-md max-h-[95dvh] overflow-y-auto shadow-2xl flex flex-col">
         <div className="bg-[#3E8E5A] text-white p-6 text-center flex flex-col items-center gap-2">
           <CheckCircle2 className="w-12 h-12 stroke-[2.2]" />
           <h3 className="font-heading font-bold text-lg">Venta #{sale.id} registrada</h3>
