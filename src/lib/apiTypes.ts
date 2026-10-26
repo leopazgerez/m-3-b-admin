@@ -185,6 +185,16 @@ export interface ExpenseSummaryLine {
 export interface ExpenseSummary {
   from: string | null; to: string | null; total: number; paid: number; pending: number; categories: ExpenseSummaryLine[];
 }
+/** One line of GET /expense-payments; installmentCount is the expense's, for "cuota 2 de 3". */
+export interface ExpensePaymentRow {
+  id: number; paidAt: string; amount: number; paymentMethodId: number; paymentMethodName: string;
+  accountId: number | null; accountName: string | null; notes: string | null; expenseId: number;
+  expenseDescription: string; categoryName: string; installmentNo: number; installmentCount: number;
+}
+export interface ExpensePaymentSummaryLine { paymentMethodId: number; name: string; total: number; pct: number }
+export interface ExpensePaymentSummary {
+  from: string | null; to: string | null; total: number; methods: ExpensePaymentSummaryLine[];
+}
 
 export interface SalesSummary {
   from: string; to: string;
