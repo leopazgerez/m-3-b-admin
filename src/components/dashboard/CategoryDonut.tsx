@@ -58,7 +58,7 @@ export default function CategoryDonut({ params }: { params: { from?: string; to?
                 ))}
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="font-heading font-bold text-sm sm:text-base text-[#231E1A] tracking-tight leading-none">
+              <span className="font-heading font-bold text-xs sm:text-sm text-[#231E1A] tracking-tight leading-none">
                 {money(data.total)}
               </span>
               <span className="text-[10px] text-[#A89C8C] uppercase tracking-wider">total</span>
@@ -67,18 +67,18 @@ export default function CategoryDonut({ params }: { params: { from?: string; to?
 
           <ul className="flex flex-col gap-2.5 w-full min-w-0 text-xs">
             {cats.map((c, i) => (
-              <li key={c.categoryId ?? `n-${i}`} className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: COLORS[i % COLORS.length] }}
-                    aria-hidden="true"
-                  />
-                  <span className="text-[#7A6F63] font-medium truncate">{c.name}</span>
+              <li key={c.categoryId ?? `n-${i}`} className="flex items-start gap-2">
+                <span
+                  className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5"
+                  style={{ backgroundColor: COLORS[i % COLORS.length] }}
+                  aria-hidden="true"
+                />
+                <div className="flex flex-col min-w-0">
+                  <span className="text-[#7A6F63] font-medium break-words">{c.name}</span>
+                  <span className="font-bold text-[#231E1A]">
+                    {money(c.total)} · {c.units} u. · {pctLabel(c.pct)}
+                  </span>
                 </div>
-                <span className="font-bold text-[#231E1A] shrink-0 text-right">
-                  {money(c.total)} · {c.units} u. · {pctLabel(c.pct)}
-                </span>
               </li>
             ))}
           </ul>
