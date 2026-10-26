@@ -13,13 +13,20 @@ import { money } from "@/lib/format";
 import { formatDate } from "@/lib/dateUtils";
 import { expenseKindLabel, expenseStatusLabel } from "@/lib/labels";
 import type {
-  ExpenseCategory, ExpenseKind, ExpenseRow, ExpenseStatus, ExpenseSummary, Supplier,
+  ExpenseCategory, ExpenseKind, ExpenseRow, ExpenseSummary, Supplier,
 } from "@/lib/apiTypes";
 import {
-  ArrowDown, ArrowUp, Calendar, CheckCircle2, Eye, Package, Plus, Receipt, Search, Tag, Trash2, Truck,
+  ArrowDown, ArrowUp, Calendar, CheckCircle2, Eye, Package, Plus, Receipt, Search, Tag, Trash2, Truck, Wallet,
 } from "lucide-react";
 import ExpenseDetailModal, { statusVariant } from "./ExpenseDetailModal";
 import ExpenseFormModal from "./ExpenseFormModal";
+
+// "Pendientes" includes installments and overdue: what's still owed, whatever the status says
+const paymentCriteria: Record<string, Criterion[]> = {
+  pending: [{ field: "pending", operator: "GREATER_THAN", value: 0 }],
+  overdue: [{ field: "status", operator: "IN", value: ["OVERDUE"] }],
+  paid: [{ field: "pending", operator: "EQUALS", value: 0 }],
+};
 
 const filterSelectCls =
   "w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3 py-2 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white cursor-pointer";
@@ -36,7 +43,8 @@ export default function GastosContent() {
   const [dateTo, setDateTo] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [kindFilter, setKindFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [paymentFilter, setPaymentFilter] = useState("");
+  const [installmentsFilter, setInstallmentsFilter] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("");
 
   const [creating, setCreating] = useState(false);
@@ -62,7 +70,10 @@ export default function GastosContent() {
   const filters: Criterion[] = [
     ...(categoryFilter ? [{ field: "categoryId", operator: "EQUALS" as const, value: Number(categoryFilter) }] : []),
     ...(kindFilter ? [{ field: "kind", operator: "EQUALS" as const, value: kindFilter }] : []),
-    ...(statusFilter ? [{ field: "status", operator: "IN" as const, value: [statusFilter] }] : []),
+    ...(paymentCriteria[paymentFilter] ?? []),
+    ...(installmentsFilter
+      ? [{ field: "installmentCount", operator: installmentsFilter === "many" ? "GREATER_THAN" as const : "EQUALS" as const, value: 1 }]
+      : []),
     ...(supplierFilter ? [{ field: "supplierId", operator: "EQUALS" as const, value: Number(supplierFilter) }] : []),
     ...dateRangeCriteria("incurredOn", dateFrom || undefined, dateTo || undefined),
   ];
@@ -78,9 +89,11 @@ export default function GastosContent() {
   const reloadAll = () => { list.reload(); summary.reload(); };
   const changed = (message: string) => { setSuccess(message); reloadAll(); };
 
-  const activeFilterCount = [dateFrom, dateTo, categoryFilter, kindFilter, statusFilter, supplierFilter].filter(Boolean).length;
+  const activeFilterCount = [dateFrom, dateTo, categoryFilter, kindFilter, paymentFilter, installmentsFilter, supplierFilter]
+    .filter(Boolean).length;
   const handleResetFilters = () => {
-    setDateFrom(""); setDateTo(""); setCategoryFilter(""); setKindFilter(""); setStatusFilter(""); setSupplierFilter("");
+    setDateFrom(""); setDateTo(""); setCategoryFilter(""); setKindFilter(""); setPaymentFilter(""); setInstallmentsFilter("");
+    setSupplierFilter("");
   };
 
   const toggleSort = (field: string) => {
@@ -125,6 +138,11 @@ export default function GastosContent() {
             <Link href="/gastos"
               className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-[#9C5A2E] text-white shadow-xs whitespace-nowrap">
               Todos los gastos
+            </Link>
+            <Link href="/gastos/pagos"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap">
+              <Wallet className="w-3.5 h-3.5 text-[#D98A2B]" />
+              <span>Pagos</span>
             </Link>
             <Link href="/configuracion/gastos"
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap">
@@ -226,12 +244,20 @@ export default function GastosContent() {
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="font-semibold text-[#231E1A]">Estado:</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={filterSelectCls}>
-              <option value="">Todos los estados</option>
-              {(Object.keys(expenseStatusLabel) as ExpenseStatus[]).map((k) => (
-                <option key={k} value={k}>{expenseStatusLabel[k]}</option>
-              ))}
+            <label className="font-semibold text-[#231E1A]">Pago:</label>
+            <select value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)} className={filterSelectCls}>
+              <option value="">Todos</option>
+              <option value="pending">Pendientes de pago</option>
+              <option value="overdue">Vencidos</option>
+              <option value="paid">Pagados</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label className="font-semibold text-[#231E1A]">Cuotas:</label>
+            <select value={installmentsFilter} onChange={(e) => setInstallmentsFilter(e.target.value)} className={filterSelectCls}>
+              <option value="">Todos</option>
+              <option value="many">En cuotas</option>
+              <option value="one">Un solo pago</option>
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
