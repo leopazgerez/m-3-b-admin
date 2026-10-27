@@ -8,6 +8,7 @@ import {
   Boxes,
   Users,
   ShoppingBag,
+  Undo2,
   Wallet,
   Settings,
   LogOut,
@@ -47,6 +48,7 @@ export default function Sidebar() {
     { name: "Proveedores", href: "/proveedores", icon: Truck },
     { name: "Clientes", href: "/clientes", icon: Users },
     { name: "Ventas", href: "/ventas", icon: ShoppingBag },
+    { name: "Devoluciones", href: "/devoluciones", icon: Undo2 },
   ];
 
   const isGastosActive = pathname === "/gastos" || pathname.startsWith("/gastos/");
