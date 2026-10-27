@@ -8,6 +8,7 @@ import { api, ApiError } from "@/lib/api";
 import { useApiResource, useOptions, usePagedList } from "@/lib/useApi";
 import { money, paymentStatusVariant as statusVariant } from "@/lib/format";
 import { formatInstant, pastDayToInstant, toLocalISODate } from "@/lib/dateUtils";
+import CustomerFormModal from "../CustomerFormModal";
 import { accountEntryTypeLabel, paymentStatusLabel, saleTypeLabel } from "@/lib/labels";
 import type {
   AccountEntry, Customer, FinancialAccount, PaymentFields, PaymentMethod, Sale,
@@ -20,6 +21,7 @@ import {
   ShoppingBag,
   CheckCircle2,
   Undo2,
+  Edit2,
   Banknote,
   ClipboardList,
   TrendingUp,
@@ -68,6 +70,7 @@ function CustomerDetail({ id }: { id: number }) {
   const [activeTab, setActiveTab] = useState<TabKey>("cuenta");
   const [payTarget, setPayTarget] = useState<PayTarget | null>(null);
   const [voiding, setVoiding] = useState<AccountEntry | null>(null);
+  const [editing, setEditing] = useState(false);
   const [voidError, setVoidError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -178,6 +181,13 @@ function CustomerDetail({ id }: { id: number }) {
               >
                 <Plus className="w-3.5 h-3.5" />
                 Registrar cobro
+              </button>
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-2 bg-[#FBF8F2] border border-[#E7DFD2] text-[#231E1A] px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#F0E9DE] transition-all shadow-sm cursor-pointer"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                Editar
               </button>
               <Link
                 href="/ventas/nueva"
@@ -356,6 +366,11 @@ function CustomerDetail({ id }: { id: number }) {
             reloadAll();
           }}
         />
+      )}
+
+      {editing && (
+        <CustomerFormModal customer={c} onClose={() => setEditing(false)}
+          onSaved={() => { setEditing(false); customer.reload(); }} />
       )}
 
       <ConfirmDeleteModal
