@@ -1,5 +1,5 @@
 import type {
-  AccountType, AdjustmentType, CostSource, ExpenseKind, ExpenseStatus, InstallmentStatus, MovementType,
+  AccountEntryType, AccountType, AdjustmentType, CostSource, ExpenseKind, ExpenseStatus, InstallmentStatus, MovementType,
   PaymentStatus, SaleType, StockStatus, SupplierType,
 } from "./apiTypes";
 
@@ -45,3 +45,7 @@ export const paymentStatusLabel: Record<PaymentStatus, string> = {
 };
 
 export const installmentAlertLabel: Record<"OVERDUE" | "DUE_SOON", string> = { OVERDUE: "Vencida", DUE_SOON: "Vence pronto" };
+
+export const accountEntryTypeLabel: Record<AccountEntryType, string> = {
+  SALE: "Venta", PAYMENT: "Pago", RETURN: "Devolución", REFUND: "Reintegro",
+};
