@@ -34,6 +34,7 @@ export default function NuevaVentaPosPage() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [walkInName, setWalkInName] = useState("");
   const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [creditValue, setCreditValue] = useState("");
 
   const [pickingCustomer, setPickingCustomer] = useState(false);
 
@@ -69,6 +70,7 @@ export default function NuevaVentaPosPage() {
     setCustomer(null);
     setWalkInName("");
     setPayments([]);
+    setCreditValue("");
     setSubmitError(null);
     setDone(null);
     submitting.current = false;
@@ -77,18 +79,25 @@ export default function NuevaVentaPosPage() {
 
   // ── Estimate (the server computes the real total) ──
   const isGift = GIFT_TYPES.includes(saleType);
+  // store credit counts as a payment without surcharge; only with a customer that has some
+  const creditBalance = customer && !isGift ? customer.creditBalance : 0;
+  const credit = creditBalance > 0 ? Number(creditValue) || 0 : 0;
   const discount: DiscountInput =
     !isGift && Number(discountValue) > 0 ? { kind: discountKind, value: Number(discountValue) } : null;
   const est = estimateSale(
     cart.map((l) => ({ unitPrice: isGift ? 0 : l.price, quantity: l.quantity })), // gifts are priced at zero
     discount,
-    isGift ? [] : payments.map((p) => ({ amount: Number(p.amount) || 0, surchargePct: methodOf(methods.options, p)?.surchargePct ?? 0 })),
+    isGift ? [] : [
+      ...payments.map((p) => ({ amount: Number(p.amount) || 0, surchargePct: methodOf(methods.options, p)?.surchargePct ?? 0 })),
+      { amount: credit, surchargePct: 0 },
+    ],
   );
   const itemCount = cart.reduce((n, l) => n + l.quantity, 0);
 
   const blocker =
     cart.length === 0 ? "Agregá al menos un producto."
       : est.discount > est.gross ? "El descuento supera el subtotal."
+        : credit < 0 || credit > creditBalance ? `El saldo a favor a usar va de $0 a ${money(creditBalance)}.`
         : est.remaining < 0 ? `Los pagos superan el total (sin recargos) en ${money(-est.remaining)}.`
           : !customer && !isGift && est.remaining !== 0
             ? `Venta sin cliente: debe pagarse completa (faltan ${money(est.remaining)}). Asociá un cliente para dejar saldo pendiente.`
@@ -114,6 +123,7 @@ export default function NuevaVentaPosPage() {
         })),
     };
     if (customer) body.customerId = customer.id;
+    if (credit > 0) body.creditAmount = credit;
     else if (walkInName.trim()) body.notes = walkInName.trim();
     setSubmitError(null);
     setBusy(true);
@@ -232,7 +242,11 @@ export default function NuevaVentaPosPage() {
                     <div className="flex flex-col min-w-0">
                       <span className="font-semibold text-xs truncate">{customer.fullName}</span>
                       <span className="text-[10px] text-[#C9BCA9] truncate">
-                        {[customer.dni && `DNI ${customer.dni}`, customer.outstanding > 0 && `Debe ${money(customer.outstanding)}`].filter(Boolean).join(" • ")}
+                        {[
+                          customer.dni && `DNI ${customer.dni}`,
+                          customer.outstanding > 0 && `Debe ${money(customer.outstanding)}`,
+                          customer.creditBalance > 0 && `Saldo a favor ${money(customer.creditBalance)}`,
+                        ].filter(Boolean).join(" • ")}
                       </span>
                     </div>
                     <div className="flex gap-3 shrink-0 text-xs">
@@ -256,6 +270,19 @@ export default function NuevaVentaPosPage() {
               {!isGift && (
                 <>
                   <ApiErrorBanner error={methods.error ?? accounts.error} onRetry={() => { methods.reload(); accounts.reload(); }} />
+                  {creditBalance > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-[#C9BCA9] flex items-center justify-between gap-2">
+                        <span>Usar saldo a favor</span>
+                        <button type="button" onClick={() => setCreditValue(String(Math.min(creditBalance, Math.max(0, est.remaining + credit))))}
+                          className="text-[11px] text-[#C87941] hover:text-[#F5EAD6] cursor-pointer">
+                          Disponible: {money(creditBalance)}
+                        </button>
+                      </label>
+                      <input type="number" min="0" step="0.01" max={creditBalance} value={creditValue}
+                        onChange={(e) => setCreditValue(e.target.value)} placeholder="0" className={`${darkField} text-right font-bold`} />
+                    </div>
+                  )}
                   <PaymentsPanel rows={payments} onChange={setPayments} methods={methods.options} accounts={accounts.options} remaining={est.remaining} />
                 </>
               )}
@@ -291,7 +318,7 @@ export default function NuevaVentaPosPage() {
                 )}
                 {!isGift && (
                   <div className="flex justify-between text-[#C9BCA9]">
-                    <span>Pagado (sin recargo)</span>
+                    <span>Pagado (sin recargo){credit > 0 ? ", con saldo a favor" : ""}</span>
                     <span className="text-[#F5EAD6]">{money(est.paidBase)}</span>
                   </div>
                 )}

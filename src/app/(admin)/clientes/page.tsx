@@ -198,7 +198,7 @@ export default function ClientesPage() {
 
         <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">
           <div className="overflow-x-auto w-full">
-            <div className="min-w-[1100px]">
+            <div className="min-w-[1230px]">
               <div className={`bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 border-b border-[#E7DFD2] ${th}`}>
                 {sortHeader("fullName", "CLIENTE", "flex-1 min-w-[200px]")}
                 <div className="w-52 shrink-0 font-semibold">EMAIL / TELÉFONO</div>
@@ -206,6 +206,7 @@ export default function ClientesPage() {
                 {sortHeader("totalPurchased", "COMPRADO", "w-28 shrink-0 justify-end")}
                 {sortHeader("totalPaid", "PAGADO", "w-28 shrink-0 justify-end")}
                 {sortHeader("outstanding", "DEUDA", "w-28 shrink-0 justify-end")}
+                <div className="w-28 shrink-0 text-right font-semibold">SALDO A FAVOR</div>
                 {sortHeader("lastPurchaseAt", "ÚLT. COMPRA", "w-36 shrink-0")}
                 <div className="w-20 shrink-0 text-center font-semibold">ACCIONES</div>
               </div>
@@ -259,6 +260,9 @@ export default function ClientesPage() {
                       <div className="w-28 shrink-0 text-right text-[#231E1A]">{money(c.totalPaid)}</div>
                       <div className={`w-28 shrink-0 text-right font-bold ${c.outstanding > 0 ? "text-[#C0492F]" : "text-[#231E1A]"}`}>
                         {money(c.outstanding)}
+                      </div>
+                      <div className={`w-28 shrink-0 text-right ${c.creditBalance > 0 ? "font-bold text-[#3E8E5A]" : "text-[#7A6F63]"}`}>
+                        {money(c.creditBalance)}
                       </div>
                       <div className="w-36 shrink-0 text-[#7A6A5A]">
                         {c.lastPurchaseAt ? formatInstant(c.lastPurchaseAt) : "Sin compras"}
