@@ -8,7 +8,8 @@ import { api, ApiError } from "@/lib/api";
 import { useApiResource, useOptions, usePagedList } from "@/lib/useApi";
 import { money, paymentStatusVariant as statusVariant } from "@/lib/format";
 import { formatInstant, pastDayToInstant, toLocalISODate } from "@/lib/dateUtils";
-import { paymentStatusLabel, saleTypeLabel } from "@/lib/labels";
+import CustomerFormModal from "../CustomerFormModal";
+import { accountEntryTypeLabel, paymentStatusLabel, saleTypeLabel } from "@/lib/labels";
 import type {
   AccountEntry, Customer, FinancialAccount, PaymentFields, PaymentMethod, Sale,
 } from "@/lib/apiTypes";
@@ -19,6 +20,9 @@ import {
   DollarSign,
   ShoppingBag,
   CheckCircle2,
+  Undo2,
+  Edit2,
+  Banknote,
   ClipboardList,
   TrendingUp,
   AlertCircle,
@@ -66,6 +70,7 @@ function CustomerDetail({ id }: { id: number }) {
   const [activeTab, setActiveTab] = useState<TabKey>("cuenta");
   const [payTarget, setPayTarget] = useState<PayTarget | null>(null);
   const [voiding, setVoiding] = useState<AccountEntry | null>(null);
+  const [editing, setEditing] = useState(false);
   const [voidError, setVoidError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
@@ -177,6 +182,13 @@ function CustomerDetail({ id }: { id: number }) {
                 <Plus className="w-3.5 h-3.5" />
                 Registrar cobro
               </button>
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-2 bg-[#FBF8F2] border border-[#E7DFD2] text-[#231E1A] px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#F0E9DE] transition-all shadow-sm cursor-pointer"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                Editar
+              </button>
               <Link
                 href="/ventas/nueva"
                 className="flex items-center gap-2 bg-[#FBF8F2] border border-[#E7DFD2] text-[#231E1A] px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#F0E9DE] transition-all shadow-sm"
@@ -189,9 +201,11 @@ function CustomerDetail({ id }: { id: number }) {
         </div>
 
         {/* ─── KPI cards (totals from GET /customers/{id}) ───────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <KpiCard icon={<AlertCircle className="w-4 h-4" />} label="Saldo deudor" value={money(c.outstanding)}
             accent={isInDebt ? "danger" : "success"} />
+          <KpiCard icon={<Undo2 className="w-4 h-4" />} label="Saldo a favor" value={money(c.creditBalance)}
+            accent={c.creditBalance > 0 ? "success" : "neutral"} />
           <KpiCard icon={<TrendingUp className="w-4 h-4" />} label="Total comprado" value={money(c.totalPurchased)}
             accent="neutral" />
           <KpiCard icon={<DollarSign className="w-4 h-4" />} label="Total abonado" value={money(c.totalPaid)}
@@ -249,10 +263,13 @@ function CustomerDetail({ id }: { id: number }) {
                           <div className="w-36 shrink-0 text-[#7A6F63]">{formatInstant(e.at)}</div>
                           <div className="flex-1 min-w-0 flex items-center gap-2">
                             <span className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${
-                              e.type === "PAYMENT" ? "bg-[#E3F1E8] text-[#3E8E5A]" : "bg-[#FBF8F2] text-[#7A6F63]"
+                              e.type === "PAYMENT" || e.type === "RETURN" ? "bg-[#E3F1E8] text-[#3E8E5A]" : "bg-[#FBF8F2] text-[#7A6F63]"
                             }`}>
-                              {e.type === "PAYMENT" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <ShoppingBag className="w-3.5 h-3.5" />}
+                              {e.type === "PAYMENT" ? <CheckCircle2 className="w-3.5 h-3.5" />
+                                : e.type === "RETURN" ? <Undo2 className="w-3.5 h-3.5" />
+                                  : e.type === "REFUND" ? <Banknote className="w-3.5 h-3.5" /> : <ShoppingBag className="w-3.5 h-3.5" />}
                             </span>
+                            <span className="text-[#A89C8C] shrink-0">{accountEntryTypeLabel[e.type]}</span>
                             <span className="text-[#231E1A] font-medium truncate">{e.description}</span>
                           </div>
                           <div className="w-28 shrink-0 text-right text-[#231E1A]">{e.debit ? money(e.debit) : "—"}</div>
@@ -296,7 +313,8 @@ function CustomerDetail({ id }: { id: number }) {
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="font-semibold text-[#231E1A] text-sm truncate">
-                            Venta #{s.id}{s.notes ? ` · ${s.notes}` : ""}
+                            <Link href={`/ventas?id=${s.id}`} className="hover:text-[#9C5A2E] hover:underline">Venta #{s.id}</Link>
+                            {s.notes ? ` · ${s.notes}` : ""}
                           </div>
                           <div className="text-xs text-[#A89C8C] mt-0.5 flex items-center gap-2 flex-wrap">
                             <span>{formatInstant(s.soldAt)}</span>
@@ -348,6 +366,11 @@ function CustomerDetail({ id }: { id: number }) {
             reloadAll();
           }}
         />
+      )}
+
+      {editing && (
+        <CustomerFormModal customer={c} onClose={() => setEditing(false)}
+          onSaved={() => { setEditing(false); customer.reload(); }} />
       )}
 
       <ConfirmDeleteModal

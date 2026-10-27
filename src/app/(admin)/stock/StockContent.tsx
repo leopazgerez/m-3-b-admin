@@ -86,6 +86,8 @@ export default function StockContent() {
   const [statusFilter, setStatusFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
 
   // Historial
   const [historyTerm, setHistoryTerm] = useState("");
@@ -119,6 +121,8 @@ export default function StockContent() {
     ...(statusFilter ? [{ field: "status", operator: "EQUALS" as const, value: statusFilter }] : []),
     ...(categoryFilter ? [{ field: "categoryId", operator: "EQUALS" as const, value: Number(categoryFilter) }] : []),
     ...(supplierFilter ? [{ field: "supplierId", operator: "EQUALS" as const, value: Number(supplierFilter) }] : []),
+    ...(priceMin ? [{ field: "listPrice", operator: "GREATER_OR_EQUAL" as const, value: Number(priceMin) }] : []),
+    ...(priceMax ? [{ field: "listPrice", operator: "LESS_OR_EQUAL" as const, value: Number(priceMax) }] : []),
   ];
   const stock = usePagedList<StockRow>("/stock", {
     sortBy: stockSort.by,
@@ -144,7 +148,7 @@ export default function StockContent() {
   const suppliers = useOptions<Supplier>("/suppliers");
   const optionsError = categories.error ?? suppliers.error;
 
-  const stockActiveCount = (statusFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (supplierFilter ? 1 : 0);
+  const stockActiveCount = (statusFilter ? 1 : 0) + (categoryFilter ? 1 : 0) + (supplierFilter ? 1 : 0) + (priceMin ? 1 : 0) + (priceMax ? 1 : 0);
   const historyActiveCount = (historyDateFrom ? 1 : 0) + (historyDateTo ? 1 : 0) + (typeFilter ? 1 : 0) + (purchaseOrderId !== undefined ? 1 : 0);
 
   const handleDone = (message: string) => {
@@ -316,7 +320,7 @@ export default function StockContent() {
                   isOpen={isStockFilterOpen}
                   onToggle={() => setIsStockFilterOpen(!isStockFilterOpen)}
                   activeCount={stockActiveCount}
-                  onReset={() => { setStatusFilter(""); setCategoryFilter(""); setSupplierFilter(""); }}
+                  onReset={() => { setStatusFilter(""); setCategoryFilter(""); setSupplierFilter(""); setPriceMin(""); setPriceMax(""); }}
                   resultCount={stock.total}
                 >
                   <div className="flex flex-col gap-1.5">
@@ -351,6 +355,19 @@ export default function StockContent() {
                       {suppliers.options.map((sp) => <option key={sp.id} value={sp.id}>{sp.name}</option>)}
                     </select>
                   </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="font-semibold text-[#231E1A] flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5 text-[#9C5A2E]" />
+                      <span>Precio de lista:</span>
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input type="number" min="0" step="0.01" placeholder="Desde" value={priceMin}
+                        onChange={(e) => setPriceMin(e.target.value)} className={filterSelectCls} />
+                      <input type="number" min="0" step="0.01" placeholder="Hasta" value={priceMax}
+                        onChange={(e) => setPriceMax(e.target.value)} className={filterSelectCls} />
+                    </div>
+                  </div>
                 </FilterPanel>
               </div>
 
@@ -372,7 +389,7 @@ export default function StockContent() {
 
             <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">
               <div className="overflow-x-auto w-full">
-                <div className="min-w-[920px]">
+                <div className="min-w-[1020px]">
                   <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
                     <SortHeader sort={stockSort} setSort={setStockSort} field="productName" label="PRODUCTO" className="flex-1 min-w-[220px]" />
                     <SortHeader sort={stockSort} setSort={setStockSort} field="sku" label="CÓDIGO / SKU" className="w-28 shrink-0" />
@@ -380,6 +397,7 @@ export default function StockContent() {
                     <SortHeader sort={stockSort} setSort={setStockSort} field="onHand" label="STOCK ACTUAL" className="w-24 shrink-0 justify-center" />
                     <SortHeader sort={stockSort} setSort={setStockSort} field="status" label="ESTADO" className="w-28 shrink-0" />
                     <SortHeader sort={stockSort} setSort={setStockSort} field="unitCost" label="COSTO UNIT." className="w-24 shrink-0 justify-end" />
+                    <SortHeader sort={stockSort} setSort={setStockSort} field="listPrice" label="PRECIO" className="w-24 shrink-0 justify-end" />
                     <div className="w-44 shrink-0 text-right font-semibold">ACCIÓN</div>
                   </div>
 
@@ -434,6 +452,7 @@ export default function StockContent() {
                           <div className="w-24 shrink-0 text-right text-[#231E1A]">
                             {r.unitCost != null ? money(r.unitCost) : "—"}
                           </div>
+                          <div className="w-24 shrink-0 text-right font-semibold text-[#231E1A]">{money(r.listPrice)}</div>
 
                           <div className="w-44 shrink-0 flex items-center justify-end gap-1.5">
                             <button

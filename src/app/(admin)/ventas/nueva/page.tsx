@@ -3,22 +3,21 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/layout/Topbar";
-import BarcodeScanner from "@/components/ui/BarcodeScanner";
-import { ApiErrorBanner, Modal } from "@/components/ui";
-import { api, ApiError } from "@/lib/api";
-import { useApiResource, useOptions } from "@/lib/useApi";
+import { ApiErrorBanner } from "@/components/ui";
+import { api } from "@/lib/api";
+import { useOptions } from "@/lib/useApi";
 import { money, variantLabel } from "@/lib/format";
 import { saleTypeLabel } from "@/lib/labels";
 import { estimateSale, type DiscountInput } from "@/lib/saleEstimate";
 import type {
-  Customer, FinancialAccount, PaymentMethod, Product, RegisterSaleRequest, Sale, SaleType, Variant, VariantLookup,
+  Customer, FinancialAccount, PaymentMethod, Product, RegisterSaleRequest, Sale, SaleType, Variant,
 } from "@/lib/apiTypes";
 import CustomerPicker from "./CustomerPicker";
 import PaymentsPanel, { methodOf, type PaymentRow } from "./PaymentsPanel";
 import ConfirmationView from "./ConfirmationView";
+import ProductSearch from "./ProductSearch";
 import {
-  ScanBarcode, ShoppingCart, Plus, Minus, Trash2, ArrowLeft, ArrowDownRight, CheckCircle2, DollarSign, RotateCcw,
-  Camera, X, AlertCircle, User, Package, Search, Tag,
+  ShoppingCart, Plus, Minus, Trash2, ArrowLeft, ArrowDownRight, DollarSign, RotateCcw, AlertCircle, User, Search, Tag,
 } from "lucide-react";
 
 interface CartLine { variantId: number; label: string; sku: string | null; price: number; onHand: number; quantity: number }
@@ -35,11 +34,9 @@ export default function NuevaVentaPosPage() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [walkInName, setWalkInName] = useState("");
   const [payments, setPayments] = useState<PaymentRow[]>([]);
+  const [creditValue, setCreditValue] = useState("");
 
   const [pickingCustomer, setPickingCustomer] = useState(false);
-  const [chooser, setChooser] = useState<Product | null>(null);
-  const [scannerOpen, setScannerOpen] = useState(false);
-  const [scanMsg, setScanMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false); // blocks a second click before the disabled state renders
@@ -49,22 +46,7 @@ export default function NuevaVentaPosPage() {
   const methods = useOptions<PaymentMethod>("/payment-methods");
   const accounts = useOptions<FinancialAccount>("/financial-accounts");
 
-  // Product search (debounced) for the suggestions under the scanner input.
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [search, setSearch] = useState("");
-  useEffect(() => {
-    const t = setTimeout(() => setSearch(searchTerm.trim()), 300);
-    return () => clearTimeout(t);
-  }, [searchTerm]);
-  const suggestions = useApiResource(
-    () =>
-      search
-        ? api.getPage<Product>("/products", { length: 8, search, filters: [{ field: "active", operator: "EQUALS", value: true }] })
-          .then((p) => p.items)
-        : Promise.resolve([] as Product[]),
-    [search],
-  );
   useEffect(() => inputRef.current?.focus(), []);
 
   const addVariant = (p: Product, v: Variant) => {
@@ -74,34 +56,6 @@ export default function NuevaVentaPosPage() {
         ? prev.map((l) => (l.variantId === v.id ? { ...l, quantity: l.quantity + 1 } : l))
         : [...prev, { variantId: v.id, label, sku: v.sku, price: v.price, onHand: v.onHand, quantity: 1 }],
     );
-    setScanMsg({ ok: true, text: `+1 ${label}` });
-    setSearchTerm("");
-    setChooser(null);
-    inputRef.current?.focus();
-  };
-
-  const pickProduct = (p: Product) => {
-    const live = p.variants.filter((v) => v.active);
-    if (live.length === 1) addVariant(p, live[0]);
-    else if (live.length === 0) setScanMsg({ ok: false, text: `${p.name} no tiene variantes activas` });
-    else setChooser(p);
-  };
-
-  /** Exact SKU lookup, for the pistol scanner (types the code + Enter) and the camera. */
-  const lookup = async (code: string) => {
-    if (!code) return;
-    setScanMsg(null);
-    try {
-      const r = await api.getOne<VariantLookup>("/variants/lookup", { code });
-      const v = r.product.variants.find((x) => x.id === r.variantId);
-      if (!v || !v.active || !r.product.active) setScanMsg({ ok: false, text: `"${code}": producto o variante inactivo` });
-      else addVariant(r.product, v);
-    } catch (e) {
-      const text =
-        e instanceof ApiError && e.status === 404 ? `Código no encontrado: "${code}"`
-          : e instanceof ApiError ? `Error ${e.status || ""}: ${e.message}` : String(e);
-      setScanMsg({ ok: false, text });
-    }
   };
 
   const setQty = (variantId: number, q: number) =>
@@ -116,8 +70,8 @@ export default function NuevaVentaPosPage() {
     setCustomer(null);
     setWalkInName("");
     setPayments([]);
+    setCreditValue("");
     setSubmitError(null);
-    setScanMsg(null);
     setDone(null);
     submitting.current = false;
     inputRef.current?.focus();
@@ -125,18 +79,25 @@ export default function NuevaVentaPosPage() {
 
   // ── Estimate (the server computes the real total) ──
   const isGift = GIFT_TYPES.includes(saleType);
+  // store credit counts as a payment without surcharge; only with a customer that has some
+  const creditBalance = customer && !isGift ? customer.creditBalance : 0;
+  const credit = creditBalance > 0 ? Number(creditValue) || 0 : 0;
   const discount: DiscountInput =
     !isGift && Number(discountValue) > 0 ? { kind: discountKind, value: Number(discountValue) } : null;
   const est = estimateSale(
     cart.map((l) => ({ unitPrice: isGift ? 0 : l.price, quantity: l.quantity })), // gifts are priced at zero
     discount,
-    isGift ? [] : payments.map((p) => ({ amount: Number(p.amount) || 0, surchargePct: methodOf(methods.options, p)?.surchargePct ?? 0 })),
+    isGift ? [] : [
+      ...payments.map((p) => ({ amount: Number(p.amount) || 0, surchargePct: methodOf(methods.options, p)?.surchargePct ?? 0 })),
+      { amount: credit, surchargePct: 0 },
+    ],
   );
   const itemCount = cart.reduce((n, l) => n + l.quantity, 0);
 
   const blocker =
     cart.length === 0 ? "Agregá al menos un producto."
       : est.discount > est.gross ? "El descuento supera el subtotal."
+        : credit < 0 || credit > creditBalance ? `El saldo a favor a usar va de $0 a ${money(creditBalance)}.`
         : est.remaining < 0 ? `Los pagos superan el total (sin recargos) en ${money(-est.remaining)}.`
           : !customer && !isGift && est.remaining !== 0
             ? `Venta sin cliente: debe pagarse completa (faltan ${money(est.remaining)}). Asociá un cliente para dejar saldo pendiente.`
@@ -162,6 +123,7 @@ export default function NuevaVentaPosPage() {
         })),
     };
     if (customer) body.customerId = customer.id;
+    if (credit > 0) body.creditAmount = credit;
     else if (walkInName.trim()) body.notes = walkInName.trim();
     setSubmitError(null);
     setBusy(true);
@@ -200,65 +162,7 @@ export default function NuevaVentaPosPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* ── Left: scanner + cart ── */}
           <div className="lg:col-span-8 flex flex-col gap-4">
-            <div className="bg-white rounded-2xl border-2 border-[#9C5A2E]/30 p-4 shadow-xs relative">
-              <form onSubmit={(e) => { e.preventDefault(); lookup(searchTerm.trim()); }}
-                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
-                <div className="relative flex-1 flex items-center">
-                  <ScanBarcode className="w-5 h-5 text-[#9C5A2E] absolute left-3.5 pointer-events-none" />
-                  <input ref={inputRef} type="text" maxLength={100} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Escanear código (Enter) o buscar producto por nombre..."
-                    className="w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl pl-11 pr-10 py-3 text-xs sm:text-sm text-[#231E1A] font-medium outline-none focus:border-[#9C5A2E] focus:bg-white shadow-inner" />
-                  {searchTerm && (
-                    <button type="button" onClick={() => setSearchTerm("")} className="absolute right-3 text-[#A89C8C] hover:text-[#231E1A]">
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => setScannerOpen(true)} title="Escanear con cámara"
-                    className="flex-1 sm:flex-none bg-[#FBF8F2] border border-[#E7DFD2] text-[#7A6F63] hover:text-[#9C5A2E] hover:border-[#9C5A2E] px-3.5 py-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer shrink-0">
-                    <Camera className="w-4 h-4" />
-                    <span>Cámara</span>
-                  </button>
-                  <button type="submit"
-                    className="flex-1 sm:flex-none bg-[#9C5A2E] hover:bg-[#7A3F1F] text-white px-5 py-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-xs cursor-pointer shrink-0">
-                    <Plus className="w-4 h-4" />
-                    <span>Agregar código</span>
-                  </button>
-                </div>
-              </form>
-
-              {searchTerm.trim() && (suggestions.data?.length || suggestions.error) ? (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border border-[#E7DFD2] shadow-xl z-30 overflow-hidden divide-y divide-[#F7F3EC]">
-                  <ApiErrorBanner error={suggestions.error} onRetry={suggestions.reload} />
-                  {suggestions.data?.map((p) => (
-                    <button key={p.id} type="button" onClick={() => pickProduct(p)}
-                      className="w-full text-left px-4 py-3 flex items-center justify-between hover:bg-[#FBF8F2] cursor-pointer transition-colors">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-[#EADBC6] text-[#9C5A2E] flex items-center justify-center shrink-0">
-                          <Package className="w-4 h-4" />
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="text-xs font-semibold text-[#231E1A] truncate">
-                            {p.name}
-                            {p.hasVariants && <span className="ml-2 text-[10px] bg-[#EADBC6]/60 text-[#9C5A2E] font-bold px-1.5 py-0.5 rounded">{p.variants.filter((v) => v.active).length} modelos</span>}
-                          </span>
-                          <span className="text-[10px] text-[#A89C8C]">{p.categoryName ?? "Sin categoría"} • Stock: {p.onHand}</span>
-                        </div>
-                      </div>
-                      {!p.hasVariants && p.variants[0] && <span className="text-xs font-bold text-[#231E1A]">{money(p.variants[0].price)}</span>}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-
-              {scanMsg && (
-                <div className={`mt-2 text-xs font-semibold flex items-center gap-1.5 ${scanMsg.ok ? "text-[#3E8E5A]" : "text-[#C0492F]"}`}>
-                  {scanMsg.ok ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
-                  <span>{scanMsg.text}</span>
-                </div>
-              )}
-            </div>
+            <ProductSearch onAdd={addVariant} inputRef={inputRef} />
 
             <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden">
               {cart.length === 0 ? (
@@ -338,7 +242,11 @@ export default function NuevaVentaPosPage() {
                     <div className="flex flex-col min-w-0">
                       <span className="font-semibold text-xs truncate">{customer.fullName}</span>
                       <span className="text-[10px] text-[#C9BCA9] truncate">
-                        {[customer.dni && `DNI ${customer.dni}`, customer.outstanding > 0 && `Debe ${money(customer.outstanding)}`].filter(Boolean).join(" • ")}
+                        {[
+                          customer.dni && `DNI ${customer.dni}`,
+                          customer.outstanding > 0 && `Debe ${money(customer.outstanding)}`,
+                          customer.creditBalance > 0 && `Saldo a favor ${money(customer.creditBalance)}`,
+                        ].filter(Boolean).join(" • ")}
                       </span>
                     </div>
                     <div className="flex gap-3 shrink-0 text-xs">
@@ -362,6 +270,19 @@ export default function NuevaVentaPosPage() {
               {!isGift && (
                 <>
                   <ApiErrorBanner error={methods.error ?? accounts.error} onRetry={() => { methods.reload(); accounts.reload(); }} />
+                  {creditBalance > 0 && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-medium text-[#C9BCA9] flex items-center justify-between gap-2">
+                        <span>Usar saldo a favor</span>
+                        <button type="button" onClick={() => setCreditValue(String(Math.min(creditBalance, Math.max(0, est.remaining + credit))))}
+                          className="text-[11px] text-[#C87941] hover:text-[#F5EAD6] cursor-pointer">
+                          Disponible: {money(creditBalance)}
+                        </button>
+                      </label>
+                      <input type="number" min="0" step="0.01" max={creditBalance} value={creditValue}
+                        onChange={(e) => setCreditValue(e.target.value)} placeholder="0" className={`${darkField} text-right font-bold`} />
+                    </div>
+                  )}
                   <PaymentsPanel rows={payments} onChange={setPayments} methods={methods.options} accounts={accounts.options} remaining={est.remaining} />
                 </>
               )}
@@ -397,7 +318,7 @@ export default function NuevaVentaPosPage() {
                 )}
                 {!isGift && (
                   <div className="flex justify-between text-[#C9BCA9]">
-                    <span>Pagado (sin recargo)</span>
+                    <span>Pagado (sin recargo){credit > 0 ? ", con saldo a favor" : ""}</span>
                     <span className="text-[#F5EAD6]">{money(est.paidBase)}</span>
                   </div>
                 )}
@@ -450,37 +371,11 @@ export default function NuevaVentaPosPage() {
         )}
       </main>
 
-      {scannerOpen && <BarcodeScanner onDetected={(code) => lookup(code)} onClose={() => setScannerOpen(false)} />}
 
       {pickingCustomer && (
         <CustomerPicker onPick={(c) => { setCustomer(c); setPickingCustomer(false); }} onClose={() => setPickingCustomer(false)} />
       )}
 
-      {chooser && (
-        <Modal isOpen onClose={() => setChooser(null)} title={`Elegí el modelo · ${chooser.name}`}>
-          <div className="divide-y divide-[#F7F3EC] border border-[#E7DFD2] rounded-xl overflow-hidden">
-            {chooser.variants.filter((v) => v.active).map((v) => (
-              <div key={v.id} className="p-3.5 flex items-center justify-between gap-3">
-                <div className="flex flex-col min-w-0">
-                  <span className="text-sm font-semibold text-[#231E1A]">{v.name}</span>
-                  <span className="text-[11px] text-[#A89C8C]">
-                    {v.sku && <span className="font-mono">SKU: {v.sku} • </span>}
-                    <span className={v.onHand <= 0 ? "text-[#C0492F]" : ""}>Stock: {v.onHand}</span>
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="text-sm font-bold text-[#231E1A]">{money(v.price)}</span>
-                  <button type="button" onClick={() => addVariant(chooser, v)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer bg-[#9C5A2E] hover:bg-[#7A3F1F] text-white">
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Sumar</span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Modal>
-      )}
 
       {done && <ConfirmationView sale={done.sale} estimated={done.estimated} labels={done.labels} onNew={reset} />}
     </>

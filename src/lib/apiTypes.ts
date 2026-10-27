@@ -13,7 +13,8 @@ export type ExpenseKind = "FIXED" | "VARIABLE";
 export type ExpenseStatus = "PAID" | "OVERDUE" | "IN_INSTALLMENTS" | "PENDING";
 export type InstallmentStatus = "PAID" | "OVERDUE" | "PENDING";
 export type PaymentStatus = "PENDING" | "PARTIAL" | "PAID" | "N/A" | "CANCELLED";
-export type AccountEntryType = "SALE" | "PAYMENT";
+export type AccountEntryType = "SALE" | "PAYMENT" | "RETURN" | "REFUND";
+export type RemainderAction = "REFUND" | "CREDIT";
 
 // ── Auth ── (UserResponse, LoginResponse)
 export interface CurrentUser { id: number; email: string; fullName: string }
@@ -66,7 +67,7 @@ export interface SupplierFields {
 export interface StockRow {
   variantId: number; productId: number; productName: string; variantName: string; sku: string | null;
   categoryId: number | null; categoryName: string | null; supplierId: number | null; supplierName: string | null;
-  onHand: number; minStock: number; status: StockStatus; unitCost: number | null;
+  onHand: number; minStock: number; status: StockStatus; unitCost: number | null; listPrice: number;
 }
 export interface StockSummary { totalUnits: number; costValuation: number; lowCount: number; outCount: number }
 export interface StockMovement {
@@ -95,7 +96,7 @@ export interface StockAdjustmentRequest { variantId: number; type: "DAMAGE" | "A
 export interface Customer {
   id: number; firstName: string; lastName: string | null; fullName: string; dni: string | null; phone: string | null;
   email: string | null; notes: string | null; orderCount: number; totalPurchased: number; totalPaid: number;
-  outstanding: number; lastPurchaseAt: string | null; createdAt: string;
+  outstanding: number; lastPurchaseAt: string | null; createdAt: string; creditBalance: number;
 }
 /** POST: firstName required. PATCH: a key sent as null clears that field. */
 export interface CustomerFields {
@@ -129,7 +130,7 @@ export interface FinancialAccountFields { name?: string; type?: AccountType }
 // ── Sales ── (SaleResponse)
 export interface SaleLine {
   id: number; variantId: number; promotionId: number | null; quantity: number; unitPrice: number; unitCost: number;
-  subtotal: number;
+  subtotal: number; returnedQuantity: number;
 }
 export interface SaleAdjustment { type: AdjustmentType; amount: number; appliedAt: string; notes: string | null }
 export interface SalePaymentLine { paymentId: number; amount: number; paymentMethodName: string }
@@ -138,12 +139,40 @@ export interface Sale {
   notes: string | null; lines: SaleLine[]; adjustments: SaleAdjustment[]; grossTotal: number;
   adjustmentTotal: number; totalDue: number; costTotal: number; grossMargin: number; paymentStatus: PaymentStatus;
   totalPaid: number; outstanding: number; cancelledAt: string | null; payments: SalePaymentLine[];
+  /** paid by returns */
+  totalCredited: number; totalReturned: number; returnIds: number[]; exchangeOfReturnId: number | null;
 }
 export interface RegisterSaleRequest {
   customerId?: number; soldAt?: string; type: SaleType; notes?: string;
   lines: { variantId: number; quantity: number; promotionId?: number }[];
   adjustments?: { type: AdjustmentType; amount: number; notes?: string }[];
   payments?: { paymentMethodId: number; amount: number; accountId?: number; notes?: string }[];
+  /** store credit to spend; needs a customer */
+  creditAmount?: number;
+}
+
+// ── Returns ── (ReturnView, RegisterReturnRequest)
+export interface ReturnLine {
+  id: number; saleLineId: number; variantId: number; quantity: number; faulty: boolean; value: number;
+  unitValue: number; unitCost: number;
+}
+export interface ReturnAllocation { saleId: number; amount: number; fromCredit: boolean }
+export interface ReturnRefund {
+  id: number; paymentMethodId: number; paymentMethodName: string; accountId: number; amount: number;
+  refundedAt: string; voided: boolean;
+}
+/** total: the returned value; creditLeft: store credit left (0 once voided). */
+export interface ReturnView {
+  id: number; saleId: number; customerId: number | null; customerName: string | null; returnedAt: string;
+  reason: string; exchangeSaleId: number | null; voidedAt: string | null; total: number; lines: ReturnLine[];
+  allocations: ReturnAllocation[]; refund: ReturnRefund | null; creditLeft: number;
+}
+/** Without exchange every line is faulty. remainder only when value is left over; REFUND needs paymentMethodId. */
+export interface RegisterReturnRequest {
+  returnedAt?: string; reason: string;
+  lines: { saleLineId: number; quantity: number; faulty: boolean }[];
+  exchange?: Pick<RegisterSaleRequest, "lines" | "adjustments" | "payments">;
+  remainder?: { action: RemainderAction; paymentMethodId?: number; accountId?: number; notes?: string };
 }
 
 // ── Expenses ── (expense CategoryView, ExpenseRow, ExpenseView, ExpenseSummary)
@@ -198,10 +227,12 @@ export interface ExpensePaymentSummary {
 
 export interface SalesSummary {
   from: string; to: string;
-  sales: { count: number; total: number; cost: number; grossProfit: number; grossMarginPct: number | null };
+  /** netTotal: sales minus returns */
+  sales: { count: number; total: number; netTotal: number; cost: number; grossProfit: number; grossMarginPct: number | null };
+  returns: { count: number; total: number; restockedCost: number; lossCost: number };
   expenses: { total: number };
   net: number; netMarginPct: number | null;
-  cash: { collected: number; paid: number; net: number };
+  cash: { collected: number; refunded: number; paid: number; net: number };
 }
 export interface MonthlyBalance { month: string; income: number; expenses: number }
 export interface CategorySalesLine { categoryId: number | null; name: string; units: number; total: number; pct: number | null }

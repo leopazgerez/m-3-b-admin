@@ -193,11 +193,11 @@ export default function ProductosPage() {
         {/* Table Card */}
         <div className="bg-white rounded-2xl border border-[#E7DFD2] flex flex-col shadow-xs overflow-hidden w-full min-w-0">
           <div className="overflow-x-auto w-full">
-            <div className="min-w-[880px]">
+            <div className="min-w-[930px]">
               <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
                 {sortHeader("name", "PRODUCTO", "flex-1 min-w-[200px]")}
                 <div className="w-32 shrink-0 font-semibold">CÓDIGO / MODELOS</div>
-                {sortHeader("categoryName", "CATEGORÍA", "w-24 shrink-0")}
+                {sortHeader("categoryName", "CATEGORÍA", "w-36 shrink-0")}
                 <div className="w-24 shrink-0 text-right font-semibold">PRECIO</div>
                 {sortHeader("onHand", "STOCK", "w-16 shrink-0 justify-end")}
                 {sortHeader("status", "ESTADO", "w-24 shrink-0 justify-center")}
@@ -244,9 +244,9 @@ export default function ProductosPage() {
                         )}
                       </div>
 
-                      <div className="w-24 shrink-0 text-[#7A6F63]">
+                      <div className="w-36 shrink-0 min-w-0 text-[#7A6F63]">
                         {p.categoryName ? (
-                          <span className="bg-[#FBF8F2] border border-[#E7DFD2] px-2 py-0.5 rounded-md text-xs whitespace-nowrap">
+                          <span className="inline-block max-w-full bg-[#FBF8F2] border border-[#E7DFD2] px-2 py-0.5 rounded-md text-xs leading-snug break-words">
                             {p.categoryName}
                           </span>
                         ) : "—"}
