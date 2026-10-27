@@ -90,7 +90,7 @@ export default function ClientesPage() {
   const handleDelete = () => {
     if (!deleting) return;
     setDeleteError(null);
-    write(() => api.del(`/customers/${deleting.id}`), setDeleteError);
+    write(() => api.del(`/customers/${deleting.id}`, { success: `Cliente "${deleting.fullName}" eliminado.` }), setDeleteError);
   };
 
   const th = "text-[11px] text-[#A89C8C] tracking-wide";

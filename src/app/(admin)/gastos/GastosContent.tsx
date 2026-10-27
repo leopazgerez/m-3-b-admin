@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Topbar from "@/components/layout/Topbar";
 import { ApiErrorBanner, Badge, ConfirmDeleteModal, Pager } from "@/components/ui";
 import FilterPanel from "@/components/ui/FilterPanel";
+import { feedback } from "@/lib/feedback";
 import { api } from "@/lib/api";
 import { useApiResource, useOptions, usePagedList } from "@/lib/useApi";
 import { dateRangeCriteria, type Criterion } from "@/lib/apiQuery";
@@ -16,7 +17,7 @@ import type {
   ExpenseCategory, ExpenseKind, ExpenseRow, ExpenseSummary, Supplier,
 } from "@/lib/apiTypes";
 import {
-  ArrowDown, ArrowUp, Calendar, CheckCircle2, Eye, Package, Plus, Receipt, Search, Tag, Trash2, Truck, Wallet,
+  ArrowDown, ArrowUp, Calendar, Eye, Package, Plus, Receipt, Search, Tag, Trash2, Truck, Wallet,
 } from "lucide-react";
 import ExpenseDetailModal, { statusVariant } from "./ExpenseDetailModal";
 import ExpenseFormModal from "./ExpenseFormModal";
@@ -60,7 +61,6 @@ export default function GastosContent() {
     setSeenExpenseParam(expenseParam);
     if (expenseParam && /^\d+$/.test(expenseParam) && Number(expenseParam) > 0) setDetailId(Number(expenseParam));
   }
-  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchTerm.trim()), 300);
@@ -87,7 +87,7 @@ export default function GastosContent() {
   const suppliers = useOptions<Supplier>("/suppliers");
 
   const reloadAll = () => { list.reload(); summary.reload(); };
-  const changed = (message: string) => { setSuccess(message); reloadAll(); };
+  const changed = (message: string) => { feedback.success(message); reloadAll(); };
 
   const activeFilterCount = [dateFrom, dateTo, categoryFilter, kindFilter, paymentFilter, installmentsFilter, supplierFilter]
     .filter(Boolean).length;
@@ -112,7 +112,6 @@ export default function GastosContent() {
     if (!deleting) return;
     const row = deleting;
     setDeleteError(null);
-    setSuccess(null);
     setBusy(true);
     try {
       await api.del(`/expenses/${row.id}`);
@@ -157,7 +156,7 @@ export default function GastosContent() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-3.5 py-2 bg-white border border-[#E7DFD2] rounded-xl text-xs text-[#231E1A] placeholder-[#C9BCA9] outline-none focus:border-[#9C5A2E] transition-colors shadow-2xs" />
             </div>
-            <button onClick={() => { setSuccess(null); setCreating(true); }}
+            <button onClick={() => setCreating(true)}
               className="flex items-center gap-2 bg-[#9C5A2E] hover:bg-[#7A3F1F] text-white px-4 py-2.5 rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer whitespace-nowrap">
               <Plus className="w-4 h-4" />
               <span>Registrar gasto</span>
@@ -165,12 +164,6 @@ export default function GastosContent() {
           </div>
         </div>
 
-        {success && (
-          <div className="bg-[#E3F1E8] border border-[#3E8E5A]/20 text-[#3E8E5A] text-sm font-medium px-4 py-3 rounded-xl flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            {success}
-          </div>
-        )}
 
         {/* Summary for the same date range as the list (GET /expenses/summary) */}
         <ApiErrorBanner error={summary.error} onRetry={summary.reload} />
@@ -326,7 +319,7 @@ export default function GastosContent() {
                         <Badge variant={statusVariant[m.status]}>{expenseStatusLabel[m.status]}</Badge>
                       </div>
                       <div className="w-20 shrink-0 flex items-center justify-center gap-1">
-                        <button onClick={() => { setSuccess(null); setDetailId(m.id); }} aria-label="Ver detalle y cuotas"
+                        <button onClick={() => setDetailId(m.id)} aria-label="Ver detalle y cuotas"
                           title="Ver detalle y cuotas" className={`${rowBtn} text-[#9C5A2E] hover:bg-[#EADBC6]/40`}>
                           <Eye className="w-4 h-4" />
                         </button>

@@ -114,7 +114,7 @@ export default function VentasContent() {
     if (value === (editing.notes ?? "")) return closeEdit();
     setEditError(null);
     write(
-      () => api.patch(`/sales/${editing.id}`, { notes: value || null }),
+      () => api.patch(`/sales/${editing.id}`, { notes: value || null }, { success: `Notas de la venta #${editing.id} guardadas.` }),
       setEditError,
       () => { closeEdit(); setDetailId(null); },
     );
@@ -124,7 +124,7 @@ export default function VentasContent() {
     if (!cancelling) return;
     const id = cancelling.id;
     setCancelError(null);
-    write(() => api.post(`/sales/${id}/cancel`), setCancelError, () => setDetailId(null));
+    write(() => api.post(`/sales/${id}/cancel`, undefined, { success: `Venta #${id} cancelada: se devolvió el stock y se anularon sus pagos.` }), setCancelError, () => setDetailId(null));
   };
 
   // 409 "Void the return instead" carries the return whose exchange this sale is

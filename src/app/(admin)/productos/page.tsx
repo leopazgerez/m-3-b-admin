@@ -91,7 +91,7 @@ export default function ProductosPage() {
     setDeleteError(null);
     setBusy(true);
     try {
-      await api.del(`/products/${deleting.id}`);
+      await api.del(`/products/${deleting.id}`, { success: `Producto "${deleting.name}" eliminado.` });
       reload();
     } catch (e) {
       setDeleteError(e);

@@ -70,7 +70,7 @@ export default function VariantsModal({ productId, onClose, onChanged }: {
     if (editing.active !== v.active) body.active = editing.active;
     if (Object.keys(body).length === 0) return setEditing(null);
     setEditError(null);
-    write(() => api.patch(`/variants/${v.id}`, body), setEditError, () => setEditing(null));
+    write(() => api.patch(`/variants/${v.id}`, body, { success: v.name === STANDARD ? "Producto actualizado." : `Variante "${editing.name.trim() || v.name}" actualizada.` }), setEditError, () => setEditing(null));
   };
 
   const addVariant = (e: React.FormEvent) => {
@@ -79,13 +79,13 @@ export default function VariantsModal({ productId, onClose, onChanged }: {
     if (draft.sku.trim()) body.sku = draft.sku.trim();
     if (draft.initialStock) body.initialStock = Number(draft.initialStock);
     setAddError(null);
-    write(() => api.post(`/products/${productId}/variants`, body), setAddError, () => setDraft(emptyDraft));
+    write(() => api.post(`/products/${productId}/variants`, body, { success: `Variante "${body.name}" agregada.` }), setAddError, () => setDraft(emptyDraft));
   };
 
   const handleDelete = () => {
     if (!deleting) return;
     setDeleteError(null);
-    write(() => api.del(`/variants/${deleting.id}`), setDeleteError);
+    write(() => api.del(`/variants/${deleting.id}`, { success: `Variante "${deleting.name}" eliminada.` }), setDeleteError);
   };
 
   if (historyFor) return <CostHistoryModal variant={historyFor} onClose={() => setHistoryFor(null)} />;

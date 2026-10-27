@@ -82,7 +82,7 @@ function NewCustomerForm({ onCreated, onBack }: { onCreated: (c: Customer) => vo
     setError(null);
     setBusy(true);
     try {
-      onCreated(await api.post<Customer>("/customers", body));
+      onCreated(await api.post<Customer>("/customers", body, { success: `Cliente ${body.firstName} creado.` }));
     } catch (err) {
       setError(err);
       setBusy(false);

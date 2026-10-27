@@ -171,7 +171,7 @@ export default function ProveedoresPage() {
       const body: SupplierFields = { name, active: formActive };
       if (formType) body.type = formType as SupplierType;
       for (const [k, v] of Object.entries(text)) if (v) (body as Record<string, unknown>)[k] = v;
-      return write(() => api.post("/suppliers", body), setFormError, closeModal);
+      return write(() => api.post("/suppliers", body, { success: `Proveedor "${name}" creado.` }), setFormError, closeModal);
     }
 
     // PATCH: only changed keys; a cleared field is sent as "" (null would keep it).
@@ -183,13 +183,13 @@ export default function ProveedoresPage() {
     }
     if (formActive !== editingSupplier.active) body.active = formActive;
     if (Object.keys(body).length === 0) return closeModal();
-    write(() => api.patch(`/suppliers/${editingSupplier.id}`, body), setFormError, closeModal);
+    write(() => api.patch(`/suppliers/${editingSupplier.id}`, body, { success: `Proveedor "${name}" actualizado.` }), setFormError, closeModal);
   };
 
   const handleDelete = () => {
     if (!deletingSupplier) return;
     setDeleteError(null);
-    write(() => api.del(`/suppliers/${deletingSupplier.id}`), setDeleteError);
+    write(() => api.del(`/suppliers/${deletingSupplier.id}`, { success: `Proveedor "${deletingSupplier.name}" eliminado.` }), setDeleteError);
   };
 
   const th = "text-[11px] text-[#A89C8C] tracking-wide";

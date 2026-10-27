@@ -38,7 +38,7 @@ export default function CustomerFormModal({
     if (!customer) {
       const body: CustomerFields = { firstName };
       for (const k of TEXT_KEYS) if (form[k].trim()) body[k] = form[k].trim();
-      save = () => api.post<Customer>("/customers", body);
+      save = () => api.post<Customer>("/customers", body, { success: `Cliente "${firstName}" creado.` });
     } else {
       // PATCH: only changed keys; a cleared field goes as null (clears it).
       const body: CustomerFields = {};
@@ -48,7 +48,7 @@ export default function CustomerFormModal({
         if (v !== (customer[k] ?? "")) body[k] = v || null;
       }
       if (Object.keys(body).length === 0) return onClose();
-      save = () => api.patch<Customer>(`/customers/${customer.id}`, body);
+      save = () => api.patch<Customer>(`/customers/${customer.id}`, body, { success: `Datos de ${customer.fullName} actualizados.` });
     }
 
     setError(null);

@@ -1,5 +1,6 @@
 import { env } from "@/config/env";
 import { collectAll, errorInfo, toSearchParams, type ListQuery } from "./apiQuery";
+import { feedback } from "./feedback";
 import { clearSession, getSession } from "./session";
 
 export class ApiError extends Error {
@@ -20,8 +21,27 @@ export interface Page<T> { items: T[]; nextCursor: string | null; prevCursor: st
 
 interface RawPage<T> { data: T[]; nextCursor: string | null; prevCursor: string | null; total: number }
 
+/** Writes: success → a toast saying what was done; silent → no error toast (the caller handles it). */
+export interface Notify { success?: string; silent?: boolean }
+
+/** Counts the call for the global loader; a failed write shows an error toast unless silent. */
+async function request(method: string, path: string, query?: URLSearchParams, body?: unknown, notify: Notify = {}): Promise<unknown> {
+  feedback.begin();
+  try {
+    const parsed = await send(method, path, query, body);
+    if (notify.success) feedback.success(notify.success);
+    return parsed;
+  } catch (e) {
+    // a 401 is already on its way to /login
+    if (method !== "GET" && !notify.silent && e instanceof ApiError && e.status !== 401) feedback.error(e.message);
+    throw e;
+  } finally {
+    feedback.end();
+  }
+}
+
 /** Every m3b-api body is {start, length, total, data, ...}; returns the parsed body as-is (204 → undefined). */
-async function request(method: string, path: string, query?: URLSearchParams, body?: unknown): Promise<unknown> {
+async function send(method: string, path: string, query?: URLSearchParams, body?: unknown): Promise<unknown> {
   const qs = query?.toString();
   const url = `${env.apiUrl}${path}${qs ? `?${qs}` : ""}`;
   const headers: Record<string, string> = { Accept: "application/json" };
@@ -79,9 +99,11 @@ export const api = {
   getPage,
   getAll: <T>(path: string, q: Omit<ListQuery, "cursor" | "before" | "length"> = {}) =>
     collectAll<T>((cursor) => getPage<T>(path, { ...q, length: 200, cursor })),
-  post: async <T>(path: string, body?: unknown) => unwrap<T>(await request("POST", path, undefined, body)),
-  patch: async <T>(path: string, body: unknown) => unwrap<T>(await request("PATCH", path, undefined, body)),
-  del: async (path: string): Promise<void> => {
-    await request("DELETE", path);
+  post: async <T>(path: string, body?: unknown, notify?: Notify) =>
+    unwrap<T>(await request("POST", path, undefined, body, notify)),
+  patch: async <T>(path: string, body: unknown, notify?: Notify) =>
+    unwrap<T>(await request("PATCH", path, undefined, body, notify)),
+  del: async (path: string, notify?: Notify): Promise<void> => {
+    await request("DELETE", path, undefined, undefined, notify);
   },
 };

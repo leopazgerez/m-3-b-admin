@@ -9,7 +9,6 @@ import {
   History,
   TrendingUp,
   AlertTriangle,
-  CheckCircle2,
   XCircle,
   Search,
   Calendar,
@@ -24,6 +23,7 @@ import {
 import Topbar from "@/components/layout/Topbar";
 import { ApiErrorBanner, Pager, StatusBadge } from "@/components/ui";
 import FilterPanel from "@/components/ui/FilterPanel";
+import { feedback } from "@/lib/feedback";
 import { api } from "@/lib/api";
 import { useApiResource, useOptions, usePagedList } from "@/lib/useApi";
 import { instantRangeCriteria, type Criterion } from "@/lib/apiQuery";
@@ -102,7 +102,6 @@ export default function StockContent() {
   // Modals
   const [restock, setRestock] = useState<RestockState | null>(null);
   const [adjusting, setAdjusting] = useState<{ row?: StockRow } | null>(null);
-  const [feedback, setFeedback] = useState<string | null>(null);
 
   // /stock?productId=X[&variantId=Y] (from Productos) opens the restock modal with that variant preselected
   const paramKey = searchParams.toString();
@@ -154,7 +153,7 @@ export default function StockContent() {
   const handleDone = (message: string) => {
     setRestock(null);
     setAdjusting(null);
-    setFeedback(message);
+    feedback.success(message);
     stock.reload();
     movements.reload();
     summary.reload();
@@ -211,21 +210,6 @@ export default function StockContent() {
           </div>
         </div>
 
-        {/* Success feedback */}
-        {feedback && (
-          <div className="bg-[#EAF5EE] border border-[#3E8E5A]/30 text-[#2D6A42] p-4 rounded-2xl flex items-center justify-between gap-3 text-xs shadow-xs">
-            <div className="flex items-center gap-2.5">
-              <CheckCircle2 className="w-4 h-4 text-[#3E8E5A] shrink-0" />
-              <span className="font-medium">{feedback}</span>
-            </div>
-            <button
-              onClick={() => setFeedback(null)}
-              className="text-[#2D6A42] hover:text-[#1F4A2E] font-bold text-sm px-1 cursor-pointer"
-            >
-              ✕
-            </button>
-          </div>
-        )}
 
         <ApiErrorBanner error={summary.error} onRetry={summary.reload} />
 

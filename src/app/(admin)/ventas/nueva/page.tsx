@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/layout/Topbar";
 import { ApiErrorBanner } from "@/components/ui";
+import { feedback } from "@/lib/feedback";
 import { api } from "@/lib/api";
 import { useOptions } from "@/lib/useApi";
 import { money, variantLabel } from "@/lib/format";
@@ -129,6 +130,7 @@ export default function NuevaVentaPosPage() {
     setBusy(true);
     try {
       const sale = await api.post<Sale>("/sales", body);
+      feedback.success(`Venta #${sale.id} registrada.`);
       // submitting stays true until reset(): this sale is done
       setDone({ sale, estimated: est.totalDue, labels: new Map(cart.map((l) => [l.variantId, l.label])) });
     } catch (err) {

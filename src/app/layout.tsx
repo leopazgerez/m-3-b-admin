@@ -17,6 +17,7 @@ const inter = Inter({
 });
 
 import { getAssetPath } from "@/lib/assets";
+import FeedbackLayer from "@/components/ui/FeedbackLayer";
 
 const faviconUrl = getAssetPath("/favicon.png");
 
@@ -46,6 +47,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-[#F7F3EC] text-[#231E1A] font-body">
         {children}
+        <FeedbackLayer />
       </body>
     </html>
   );

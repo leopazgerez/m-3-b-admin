@@ -42,7 +42,7 @@ export default function DevolucionDetailContent() {
     setBusy(true);
     setVoidError(null);
     try {
-      setVoided(await api.post<ReturnView>(`/returns/${r.id}/void`));
+      setVoided(await api.post<ReturnView>(`/returns/${r.id}/void`, undefined, { success: `Devolución #${r.id} anulada: se deshizo el reintegro, el cambio y el stock.` }));
       setConfirming(false);
     } catch (e) {
       setVoidError(e);

@@ -81,7 +81,9 @@ export default function ExpenseCategoriesManager() {
     if (cur && Object.keys(body).length === 0) return setEditing(null);
     setFormError(null);
     write(
-      () => (cur ? api.patch(`/expense-categories/${cur.id}`, body) : api.post("/expense-categories", body)),
+      () => (cur
+        ? api.patch(`/expense-categories/${cur.id}`, body, { success: "Categoría de gasto actualizada." })
+        : api.post("/expense-categories", body, { success: "Categoría de gasto creada." })),
       setFormError,
       () => setEditing(null),
     );
@@ -90,7 +92,7 @@ export default function ExpenseCategoriesManager() {
   const confirmDelete = () => {
     if (!deleting) return;
     setDeleteError(null);
-    write(() => api.del(`/expense-categories/${deleting.id}`), setDeleteError, () => setDeleting(null));
+    write(() => api.del(`/expense-categories/${deleting.id}`, { success: `Categoría "${deleting.name}" eliminada.` }), setDeleteError, () => setDeleting(null));
   };
 
   return (

@@ -90,7 +90,9 @@ export default function ConfigVentaPage() {
     if (cur && Object.keys(body).length === 0) return setEditMethod(null);
     setFormError(null);
     write(
-      () => (cur ? api.patch(`/payment-methods/${cur.id}`, body) : api.post("/payment-methods", body)),
+      () => (cur
+        ? api.patch(`/payment-methods/${cur.id}`, body, { success: `Medio de pago "${mName.trim()}" actualizado.` })
+        : api.post("/payment-methods", body, { success: `Medio de pago "${mName.trim()}" creado.` })),
       setFormError,
       () => setEditMethod(null),
       [methods.reload],
@@ -107,7 +109,9 @@ export default function ConfigVentaPage() {
     if (cur && Object.keys(body).length === 0) return setEditAccount(null);
     setFormError(null);
     write(
-      () => (cur ? api.patch(`/financial-accounts/${cur.id}`, body) : api.post("/financial-accounts", body)),
+      () => (cur
+        ? api.patch(`/financial-accounts/${cur.id}`, body, { success: `Cuenta "${aName.trim()}" actualizada.` })
+        : api.post("/financial-accounts", body, { success: `Cuenta "${aName.trim()}" creada.` })),
       setFormError,
       () => setEditAccount(null),
       [reloadAccounts],
@@ -117,12 +121,12 @@ export default function ConfigVentaPage() {
   const confirmDeleteMethod = () => {
     if (!delMethod) return;
     setDeleteError(null);
-    write(() => api.del(`/payment-methods/${delMethod.id}`), setDeleteError, () => setDelMethod(null), [methods.reload]);
+    write(() => api.del(`/payment-methods/${delMethod.id}`, { success: `Medio de pago "${delMethod.name}" eliminado.` }), setDeleteError, () => setDelMethod(null), [methods.reload]);
   };
   const confirmDeleteAccount = () => {
     if (!delAccount) return;
     setDeleteError(null);
-    write(() => api.del(`/financial-accounts/${delAccount.id}`), setDeleteError, () => setDelAccount(null), [reloadAccounts]);
+    write(() => api.del(`/financial-accounts/${delAccount.id}`, { success: `Cuenta "${delAccount.name}" eliminada.` }), setDeleteError, () => setDelAccount(null), [reloadAccounts]);
   };
 
   const tab = "px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap";

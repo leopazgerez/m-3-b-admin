@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Layers, Plus, ScanBarcode, Trash2, PackagePlus } from "lucide-react";
 import { ApiErrorBanner, Modal } from "@/components/ui";
+import { feedback } from "@/lib/feedback";
 import { api } from "@/lib/api";
 import type {
   CreateProductRequest, Product, ProductCategory, Supplier, UpdateProductCommand, UpdateVariantCommand,
@@ -92,6 +93,7 @@ export default function ProductFormModal({ product, categories, suppliers, onClo
     setBusy(true);
     try {
       await (product ? update(product) : create());
+      feedback.success(`Producto "${name.trim()}" ${product ? "actualizado" : "creado"}.`);
       onSaved();
       onClose();
     } catch (err) {

@@ -50,7 +50,7 @@ export default function ConfigProductoPage() {
   const handleAddCategory = (e: React.FormEvent) => {
     e.preventDefault();
     setCreateError(null);
-    write(() => api.post("/product-categories", { name: newCat.trim() }), setCreateError, () => setNewCat(""));
+    write(() => api.post("/product-categories", { name: newCat.trim() }, { success: `Categoría "${newCat.trim()}" creada.` }), setCreateError, () => setNewCat(""));
   };
 
   const handleRename = (e: React.FormEvent) => {
@@ -59,7 +59,7 @@ export default function ConfigProductoPage() {
     if (editName.trim() === editingCat.name) return setEditingCat(null);
     setEditError(null);
     write(
-      () => api.patch(`/product-categories/${editingCat.id}`, { name: editName.trim() }),
+      () => api.patch(`/product-categories/${editingCat.id}`, { name: editName.trim() }, { success: `Categoría renombrada a "${editName.trim()}".` }),
       setEditError,
       () => setEditingCat(null),
     );
@@ -68,7 +68,7 @@ export default function ConfigProductoPage() {
   const handleDelete = () => {
     if (!deletingCat) return;
     setDeleteError(null);
-    write(() => api.del(`/product-categories/${deletingCat.id}`), setDeleteError);
+    write(() => api.del(`/product-categories/${deletingCat.id}`, { success: `Categoría "${deletingCat.name}" eliminada.` }), setDeleteError);
   };
 
   return (

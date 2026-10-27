@@ -63,3 +63,31 @@ body {
 h1, h2, h3, h4, h5, h6, .font-heading {
   font-family: var(--font-sora), sans-serif;
 }
+
+/* ── Global feedback (FeedbackLayer) ── */
+@keyframes feedback-toast-in {
+  from { transform: translateX(calc(100% + 1rem)); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes feedback-toast-out {
+  to { transform: translateX(calc(100% + 1rem)); opacity: 0; }
+}
+@keyframes feedback-bar {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+/* shown only when a call takes long enough to notice, so fast calls don't flicker */
+@keyframes feedback-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.feedback-toast-in { animation: feedback-toast-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.feedback-toast-out { animation: feedback-toast-out 200ms ease-in both; }
+.feedback-loader-bar { animation: feedback-appear 150ms ease-out 150ms both; }
+.feedback-loader-bar > div { animation: feedback-bar 1.1s ease-in-out infinite; }
+.feedback-loader-pill { animation: feedback-appear 200ms ease-out 400ms both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .feedback-toast-in, .feedback-toast-out { animation-duration: 1ms; }
+  .feedback-loader-bar > div { animation: none; width: 100%; opacity: 0.6; }
+}

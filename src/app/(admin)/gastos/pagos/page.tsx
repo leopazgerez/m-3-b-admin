@@ -5,13 +5,14 @@ import Link from "next/link";
 import Topbar from "@/components/layout/Topbar";
 import { ApiErrorBanner, Pager } from "@/components/ui";
 import FilterPanel from "@/components/ui/FilterPanel";
+import { feedback } from "@/lib/feedback";
 import { api } from "@/lib/api";
 import { useApiResource, useOptions, usePagedList } from "@/lib/useApi";
 import { instantRangeCriteria, type Criterion } from "@/lib/apiQuery";
 import { money } from "@/lib/format";
 import { formatDate, formatInstant } from "@/lib/dateUtils";
 import type { ExpensePaymentRow, ExpensePaymentSummary, PaymentMethod } from "@/lib/apiTypes";
-import { CheckCircle2, Receipt, Tag, Wallet } from "lucide-react";
+import { Receipt, Tag, Wallet } from "lucide-react";
 import ExpenseDetailModal from "../ExpenseDetailModal";
 
 const filterSelectCls =
@@ -26,7 +27,6 @@ export default function GastosPagosPage() {
   const [dateTo, setDateTo] = useState("");
   const [methodFilter, setMethodFilter] = useState("");
   const [detailId, setDetailId] = useState<number | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const filters: Criterion[] = [
     ...(methodFilter ? [{ field: "paymentMethodId", operator: "EQUALS" as const, value: Number(methodFilter) }] : []),
@@ -40,7 +40,7 @@ export default function GastosPagosPage() {
   );
   const methods = useOptions<PaymentMethod>("/payment-methods");
 
-  const changed = (message: string) => { setSuccess(message); list.reload(); summary.reload(); };
+  const changed = (message: string) => { feedback.success(message); list.reload(); summary.reload(); };
 
   const activeFilterCount = [dateFrom, dateTo, methodFilter].filter(Boolean).length;
   const handleResetFilters = () => { setDateFrom(""); setDateTo(""); setMethodFilter(""); };
@@ -65,12 +65,6 @@ export default function GastosPagosPage() {
           </Link>
         </div>
 
-        {success && (
-          <div className="bg-[#E3F1E8] border border-[#3E8E5A]/20 text-[#3E8E5A] text-sm font-medium px-4 py-3 rounded-xl flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            {success}
-          </div>
-        )}
 
         {/* Totals for the same paid-on range as the list (GET /expense-payments/summary) */}
         <ApiErrorBanner error={summary.error} onRetry={summary.reload} />
@@ -150,7 +144,7 @@ export default function GastosPagosPage() {
                   </div>
                 ) : (
                   list.items.map((p) => (
-                    <button key={p.id} type="button" onClick={() => { setSuccess(null); setDetailId(p.expenseId); }}
+                    <button key={p.id} type="button" onClick={() => setDetailId(p.expenseId)}
                       title="Ver gasto y cuotas"
                       className="w-full text-left px-6 py-4 flex items-center gap-4 text-xs hover:bg-[#FBF8F2]/60 transition-colors cursor-pointer">
                       <div className="w-36 shrink-0 text-[#7A6F63]">{formatInstant(p.paidAt)}</div>

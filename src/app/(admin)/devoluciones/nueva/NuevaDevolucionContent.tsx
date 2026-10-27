@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Topbar from "@/components/layout/Topbar";
 import { ApiErrorBanner } from "@/components/ui";
+import { feedback } from "@/lib/feedback";
 import { api, ApiError } from "@/lib/api";
 import { useApiResource, useOptions } from "@/lib/useApi";
 import { buyerName, money, variantLabel } from "@/lib/format";
@@ -182,12 +183,17 @@ export default function NuevaDevolucionContent() {
     try {
       let r: ReturnView;
       try {
-        r = await api.post<ReturnView>(`/sales/${sale.id}/returns`, body(sendRemainder));
+        // silent: a "Nothing is left" here is retried below, not an error for the user
+        r = await api.post<ReturnView>(`/sales/${sale.id}/returns`, body(sendRemainder), { silent: true });
       } catch (err) {
         // the estimate saw a leftover the server didn't: send it again without remainder
-        if (!(err instanceof ApiError && err.field === "remainder" && sendRemainder && err.message.startsWith("Nothing is left"))) throw err;
+        if (!(err instanceof ApiError && err.field === "remainder" && sendRemainder && err.message.startsWith("Nothing is left"))) {
+          if (err instanceof ApiError && err.status !== 401) feedback.error(err.message);
+          throw err;
+        }
         r = await api.post<ReturnView>(`/sales/${sale.id}/returns`, body(false));
       }
+      feedback.success(`${r.exchangeSaleId ? "Cambio" : "Devolución"} #${r.id} registrado por ${money(r.total)}.`);
       router.push(`/devoluciones/detalle?id=${r.id}`);
     } catch (err) {
       submitting.current = false;

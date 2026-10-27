@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { ApiErrorBanner, Badge, ConfirmDeleteModal, Modal, Pager } from "@/components/ui";
+import { feedback } from "@/lib/feedback";
 import { api, ApiError } from "@/lib/api";
 import { useApiResource, useOptions, usePagedList } from "@/lib/useApi";
 import { money, paymentStatusVariant as statusVariant } from "@/lib/format";
@@ -73,20 +74,18 @@ function CustomerDetail({ id }: { id: number }) {
   const [editing, setEditing] = useState(false);
   const [voidError, setVoidError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
 
-  const openPay = (t: PayTarget) => { setSuccess(null); setPayTarget(t); };
+  const openPay = (t: PayTarget) => setPayTarget(t);
   const reloadAll = () => { customer.reload(); account.reload(); sales.reload(); };
 
   const handleVoid = async () => {
     if (!voiding) return;
     const entry = voiding;
     setVoidError(null);
-    setSuccess(null);
     setBusy(true);
     try {
       await api.del(`/payments/${entry.id}`);
-      setSuccess(`Cobro de ${money(entry.credit)} anulado.`);
+      feedback.success(`Cobro de ${money(entry.credit)} anulado.`);
       reloadAll();
     } catch (e) {
       setVoidError(e);
@@ -125,12 +124,6 @@ function CustomerDetail({ id }: { id: number }) {
       </div>
 
       <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-6xl w-full min-w-0">
-        {success && (
-          <div className="bg-[#E3F1E8] border border-[#3E8E5A]/20 text-[#3E8E5A] text-sm font-medium px-4 py-3 rounded-xl flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            {success}
-          </div>
-        )}
         <ApiErrorBanner error={customer.error} onRetry={customer.reload} />
 
         {/* ─── Client header card ────────────────────────────────────────── */}
@@ -362,7 +355,7 @@ function CustomerDetail({ id }: { id: number }) {
           onClose={() => setPayTarget(null)}
           onDone={(amount) => {
             setPayTarget(null);
-            setSuccess(`Cobro de ${money(amount)} registrado.`);
+            feedback.success(`Cobro de ${money(amount)} registrado.`);
             reloadAll();
           }}
         />
