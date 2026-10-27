@@ -6,11 +6,13 @@ import { feedback, type Toast } from "@/lib/feedback";
 
 const DURATION = { success: 4000, error: 7000 };
 const LEAVE_MS = 200;
+// useSyncExternalStore compares snapshots by reference: the server one must be the same array every call
+const NO_TOASTS: Toast[] = [];
 
 /** Global loader (while any API call is in flight) and the top-right toasts. Mounted once in the root layout. */
 export default function FeedbackLayer() {
   const pending = useSyncExternalStore(feedback.subscribe, feedback.pending, () => 0);
-  const toasts = useSyncExternalStore(feedback.subscribe, feedback.toasts, () => []);
+  const toasts = useSyncExternalStore(feedback.subscribe, feedback.toasts, () => NO_TOASTS);
 
   return (
     <>
