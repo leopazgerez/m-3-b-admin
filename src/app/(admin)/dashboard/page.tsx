@@ -15,7 +15,7 @@ import type { SalesSummary, StockSummary } from "@/lib/apiTypes";
 import { formatDate, toLocalISODate } from "@/lib/dateUtils";
 import { money } from "@/lib/format";
 import { pctLabel, periodParams, type DashboardPeriod } from "@/lib/reports";
-import { Banknote, HandCoins, Package, Plus, Receipt, TrendingUp, Wallet, Wallet2 } from "lucide-react";
+import { AlertTriangle, Banknote, HandCoins, Package, Plus, Receipt, TrendingUp, Undo2, Wallet, Wallet2 } from "lucide-react";
 import { getAssetPath } from "@/lib/assets";
 
 export default function DashboardPage() {
@@ -81,9 +81,9 @@ export default function DashboardPage() {
         {report.error && params && <ApiErrorBanner error={report.error} onRetry={report.reload} />}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <KpiCard
-            label="Ventas"
-            value={r ? money(r.sales.total) : ph}
-            delta={r ? `${r.sales.count} ventas` : params ? "cargando" : "—"}
+            label="Ventas netas"
+            value={r ? money(r.sales.netTotal) : ph}
+            delta={r ? `${r.sales.count} ventas · ${money(r.sales.total)} antes de devoluciones` : params ? "cargando" : "—"}
             icon={<Receipt className="w-5 h-5" />}
           />
           <KpiCard
@@ -113,7 +113,7 @@ export default function DashboardPage() {
           <KpiCard
             label="Cobrado"
             value={r ? money(r.cash.collected) : ph}
-            delta="base caja"
+            delta={r && r.cash.refunded > 0 ? `base caja · ya descuenta ${money(r.cash.refunded)} de reintegros` : "base caja"}
             icon={<Banknote className="w-5 h-5" />}
           />
           <KpiCard
@@ -143,6 +143,36 @@ export default function DashboardPage() {
               iconBgColor="bg-[#EADBC6]"
             />
           )}
+        </div>
+
+        {/* Returns */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <KpiCard
+            label="Devoluciones"
+            value={r ? String(r.returns.count) : ph}
+            delta="devoluciones y cambios"
+            icon={<Undo2 className="w-5 h-5" />}
+          />
+          <KpiCard
+            label="Valor devuelto"
+            value={r ? money(r.returns.total) : ph}
+            delta="restado de las ventas"
+            icon={<Receipt className="w-5 h-5" />}
+          />
+          <KpiCard
+            label="Costo repuesto"
+            value={r ? money(r.returns.restockedCost) : ph}
+            delta="unidades sanas que volvieron al stock"
+            icon={<Package className="w-5 h-5" />}
+          />
+          <KpiCard
+            label="Pérdida por fallados"
+            value={r ? money(r.returns.lossCost) : ph}
+            delta="costo de lo que no vuelve al stock"
+            badgeText={r && r.returns.lossCost > 0 ? "pérdida" : undefined}
+            badgeType="danger"
+            icon={<AlertTriangle className="w-5 h-5" />}
+          />
         </div>
 
         {/* Charts Row */}

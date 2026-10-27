@@ -17,12 +17,15 @@ export default function CategoryDonut({ params }: { params: { from?: string; to?
   const cats = data?.categories ?? [];
   const empty = !!data && (cats.length === 0 || data.total === 0);
 
-  // Arcs on a circle of circumference 100 (pathLength); null/0 pct omitted.
+  // Arcs on a circle of circumference 100 (pathLength), over the positive totals only: returns can make a
+  // category negative, and then the API's pcts no longer add up to 100.
+  const share = (x: number) => Math.max(0, x);
+  const positive = cats.reduce((sum, c) => sum + share(c.total), 0);
   const arcs = cats.map((c, i) => ({
     c,
     i,
-    len: c.pct ?? 0,
-    offset: cats.slice(0, i).reduce((sum, x) => sum + (x.pct ?? 0), 0),
+    len: positive > 0 ? (share(c.total) / positive) * 100 : 0,
+    offset: positive > 0 ? (cats.slice(0, i).reduce((sum, x) => sum + share(x.total), 0) / positive) * 100 : 0,
   }));
   const label = `Ventas por categoría: ${cats.map((c) => `${c.name} ${pctLabel(c.pct)}`).join(", ")}`;
 
@@ -75,7 +78,7 @@ export default function CategoryDonut({ params }: { params: { from?: string; to?
                 />
                 <div className="flex flex-col min-w-0">
                   <span className="text-[#7A6F63] font-medium break-words">{c.name}</span>
-                  <span className="font-bold text-[#231E1A]">
+                  <span className={`font-bold ${c.total < 0 || c.units < 0 ? "text-[#C0492F]" : "text-[#231E1A]"}`}>
                     {money(c.total)} · {c.units} u. · {pctLabel(c.pct)}
                   </span>
                 </div>
