@@ -113,7 +113,7 @@ export default function DashboardPage() {
           <KpiCard
             label="Cobrado"
             value={r ? money(r.cash.collected) : ph}
-            delta={r && r.cash.refunded > 0 ? `base caja · ya descuenta ${money(r.cash.refunded)} de reintegros` : "base caja"}
+            delta={r && r.cash.refunded > 0 ? `base caja · reintegros ${money(r.cash.refunded)} (se restan en Caja neta)` : "base caja"}
             icon={<Banknote className="w-5 h-5" />}
           />
           <KpiCard
