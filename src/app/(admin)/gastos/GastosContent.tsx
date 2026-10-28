@@ -323,13 +323,11 @@ export default function GastosContent() {
                           title="Ver detalle y cuotas" className={`${rowBtn} text-[#9C5A2E] hover:bg-[#EADBC6]/40`}>
                           <Eye className="w-4 h-4" />
                         </button>
-                        {m.restockId == null && (
-                          <button onClick={() => { setDeleteError(null); setDeleting(m); }} disabled={busy}
-                            aria-label="Eliminar gasto" title="Eliminar gasto"
-                            className={`${rowBtn} text-[#A89C8C] hover:text-[#C0492F] hover:bg-[#F7E3DD]/50`}>
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
+                        <button onClick={() => { setDeleteError(null); setDeleting(m); }} disabled={busy}
+                          aria-label="Eliminar gasto" title="Eliminar gasto"
+                          className={`${rowBtn} text-[#A89C8C] hover:text-[#C0492F] hover:bg-[#F7E3DD]/50`}>
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   ))

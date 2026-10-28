@@ -9,7 +9,6 @@ export default function ApiErrorBanner({ error, onRetry }: { error: unknown; onR
         {e ? (
           <>
             <span className="font-semibold">{e.status ? `Error ${e.status}` : "Error"}</span>: {e.message}
-            {e.field && <span className="text-xs"> (campo: {e.field})</span>}
           </>
         ) : (
           String(error)

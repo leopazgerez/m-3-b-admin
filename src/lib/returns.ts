@@ -19,9 +19,3 @@ export const returnBlocker = (picks: { quantity: number; faulty: boolean }[], ha
     : !hasExchange && picks.some((p) => !p.faulty)
       ? "Sin cambio solo se devuelven unidades falladas: marcalas o agregá productos al cambio."
       : null;
-
-/** The amount in the API's "remainder is required: X is left to refund or credit", or null. */
-export function remainderRequired(message: string): number | null {
-  const m = /^remainder is required: (-?[\d.]+) is left/.exec(message);
-  return m ? Number(m[1]) : null;
-}

@@ -78,16 +78,15 @@ export interface StockMovement {
 }
 export interface RestockResult {
   movementId: number; purchaseOrderId: number; variantId: number; quantity: number; unitCost: number;
-  totalCost: number; onHand: number; expenseId: number | null;
+  totalCost: number; onHand: number;
 }
 /** quantity is signed; onHand is the stock after the movement. */
 export interface AdjustmentResult { movementId: number; variantId: number; type: MovementType; quantity: number; onHand: number }
 /** accountId absent → the method's default account; paidAt absent → now. */
 export interface PayNow { paymentMethodId: number; accountId?: number; paidAt?: string }
-/** supplierId absent → product's default supplier; receivedAt absent → now; expenseCategoryId required. */
+/** supplierId absent → product's default supplier; receivedAt absent → now. The purchase's expense is loaded in Gastos. */
 export interface RestockRequest {
   variantId: number; quantity: number; unitCost: number; supplierId?: number; receivedAt?: string; notes?: string;
-  expenseCategoryId: number; installments?: number; firstDueDate?: string; payFirstNow?: PayNow;
 }
 /** DAMAGE: quantity > 0 units out; ADJUSTMENT: signed, ≠ 0. notes (the reason) required, ≤ 500. */
 export interface StockAdjustmentRequest { variantId: number; type: "DAMAGE" | "ADJUSTMENT"; quantity: number; notes: string }

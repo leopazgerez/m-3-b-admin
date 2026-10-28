@@ -11,7 +11,7 @@ import { useApiResource, useOptions } from "@/lib/useApi";
 import { buyerName, money, variantLabel } from "@/lib/format";
 import { formatInstant, pastDayToInstant, toLocalISODate } from "@/lib/dateUtils";
 import { estimateSale, round2, type DiscountInput } from "@/lib/saleEstimate";
-import { canReturn, estimateReturnValue, remainderRequired, remainingQty, returnBlocker } from "@/lib/returns";
+import { canReturn, estimateReturnValue, remainingQty, returnBlocker } from "@/lib/returns";
 import type {
   Customer, FinancialAccount, PaymentMethod, Product, RegisterReturnRequest, RemainderAction, ReturnView, Sale,
   StockRow, Variant,
@@ -71,7 +71,8 @@ export default function NuevaDevolucionContent() {
   const [refundMethodId, setRefundMethodId] = useState("");
   const [refundAccountId, setRefundAccountId] = useState("");
   // set when the server says value is left over although the estimate didn't
-  const [serverLeftover, setServerLeftover] = useState<number | null>(null);
+  // the server asked for a remainder the estimate didn't see
+  const [serverLeftover, setServerLeftover] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const submitting = useRef(false);
@@ -131,7 +132,7 @@ export default function NuevaDevolucionContent() {
   // value pays the original sale's debt (or all the customer's debt), then what the exchange still owes
   const debt = customer.data?.outstanding ?? sale.outstanding;
   const leftover = round2(returnValue - debt - Math.max(0, ex.remaining));
-  const sendRemainder = serverLeftover !== null || leftover > 0;
+  const sendRemainder = serverLeftover || leftover > 0;
   const canCredit = sale.customerId !== null;
   const refundMethod = methods.options.find((m) => String(m.id) === refundMethodId);
 
@@ -183,11 +184,11 @@ export default function NuevaDevolucionContent() {
     try {
       let r: ReturnView;
       try {
-        // silent: a "Nothing is left" here is retried below, not an error for the user
+        // silent: a remainder error here is retried below, not an error for the user
         r = await api.post<ReturnView>(`/sales/${sale.id}/returns`, body(sendRemainder), { silent: true });
       } catch (err) {
         // the estimate saw a leftover the server didn't: send it again without remainder
-        if (!(err instanceof ApiError && err.field === "remainder" && sendRemainder && err.message.startsWith("Nothing is left"))) {
+        if (!(err instanceof ApiError && err.field === "remainder" && sendRemainder)) {
           if (err instanceof ApiError && err.status !== 401) feedback.error(err.message);
           throw err;
         }
@@ -197,8 +198,7 @@ export default function NuevaDevolucionContent() {
       router.push(`/devoluciones/detalle?id=${r.id}`);
     } catch (err) {
       submitting.current = false;
-      const left = err instanceof ApiError && err.field === "remainder" ? remainderRequired(err.message) : null;
-      if (left !== null) setServerLeftover(left);
+      if (err instanceof ApiError && err.field === "remainder" && !sendRemainder) setServerLeftover(true);
       setSubmitError(err);
       setBusy(false);
     }
@@ -401,9 +401,9 @@ export default function NuevaDevolucionContent() {
                 </select>
               </>
             )}
-            {serverLeftover !== null ? (
+            {serverLeftover ? (
               <p className="text-[11px] text-[#E27D60]">
-                El servidor indica que sobran {money(serverLeftover)}: elegí qué hacer y confirmá de nuevo.
+                El servidor indica que sobra un saldo: elegí qué hacer y confirmá de nuevo.
               </p>
             ) : (
               <p className="text-[10px] text-[#A89C8C]">
