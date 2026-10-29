@@ -3,9 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Camera, X, CheckCircle2, AlertCircle } from "lucide-react";
 
-type BarcodeDetectorCtor = new (opts?: { formats: string[] }) => {
-  detect: (target: ImageBitmapSource) => Promise<Array<{ rawValue: string }>>;
-};
+type BarcodeDetectorCtor = typeof import("barcode-detector/ponyfill").BarcodeDetector;
 
 /** Camera barcode scanner; calls onDetected with the code, then closes itself. */
 export default function BarcodeScanner({ onDetected, onClose }: { onDetected: (code: string) => void; onClose: () => void }) {
@@ -38,9 +36,13 @@ export default function BarcodeScanner({ onDetected, onClose }: { onDetected: (c
         video.srcObject = stream;
         video.play();
 
-        if (!("BarcodeDetector" in window)) return;
         try {
-          const Detector = (window as unknown as { BarcodeDetector: BarcodeDetectorCtor }).BarcodeDetector;
+          // Native BarcodeDetector only exists in Chrome on macOS/Android/ChromeOS; elsewhere (Windows, iOS Safari) use the ZXing wasm ponyfill.
+          const Detector: BarcodeDetectorCtor =
+            "BarcodeDetector" in window
+              ? (window as unknown as { BarcodeDetector: BarcodeDetectorCtor }).BarcodeDetector
+              : (await import("barcode-detector/ponyfill")).BarcodeDetector;
+          if (cancelled) return;
           const detector = new Detector({ formats: ["ean_13", "ean_8", "code_128", "code_39", "upc_a", "upc_e", "qr_code"] });
           interval = setInterval(async () => {
             if (video.readyState < 2) return;
