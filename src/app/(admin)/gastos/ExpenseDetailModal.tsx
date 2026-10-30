@@ -12,6 +12,7 @@ import { expenseKindLabel, expenseStatusLabel, installmentStatusLabel } from "@/
 import type { Expense, ExpenseInstallment, ExpenseInstallmentPayment, ExpenseStatus } from "@/lib/apiTypes";
 import ExpenseFormModal from "./ExpenseFormModal";
 import InstallmentPaymentModal from "./InstallmentPaymentModal";
+import { useCashStatus } from "@/lib/cashStatus";
 
 /** Covers InstallmentStatus too (a subset). */
 export const statusVariant: Record<ExpenseStatus, "success" | "warning" | "danger"> = {
@@ -27,6 +28,7 @@ export default function ExpenseDetailModal({ id, onClose, onChanged }: {
   const res = useApiResource(() => api.getOne<Expense>(`/expenses/${id}`), [id]);
   const [editing, setEditing] = useState(false);
   const [paying, setPaying] = useState<ExpenseInstallment | null>(null);
+  const cashClosed = useCashStatus().closed;
   const [voiding, setVoiding] = useState<ExpenseInstallmentPayment | null>(null);
   const [voidError, setVoidError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -118,7 +120,7 @@ export default function ExpenseDetailModal({ id, onClose, onChanged }: {
                     </span>
                     <span className="w-24 shrink-0 text-right">
                       {i.status !== "PAID" && (
-                        <button type="button" onClick={() => setPaying(i)} disabled={busy}
+                        <button type="button" onClick={() => setPaying(i)} disabled={busy || cashClosed} title={cashClosed ? "La caja está cerrada" : undefined}
                           className="bg-[#9C5A2E] hover:bg-[#7A3F1F] text-white px-3 py-1.5 rounded-lg font-semibold cursor-pointer inline-flex items-center gap-1 disabled:opacity-60">
                           <DollarSign className="w-3.5 h-3.5" />
                           Pagar

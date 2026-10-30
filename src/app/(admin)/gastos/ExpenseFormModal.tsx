@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { Info } from "lucide-react";
 import { ApiErrorBanner, Modal } from "@/components/ui";
+import { CashClosedNotice } from "@/components/cash/CashStatus";
+import { useCashStatus } from "@/lib/cashStatus";
 import { api } from "@/lib/api";
 import { useOptions } from "@/lib/useApi";
-import { money } from "@/lib/format";
+import { defaultAccountOption, money } from "@/lib/format";
 import { pastDayToInstant, toLocalISODate } from "@/lib/dateUtils";
 import { expenseKindLabel } from "@/lib/labels";
 import type {
@@ -15,6 +17,14 @@ import type {
 const inputCls =
   "w-full bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-3.5 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white disabled:text-[#A89C8C]";
 const label = "font-semibold text-[#231E1A] block mb-1";
+
+/** How a new expense is paid. The API has no "status" field: it follows from installments + payFirstNow. */
+type PayMode = "paid" | "pending" | "installments";
+const payModes: { mode: PayMode; title: string; hint: string }[] = [
+  { mode: "paid", title: "Ya está pagado", hint: "Queda como Pagado" },
+  { mode: "pending", title: "Queda pendiente", hint: "Lo pagás más adelante" },
+  { mode: "installments", title: "En cuotas", hint: "Se paga cuota a cuota" },
+];
 
 /**
  * Create (POST /expenses) or edit the header of an expense (PATCH /expenses/{id}: only changed keys, null clears).
@@ -35,16 +45,19 @@ export default function ExpenseFormModal({ expense, onClose, onDone }: {
   const [amount, setAmount] = useState("");
   const [installments, setInstallments] = useState("");
   const [firstDueDate, setFirstDueDate] = useState("");
-  const [payNow, setPayNow] = useState(false);
+  const [payMode, setPayMode] = useState<PayMode>("paid");
+  const [payFirst, setPayFirst] = useState(false);
   const [methodId, setMethodId] = useState("");
   const [accountId, setAccountId] = useState("");
   const [paidOn, setPaidOn] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const cashClosed = useCashStatus().closed;
 
   const categories = useOptions<ExpenseCategory>("/expense-categories");
   const suppliers = useOptions<Supplier>("/suppliers", { filters: [{ field: "active", operator: "EQUALS", value: true }] });
   const methods = useOptions<PaymentMethod>("/payment-methods");
+  const method = methods.options.find((m) => String(m.id) === methodId);
   const accounts = useOptions<FinancialAccount>("/financial-accounts");
   const optionsError = categories.error ?? suppliers.error ?? methods.error ?? accounts.error;
   const reloadOptions = () => { categories.reload(); suppliers.reload(); methods.reload(); accounts.reload(); };
@@ -52,6 +65,8 @@ export default function ExpenseFormModal({ expense, onClose, onDone }: {
   const category = categories.options.find((c) => String(c.id) === categoryId);
   // An inactive supplier is not in the options, but an existing expense may still point at it.
   const keepSupplier = expense?.supplierId != null && !suppliers.options.some((s) => s.id === expense.supplierId);
+
+  const payNow = payMode === "paid" || (payMode === "installments" && payFirst);
 
   const send = async (fn: () => Promise<unknown>, message: string) => {
     setError(null);
@@ -87,9 +102,10 @@ export default function ExpenseFormModal({ expense, onClose, onDone }: {
       categoryId: Number(categoryId), kind, description: description.trim(), incurredOn, amount: Number(amount),
     };
     if (supplier != null) body.supplierId = supplier;
-    if (installments) body.installments = Number(installments);
-    if (firstDueDate) body.firstDueDate = firstDueDate;
+    if (payMode === "installments") body.installments = Number(installments);
+    if (payMode !== "paid" && firstDueDate) body.firstDueDate = firstDueDate;
     if (note) body.notes = note;
+    // "paid" = one installment paid on the spot (→ PAID); in installments, optionally the 1st
     if (payNow) {
       body.payFirstNow = { paymentMethodId: Number(methodId) };
       if (accountId) body.payFirstNow.accountId = Number(accountId);
@@ -171,37 +187,69 @@ export default function ExpenseFormModal({ expense, onClose, onDone }: {
           </div>
         ) : (
           <div className="p-4 rounded-xl border border-[#E7DFD2] bg-[#FBF8F2]/60 flex flex-col gap-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className={label}>Cuotas</label>
-                <input type="number" min="1" max="24" step="1" placeholder="1" value={installments}
-                  onChange={(e) => setInstallments(e.target.value)} className={inputCls} />
-              </div>
-              <div>
-                <label className={label}>Vencimiento 1ª cuota</label>
-                <input type="date" min={incurredOn} value={firstDueDate}
-                  onChange={(e) => setFirstDueDate(e.target.value)} className={inputCls} />
-                <span className="text-[10px] text-[#A89C8C]">Las siguientes vencen mes a mes. Vacío = sin vencimiento.</span>
+            <div>
+              <span className={label}>¿Cómo se paga?</span>
+              <div role="radiogroup" className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {payModes.map((m) => (
+                  <button key={m.mode} type="button" role="radio" aria-checked={payMode === m.mode}
+                    onClick={() => setPayMode(m.mode)}
+                    className={`px-3 py-2.5 rounded-xl border text-left cursor-pointer transition-colors ${
+                      payMode === m.mode ? "border-[#9C5A2E] bg-[#F5EAD6] text-[#7A3F1F]" : "border-[#E7DFD2] bg-white text-[#7A6F63] hover:bg-[#FBF8F2]"
+                    }`}>
+                    <span className="font-semibold block">{m.title}</span>
+                    <span className="text-[10px]">{m.hint}</span>
+                  </button>
+                ))}
               </div>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={payNow} onChange={(e) => setPayNow(e.target.checked)}
-                className="w-4 h-4 accent-[#9C5A2E]" />
-              <span className="font-semibold text-[#231E1A]">Pagar la primera cuota ahora</span>
-            </label>
+            {payMode === "pending" && (
+              <div className="sm:w-1/2">
+                <label className={label}>Vencimiento</label>
+                <input type="date" min={incurredOn} value={firstDueDate}
+                  onChange={(e) => setFirstDueDate(e.target.value)} className={inputCls} />
+                <span className="text-[10px] text-[#A89C8C]">Vacío = sin vencimiento.</span>
+              </div>
+            )}
+            {payMode === "installments" && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className={label}>Cantidad de cuotas <span className="text-[#C0492F]">*</span></label>
+                    <input type="number" required min="2" max="24" step="1" value={installments}
+                      onChange={(e) => setInstallments(e.target.value)} className={inputCls} />
+                  </div>
+                  <div>
+                    <label className={label}>Vencimiento 1ª cuota</label>
+                    <input type="date" min={incurredOn} value={firstDueDate}
+                      onChange={(e) => setFirstDueDate(e.target.value)} className={inputCls} />
+                    <span className="text-[10px] text-[#A89C8C]">Las siguientes vencen mes a mes. Vacío = sin vencimiento.</span>
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={payFirst} onChange={(e) => setPayFirst(e.target.checked)}
+                    className="w-4 h-4 accent-[#9C5A2E]" />
+                  <span className="font-semibold text-[#231E1A]">Ya pagué la primera cuota</span>
+                </label>
+              </>
+            )}
+            {payNow && (
+              <CashClosedNotice what={payMode === "paid"
+                ? "registrarlo como pagado (como pendiente se registra igual)"
+                : "pagar la primera cuota (el gasto en cuotas sin pago se registra igual)"} />
+            )}
             {payNow && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className={label}>Medio de pago <span className="text-[#C0492F]">*</span></label>
-                  <select value={methodId} onChange={(e) => setMethodId(e.target.value)} required className={inputCls}>
+                  <select value={methodId} onChange={(e) => { setMethodId(e.target.value); setAccountId(""); }} required className={inputCls}>
                     <option value="">Elegí…</option>
                     {methods.options.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className={label}>Cuenta</label>
-                  <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={inputCls}>
-                    <option value="">La del medio</option>
+                  <select value={accountId} onChange={(e) => setAccountId(e.target.value)} required={method?.defaultAccountId == null} className={inputCls}>
+                    <option value="">{defaultAccountOption(method)}</option>
                     {accounts.options.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
                 </div>
@@ -230,7 +278,7 @@ export default function ExpenseFormModal({ expense, onClose, onDone }: {
             className="px-4 py-2 rounded-xl text-[#7A6F63] hover:bg-[#FBF8F2] transition-colors cursor-pointer">
             Cancelar
           </button>
-          <button type="submit" disabled={busy}
+          <button type="submit" disabled={busy || (payNow && cashClosed)}
             className="bg-[#9C5A2E] text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs cursor-pointer disabled:opacity-60">
             {busy ? "Guardando…" : expense ? "Guardar cambios" : "Registrar gasto"}
           </button>
