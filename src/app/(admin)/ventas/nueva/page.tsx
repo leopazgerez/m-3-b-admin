@@ -150,7 +150,8 @@ export default function NuevaVentaPosPage() {
     <>
       <Topbar title="Punto de Venta (POS)" subtitle="Caja de cobro y registro rápido de ventas" />
 
-      <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full">
+      {/* mobile: room below the checkout so the floating "Ir a cobrar" bar doesn't cover "Confirmar venta" */}
+      <main className={`p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full ${cart.length > 0 ? "pb-28 sm:pb-28 lg:pb-8" : ""}`}>
         <CashClosedNotice what="cobrar una venta (sin cobro, solo se puede dejar a cuenta de un cliente)" />
         <div className="flex items-center justify-between gap-4">
           <Link href="/ventas"

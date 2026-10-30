@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { api, ApiError, API_WRITE_EVENT } from "./api";
 import { useApiResource } from "./useApi";
 import type { CashSession } from "./apiTypes";
@@ -32,8 +33,8 @@ const CashStatusContext = createContext<CashStatus | null>(null);
 
 /**
  * One shared current session for sidebar, dashboard, notices and /caja. Re-fetched (without the global loader) after
- * every write anywhere (a sale or a payment changes the figures; a 409 means it closed), when the tab becomes
- * visible again, and once closesAt passes.
+ * every write anywhere (a sale or a payment changes the figures; a 409 means it closed), on every navigation (so /caja
+ * moves and counts money against the current balances), when the tab becomes visible again, and once closesAt passes.
  */
 export function CashStatusProvider({ children }: { children: React.ReactNode }) {
   const fetchedAt = useRef(0);
@@ -43,6 +44,15 @@ export function CashStatusProvider({ children }: { children: React.ReactNode }) 
   }, []);
   const { reload } = r;
   const closesAt = r.data?.status === "OPEN" ? r.data.closesAt : null;
+
+  // the first path is already covered by the initial fetch
+  const pathname = usePathname();
+  const lastPath = useRef(pathname);
+  useEffect(() => {
+    if (lastPath.current === pathname) return;
+    lastPath.current = pathname;
+    reload();
+  }, [pathname, reload]);
 
   useEffect(() => {
     const onVisible = () => {
