@@ -1,5 +1,5 @@
 import type {
-  AccountEntryType, AccountType, AdjustmentType, CostSource, ExpenseKind, ExpenseStatus, InstallmentStatus, MovementType,
+  AccountEntryType, AccountType, AdjustmentType, CashMovementType, CashSessionRowKind, CashSessionStatus, CostSource, ExpenseKind, ExpenseStatus, InstallmentStatus, MovementType,
   PaymentStatus, SaleType, StockStatus, SupplierType,
 } from "./apiTypes";
 
@@ -48,4 +48,16 @@ export const installmentAlertLabel: Record<"OVERDUE" | "DUE_SOON", string> = { O
 
 export const accountEntryTypeLabel: Record<AccountEntryType, string> = {
   SALE: "Venta", PAYMENT: "Pago", RETURN: "Devolución", REFUND: "Reintegro",
+};
+
+export const cashSessionStatusLabel: Record<CashSessionStatus, string> = {
+  OPEN: "Abierta", PENDING_COUNT: "Pendiente de conteo", CLOSED: "Cerrada",
+};
+
+export const cashSessionRowKindLabel: Record<CashSessionRowKind, string> = {
+  PAYMENT: "Cobro", REFUND: "Reintegro", EXPENSE_PAYMENT: "Pago de gasto", MOVEMENT: "Movimiento",
+};
+
+export const cashMovementTypeLabel: Record<CashMovementType, string> = {
+  INCOME: "Ingreso", WITHDRAWAL: "Retiro", TRANSFER: "Pase entre cuentas",
 };

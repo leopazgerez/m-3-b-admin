@@ -18,10 +18,13 @@ import {
   ReceiptText,
   X,
   Truck,
+  Vault,
 } from "lucide-react";
 import { useState } from "react";
 import { getAssetPath } from "@/lib/assets";
 import { logout, useCurrentUser } from "@/lib/auth";
+import { useCashStatus } from "@/lib/cashStatus";
+import { cashStatusDot } from "@/lib/format";
 import { useSidebar } from "./SidebarContext";
 
 export default function Sidebar() {
@@ -41,6 +44,10 @@ export default function Sidebar() {
     if (pathname.startsWith("/configuracion")) setConfigOpen(true);
   }
 
+  // hint only; the backend is what blocks money operations
+  const cash = useCashStatus();
+  const cashDot = cash.error || !cash.loaded ? null : cashStatusDot[cash.session?.status ?? "CLOSED"];
+
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Productos", href: "/productos", icon: Package },
@@ -49,6 +56,7 @@ export default function Sidebar() {
     { name: "Clientes", href: "/clientes", icon: Users },
     { name: "Ventas", href: "/ventas", icon: ShoppingBag },
     { name: "Devoluciones", href: "/devoluciones", icon: Undo2 },
+    { name: "Caja", href: "/caja", icon: Vault },
   ];
 
   const isGastosActive = pathname === "/gastos" || pathname.startsWith("/gastos/");
@@ -114,7 +122,7 @@ export default function Sidebar() {
 
         <nav className="flex flex-col gap-1.5 flex-1 overflow-y-auto pr-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
             const Icon = item.icon;
             return (
               <Link
@@ -129,6 +137,9 @@ export default function Sidebar() {
               >
                 <Icon className="w-5 h-5 shrink-0" />
                 <span>{item.name}</span>
+                {item.href === "/caja" && cashDot && (
+                  <span title={cashDot.title} aria-label={cashDot.title} className={`ml-auto w-2.5 h-2.5 rounded-full ${cashDot.cls}`} />
+                )}
               </Link>
             );
           })}

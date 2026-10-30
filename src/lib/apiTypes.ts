@@ -245,3 +245,51 @@ export interface AlertInstallment {
   amount: number; pending: number; status: "OVERDUE" | "DUE_SOON";
 }
 export interface Alerts { stock: AlertStock[]; installments: AlertInstallment[] }
+
+// ── Cash sessions ── (Slice 5: CashSessionView, CashMovementView)
+export type CashSessionStatus = "OPEN" | "PENDING_COUNT" | "CLOSED";
+export type CashSessionRowKind = "PAYMENT" | "REFUND" | "EXPENSE_PAYMENT" | "MOVEMENT";
+export type CashMovementType = "INCOME" | "WITHDRAWAL" | "TRANSFER";
+export interface CashSessionLine {
+  accountId: number; name: string; accountType: AccountType; deleted: boolean;
+  opening: number; in: number; out: number; expected: number;
+  counted: number | null; difference: number | null;
+}
+export interface CashSessionTotals {
+  opening: number; in: number; out: number; expected: number;
+  counted: number | null; difference: number | null;
+}
+export interface CashSessionRow {
+  kind: CashSessionRowKind; id: number;
+  /** money leaves `from`, enters `to` */
+  fromAccountId: number | null; toAccountId: number | null;
+  amount: number; at: string;
+  /** recorded in this session but dated before it opened */
+  late: boolean;
+  /** a void done in this session: reverses the original's direction */
+  voidedHere: boolean;
+}
+export interface CashSession {
+  sessionId: number; status: CashSessionStatus;
+  openedAt: string; closesAt: string | null; closedAt: string | null; countedAt: string | null;
+  accounts: CashSessionLine[]; totals: CashSessionTotals; reconciled: boolean;
+  rows: CashSessionRow[];
+}
+export interface CashSessionSummary {
+  sessionId: number; status: CashSessionStatus;
+  openedAt: string; closesAt: string | null; closedAt: string | null; countedAt: string | null;
+  totals: CashSessionTotals;
+  /** not in the documented Summary shape: the list shows "Cuadra" only if the API sends it */
+  reconciled?: boolean;
+}
+export interface AccountAmount { accountId: number; amount: number }
+/** INCOME: only toAccountId · WITHDRAWAL: only fromAccountId · TRANSFER: both, different. movedAt absent = now. */
+export interface CashMovementFields {
+  type: CashMovementType; fromAccountId?: number; toAccountId?: number; amount: number; movedAt?: string; reason: string;
+}
+export interface CashMovement {
+  movementId: number; type: CashMovementType;
+  fromAccountId: number | null; fromAccountName: string | null;
+  toAccountId: number | null; toAccountName: string | null;
+  amount: number; movedAt: string; reason: string; cashSessionId: number | null;
+}

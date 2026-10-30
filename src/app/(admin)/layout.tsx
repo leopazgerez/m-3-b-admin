@@ -3,6 +3,7 @@
 import { AuthGuard } from "@/lib/auth";
 import { SidebarProvider } from "@/components/layout/SidebarContext";
 import Sidebar from "@/components/layout/Sidebar";
+import { CashStatusProvider } from "@/lib/cashStatus";
 
 export default function AdminLayout({
   children,
@@ -11,6 +12,7 @@ export default function AdminLayout({
 }) {
   return (
     <AuthGuard>
+      <CashStatusProvider>
       <SidebarProvider>
         <div className="flex h-screen w-full overflow-hidden bg-[#F7F3EC]">
           {/* Sidebar (desktop estático, mobile drawer) */}
@@ -22,6 +24,7 @@ export default function AdminLayout({
           </div>
         </div>
       </SidebarProvider>
+      </CashStatusProvider>
     </AuthGuard>
   );
 }

@@ -22,7 +22,8 @@ function useLoad<T>(load: () => Promise<T>, baseKey: string) {
     return () => { stale = true; };
   }, [key]);
   const reload = useCallback(() => setTick((t) => t + 1), []);
-  return { data: res.data, error: res.error, loading: res.key !== key, reload };
+  // loaded: some run has settled, so a null data is a real null and not "not fetched yet"
+  return { data: res.data, error: res.error, loading: res.key !== key, loaded: res.key !== "", reload };
 }
 
 export function useApiResource<T>(load: () => Promise<T>, deps: unknown[]) {

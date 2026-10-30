@@ -21,12 +21,18 @@ export interface Page<T> { items: T[]; nextCursor: string | null; prevCursor: st
 
 interface RawPage<T> { data: T[]; nextCursor: string | null; prevCursor: string | null; total: number }
 
-/** Writes: success → a toast saying what was done; silent → no error toast (the caller handles it). */
-export interface Notify { success?: string; silent?: boolean }
+/**
+ * Writes: success → a toast saying what was done; silent → no error toast (the caller handles it).
+ * quiet → no global loader (background checks the user didn't ask for).
+ */
+export interface Notify { success?: string; silent?: boolean; quiet?: boolean }
+
+/** Fired on window after every write settles (ok or not): state derived from the backend may have changed. */
+export const API_WRITE_EVENT = "m3b:api-write";
 
 /** Counts the call for the global loader; a failed write shows an error toast unless silent. */
 async function request(method: string, path: string, query?: URLSearchParams, body?: unknown, notify: Notify = {}): Promise<unknown> {
-  feedback.begin();
+  if (!notify.quiet) feedback.begin();
   try {
     const parsed = await send(method, path, query, body);
     if (notify.success) feedback.success(notify.success);
@@ -36,7 +42,8 @@ async function request(method: string, path: string, query?: URLSearchParams, bo
     if (method !== "GET" && !notify.silent && e instanceof ApiError && e.status !== 401) feedback.error(e.message);
     throw e;
   } finally {
-    feedback.end();
+    if (!notify.quiet) feedback.end();
+    if (method !== "GET") window.dispatchEvent(new Event(API_WRITE_EVENT));
   }
 }
 
@@ -94,8 +101,8 @@ async function getPage<T>(path: string, q: ListQuery = {}): Promise<Page<T>> {
 }
 
 export const api = {
-  getOne: async <T>(path: string, p?: Record<string, string | number | undefined>) =>
-    unwrap<T>(await request("GET", path, params(p))),
+  getOne: async <T>(path: string, p?: Record<string, string | number | undefined>, notify?: Notify) =>
+    unwrap<T>(await request("GET", path, params(p), undefined, notify)),
   getPage,
   getAll: <T>(path: string, q: Omit<ListQuery, "cursor" | "before" | "length"> = {}) =>
     collectAll<T>((cursor) => getPage<T>(path, { ...q, length: 200, cursor })),
