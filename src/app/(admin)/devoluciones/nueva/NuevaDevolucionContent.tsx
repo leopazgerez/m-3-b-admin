@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Topbar from "@/components/layout/Topbar";
+import { CashClosedNotice } from "@/components/cash/CashStatus";
+import { useCashStatus } from "@/lib/cashStatus";
 import { ApiErrorBanner } from "@/components/ui";
 import { feedback } from "@/lib/feedback";
 import { api, ApiError } from "@/lib/api";
@@ -55,6 +57,7 @@ export default function NuevaDevolucionContent() {
   };
   const methods = useOptions<PaymentMethod>("/payment-methods");
   const accounts = useOptions<FinancialAccount>("/financial-accounts");
+  const cashClosed = useCashStatus().closed;
 
   // Step 1: picks by sale line id
   const [picks, setPicks] = useState<Record<number, Pick>>({});
@@ -140,6 +143,9 @@ export default function NuevaDevolucionContent() {
     returnBlocker(picked.map((l) => picks[l.id]), hasExchange)
       ?? (!reason.trim() ? "Indicá el motivo de la devolución." : null)
       ?? (hasExchange && ex.discount > ex.gross ? "El descuento del cambio supera su subtotal." : null)
+      ?? (cashClosed && payments.length > 0 ? "La caja está cerrada: quitá los pagos del cambio o abrí la caja." : null)
+      ?? (sendRemainder && action === "REFUND" && cashClosed
+        ? "La caja está cerrada: abrila para reintegrar o dejá el resto como saldo a favor." : null)
       ?? (sendRemainder && action === "REFUND" && !refundMethodId ? "Elegí el medio con que se reintegra." : null)
       ?? (sendRemainder && action === "REFUND" && refundMethod?.defaultAccountId == null && !refundAccountId
         ? "El medio de reintegro no tiene cuenta por defecto: elegí una." : null);
@@ -449,6 +455,7 @@ function Shell({ saleId, children }: { saleId: number; children: React.ReactNode
           <ArrowLeft className="w-4 h-4" />
           <span>Volver a la venta</span>
         </Link>
+        <CashClosedNotice what="reintegrar dinero (un cambio o un saldo a favor, sin reintegro, se registra igual)" />
         {children}
       </main>
     </>

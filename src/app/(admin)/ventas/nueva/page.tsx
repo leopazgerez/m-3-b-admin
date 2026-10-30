@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/layout/Topbar";
+import { CashClosedNotice } from "@/components/cash/CashStatus";
 import { ApiErrorBanner } from "@/components/ui";
 import { feedback } from "@/lib/feedback";
 import { api } from "@/lib/api";
 import { useOptions } from "@/lib/useApi";
+import { useCashStatus } from "@/lib/cashStatus";
 import { money, variantLabel } from "@/lib/format";
 import { saleTypeLabel } from "@/lib/labels";
 import { estimateSale, type DiscountInput } from "@/lib/saleEstimate";
@@ -46,6 +48,7 @@ export default function NuevaVentaPosPage() {
 
   const methods = useOptions<PaymentMethod>("/payment-methods");
   const accounts = useOptions<FinancialAccount>("/financial-accounts");
+  const cashClosed = useCashStatus().closed;
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => inputRef.current?.focus(), []);
@@ -96,7 +99,9 @@ export default function NuevaVentaPosPage() {
   const itemCount = cart.reduce((n, l) => n + l.quantity, 0);
 
   const blocker =
-    cart.length === 0 ? "Agregá al menos un producto."
+    cashClosed && payments.length > 0 ? "La caja está cerrada: quitá los pagos o abrí la caja."
+    : cashClosed && !customer && !isGift ? "La caja está cerrada: sin cobrar, solo se puede vender a cuenta de un cliente o como regalo."
+    : cart.length === 0 ? "Agregá al menos un producto."
       : est.discount > est.gross ? "El descuento supera el subtotal."
         : credit < 0 || credit > creditBalance ? `El saldo a favor a usar va de $0 a ${money(creditBalance)}.`
         : est.remaining < 0 ? `Los pagos superan el total (sin recargos) en ${money(-est.remaining)}.`
@@ -146,6 +151,7 @@ export default function NuevaVentaPosPage() {
       <Topbar title="Punto de Venta (POS)" subtitle="Caja de cobro y registro rápido de ventas" />
 
       <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full">
+        <CashClosedNotice what="cobrar una venta (sin cobro, solo se puede dejar a cuenta de un cliente)" />
         <div className="flex items-center justify-between gap-4">
           <Link href="/ventas"
             className="flex items-center gap-2 text-xs font-semibold text-[#7A6F63] hover:text-[#231E1A] bg-white border border-[#E7DFD2] px-3.5 py-2 rounded-xl transition-all shadow-2xs hover:bg-[#FBF8F2]">
@@ -285,7 +291,9 @@ export default function NuevaVentaPosPage() {
                         onChange={(e) => setCreditValue(e.target.value)} placeholder="0" className={`${darkField} text-right font-bold`} />
                     </div>
                   )}
-                  <PaymentsPanel rows={payments} onChange={setPayments} methods={methods.options} accounts={accounts.options} remaining={est.remaining} />
+                  {cashClosed
+                    ? <p className="text-[11px] text-[#C9BCA9]">Caja cerrada: no se pueden cargar pagos.</p>
+                    : <PaymentsPanel rows={payments} onChange={setPayments} methods={methods.options} accounts={accounts.options} remaining={est.remaining} />}
                 </>
               )}
 
@@ -341,7 +349,7 @@ export default function NuevaVentaPosPage() {
                 </div>
               </div>
 
-              {blocker && cart.length > 0 && (
+              {blocker && (cart.length > 0 || cashClosed) && (
                 <p className="text-[11px] text-[#E27D60] flex items-start gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                   <span>{blocker}</span>

@@ -4,6 +4,8 @@ import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { ApiErrorBanner, Badge, ConfirmDeleteModal, Modal, Pager } from "@/components/ui";
+import { CashClosedNotice } from "@/components/cash/CashStatus";
+import { useCashStatus } from "@/lib/cashStatus";
 import { feedback } from "@/lib/feedback";
 import { api, ApiError } from "@/lib/api";
 import { useApiResource, useOptions, usePagedList } from "@/lib/useApi";
@@ -74,6 +76,7 @@ function CustomerDetail({ id }: { id: number }) {
   const [editing, setEditing] = useState(false);
   const [voidError, setVoidError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+  const cashClosed = useCashStatus().closed;
 
   const openPay = (t: PayTarget) => setPayTarget(t);
   const reloadAll = () => { customer.reload(); account.reload(); sales.reload(); };
@@ -160,7 +163,7 @@ function CustomerDetail({ id }: { id: number }) {
               {isInDebt && (
                 <button
                   onClick={() => openPay({ mode: "total" })}
-                  disabled={busy}
+                  disabled={busy || cashClosed} title={cashClosed ? "La caja está cerrada" : undefined}
                   className="flex items-center gap-2 bg-[#9C5A2E] text-white px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#7A3F1F] transition-all shadow-sm disabled:opacity-60"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" />
@@ -169,7 +172,7 @@ function CustomerDetail({ id }: { id: number }) {
               )}
               <button
                 onClick={() => openPay({ mode: "partial" })}
-                disabled={busy}
+                disabled={busy || cashClosed} title={cashClosed ? "La caja está cerrada" : undefined}
                 className="flex items-center gap-2 bg-[#FBF8F2] border border-[#E7DFD2] text-[#231E1A] px-4 py-2 rounded-xl text-xs font-semibold hover:bg-[#F0E9DE] transition-all shadow-sm disabled:opacity-60"
               >
                 <Plus className="w-3.5 h-3.5" />
@@ -330,7 +333,7 @@ function CustomerDetail({ id }: { id: number }) {
                         {s.outstanding > 0 && !s.cancelledAt && (
                           <button
                             onClick={() => openPay({ mode: "sale", sale: s })}
-                            disabled={busy}
+                            disabled={busy || cashClosed} title={cashClosed ? "La caja está cerrada" : undefined}
                             className="text-xs bg-[#3E8E5A] text-white px-3 py-1.5 rounded-lg hover:bg-[#2E6E45] transition-colors font-semibold disabled:opacity-60"
                           >
                             Cobrar
@@ -395,6 +398,7 @@ function PaymentModal({ customer, target, onClose, onDone }: {
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  const cashClosed = useCashStatus().closed;
 
   const methods = useOptions<PaymentMethod>("/payment-methods");
   const accounts = useOptions<FinancialAccount>("/financial-accounts");
@@ -435,6 +439,7 @@ function PaymentModal({ customer, target, onClose, onDone }: {
     <Modal isOpen onClose={onClose} title={title}>
       <form onSubmit={submit} className="flex flex-col gap-4">
         <ApiErrorBanner error={optionsError} onRetry={() => { methods.reload(); accounts.reload(); }} />
+        <CashClosedNotice what="registrar cobros" />
 
         <div className="bg-[#FBF8F2] rounded-xl p-4 border border-[#E7DFD2]">
           <div className="text-xs text-[#A89C8C] mb-1">
@@ -490,7 +495,7 @@ function PaymentModal({ customer, target, onClose, onDone }: {
             className="px-4 py-2 rounded-xl text-[#7A6F63] hover:bg-[#FBF8F2] transition-colors cursor-pointer">
             Cancelar
           </button>
-          <button type="submit" disabled={busy}
+          <button type="submit" disabled={busy || cashClosed}
             className="bg-[#9C5A2E] text-white px-5 py-2 rounded-xl font-semibold hover:bg-[#7A3F1F] transition-all shadow-xs cursor-pointer disabled:opacity-60">
             {busy ? "Registrando…" : "Confirmar cobro"}
           </button>
