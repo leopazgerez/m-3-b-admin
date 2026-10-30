@@ -9,6 +9,8 @@ interface KpiCardProps {
   badgeType?: "success" | "warning" | "danger";
   icon: React.ReactNode;
   iconBgColor?: string;
+  /** what the figure means, shown as a tooltip on hover / keyboard focus */
+  hint?: string;
 }
 
 export default function KpiCard({
@@ -19,6 +21,7 @@ export default function KpiCard({
   badgeType = "success",
   icon,
   iconBgColor = "bg-[#EADBC6]",
+  hint,
 }: KpiCardProps) {
   const badgeStyles = {
     success: "bg-[#E3F1E8] text-[#3E8E5A]",
@@ -27,7 +30,14 @@ export default function KpiCard({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-[#E7DFD2] p-5 flex flex-col gap-4 flex-1 shadow-xs hover:border-[#9C5A2E]/40 transition-all duration-200">
+    <div tabIndex={hint ? 0 : undefined}
+      className="group relative bg-white rounded-2xl border border-[#E7DFD2] p-5 flex flex-col gap-4 flex-1 shadow-xs hover:border-[#9C5A2E]/40 focus:border-[#9C5A2E]/40 outline-none transition-all duration-200">
+      {hint && (
+        <div role="tooltip"
+          className="pointer-events-none absolute left-4 right-4 bottom-full mb-2 z-20 rounded-xl bg-[#231E1A] text-[#F5EAD6] text-xs leading-relaxed px-3.5 py-2.5 shadow-lg opacity-0 translate-y-1 transition-all duration-150 group-hover:opacity-100 group-hover:translate-y-0 group-focus:opacity-100 group-focus:translate-y-0">
+          {hint}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div
           className={`w-11 h-11 rounded-xl ${iconBgColor} flex items-center justify-center shrink-0 text-[#9C5A2E] shadow-xs`}

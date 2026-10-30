@@ -17,6 +17,7 @@ import { money } from "@/lib/format";
 import { pctLabel, periodParams, type DashboardPeriod } from "@/lib/reports";
 import { AlertTriangle, Banknote, HandCoins, Package, Plus, Receipt, TrendingUp, Undo2, Wallet, Wallet2 } from "lucide-react";
 import { getAssetPath } from "@/lib/assets";
+import { CashStatusCard } from "@/components/cash/CashStatus";
 
 export default function DashboardPage() {
   const summary = useApiResource(() => api.getOne<StockSummary>("/stock/summary"), []);
@@ -68,6 +69,8 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        <CashStatusCard />
+
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <PeriodSelector value={period} onChange={setPeriod} invalid={!params} />
           {r && params && (
@@ -79,15 +82,18 @@ export default function DashboardPage() {
 
         {/* KPIs */}
         {report.error && params && <ApiErrorBanner error={report.error} onRetry={report.reload} />}
+        <Section title="Resultado del período" subtitle="Ventas, ganancia, gastos y neto" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <KpiCard
             label="Ventas netas"
+            hint="Total de las ventas no anuladas hechas en el período (con descuentos y recargos), menos lo devuelto. Cuenta la venta el día que se hizo, aunque todavía no esté cobrada."
             value={r ? money(r.sales.netTotal) : ph}
             delta={r ? `${r.sales.count} ventas · ${money(r.sales.total)} antes de devoluciones` : params ? "cargando" : "—"}
             icon={<Receipt className="w-5 h-5" />}
           />
           <KpiCard
             label="Ganancia bruta"
+            hint="Ventas menos el costo de los productos vendidos, tomado al momento de cada venta. El porcentaje es la ganancia sobre las ventas."
             value={r ? money(r.sales.grossProfit) : ph}
             delta="ventas menos costo"
             badgeText={r && r.sales.grossMarginPct !== null ? pctLabel(r.sales.grossMarginPct) : undefined}
@@ -96,12 +102,14 @@ export default function DashboardPage() {
           />
           <KpiCard
             label="Gastos"
+            hint="Total de los gastos con fecha en el período, estén pagados o no. Los gastos eliminados no cuentan."
             value={r ? money(r.expenses.total) : ph}
             delta="egresos del período"
             icon={<Wallet className="w-5 h-5" />}
           />
           <KpiCard
             label="Neto"
+            hint="Ventas menos gastos del período. El porcentaje es el neto sobre las ventas."
             value={r ? money(r.net) : ph}
             delta="ventas menos gastos"
             badgeText={r && r.netMarginPct !== null ? pctLabel(r.netMarginPct) : undefined}
@@ -109,21 +117,25 @@ export default function DashboardPage() {
             icon={<Wallet2 className="w-5 h-5" />}
           />
         </div>
+        <Section title="Dinero y stock" subtitle="Lo que entró y salió de las cuentas, y el estado del inventario" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <KpiCard
             label="Cobrado"
+            hint="Dinero que entró por pagos de clientes en el período (de ventas y de cuenta corriente), según la fecha de cada pago."
             value={r ? money(r.cash.collected) : ph}
             delta={r && r.cash.refunded > 0 ? `base caja · reintegros ${money(r.cash.refunded)} (se restan en Caja neta)` : "base caja"}
             icon={<Banknote className="w-5 h-5" />}
           />
           <KpiCard
             label="Pagado"
+            hint="Dinero que salió por pagos de cuotas de gastos en el período, según la fecha de cada pago."
             value={r ? money(r.cash.paid) : ph}
             delta="base caja"
             icon={<HandCoins className="w-5 h-5" />}
           />
           <KpiCard
             label="Caja neta"
+            hint="Cobrado menos reintegros a clientes menos pagado: cuánto dinero dejó la operación del período."
             value={r ? money(r.cash.net) : ph}
             delta="cobrado menos pagado"
             badgeText={r && r.cash.net < 0 ? "negativa" : undefined}
@@ -135,6 +147,7 @@ export default function DashboardPage() {
           ) : (
             <KpiCard
               label="Estado de stock"
+              hint="Unidades en stock de los productos y variantes activos. Bajo: en o por debajo del stock mínimo. Sin stock: sin unidades."
               value={s ? `${s.totalUnits.toLocaleString("es-AR")} u.` : "…"}
               delta={s ? `${s.lowCount} bajos · ${s.outCount} sin stock` : "cargando"}
               badgeText={alerts > 0 ? `${alerts} alertas` : undefined}
@@ -145,28 +158,32 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Returns */}
+        <Section title="Devoluciones" subtitle="Devoluciones y cambios del período" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <KpiCard
             label="Devoluciones"
+            hint="Cantidad de devoluciones y cambios registrados en el período."
             value={r ? String(r.returns.count) : ph}
             delta="devoluciones y cambios"
             icon={<Undo2 className="w-5 h-5" />}
           />
           <KpiCard
             label="Valor devuelto"
+            hint="Valor de los productos devueltos en el período. Se resta de las ventas para obtener las ventas netas."
             value={r ? money(r.returns.total) : ph}
             delta="restado de las ventas"
             icon={<Receipt className="w-5 h-5" />}
           />
           <KpiCard
             label="Costo repuesto"
+            hint="Costo de las unidades devueltas en buen estado que volvieron al stock."
             value={r ? money(r.returns.restockedCost) : ph}
             delta="unidades sanas que volvieron al stock"
             icon={<Package className="w-5 h-5" />}
           />
           <KpiCard
             label="Pérdida por fallados"
+            hint="Costo de las unidades devueltas falladas, que no vuelven al stock."
             value={r ? money(r.returns.lossCost) : ph}
             delta="costo de lo que no vuelve al stock"
             badgeText={r && r.returns.lossCost > 0 ? "pérdida" : undefined}
@@ -196,5 +213,15 @@ export default function DashboardPage() {
         </div>
       </main>
     </>
+  );
+}
+
+/** Heading over a row of KPI cards: which part of the business the row summarizes. */
+function Section({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="-mb-3">
+      <h3 className="font-heading font-bold text-sm text-[#231E1A]">{title}</h3>
+      <p className="text-[11px] text-[#7A6F63]">{subtitle}</p>
+    </div>
   );
 }
