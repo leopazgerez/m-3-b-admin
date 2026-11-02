@@ -19,12 +19,14 @@ import {
   X,
   Truck,
   Vault,
+  BadgeDollarSign,
 } from "lucide-react";
 import { useState } from "react";
 import { getAssetPath } from "@/lib/assets";
 import { logout, useCurrentUser } from "@/lib/auth";
 import { useCashStatus } from "@/lib/cashStatus";
 import { cashStatusDot } from "@/lib/format";
+import { usePendingAccreditations } from "@/lib/pendingAccreditations";
 import { useSidebar } from "./SidebarContext";
 
 export default function Sidebar() {
@@ -47,6 +49,7 @@ export default function Sidebar() {
   // hint only; the backend is what blocks money operations
   const cash = useCashStatus();
   const cashDot = cash.error || !cash.loaded ? null : cashStatusDot[cash.session?.status ?? "CLOSED"];
+  const pendingAccreditations = usePendingAccreditations();
 
   const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -57,6 +60,7 @@ export default function Sidebar() {
     { name: "Ventas", href: "/ventas", icon: ShoppingBag },
     { name: "Devoluciones", href: "/devoluciones", icon: Undo2 },
     { name: "Caja", href: "/caja", icon: Vault },
+    { name: "Acreditaciones", href: "/acreditaciones", icon: BadgeDollarSign },
   ];
 
   const isGastosActive = pathname === "/gastos" || pathname.startsWith("/gastos/");
@@ -139,6 +143,12 @@ export default function Sidebar() {
                 <span>{item.name}</span>
                 {item.href === "/caja" && cashDot && (
                   <span title={cashDot.title} aria-label={cashDot.title} className={`ml-auto w-2.5 h-2.5 rounded-full ${cashDot.cls}`} />
+                )}
+                {item.href === "/acreditaciones" && !!pendingAccreditations && (
+                  <span title="Cobros con tarjeta pendientes de acreditar"
+                    className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-[#D98A2B] text-white text-[11px] font-bold flex items-center justify-center">
+                    {pendingAccreditations}
+                  </span>
                 )}
               </Link>
             );

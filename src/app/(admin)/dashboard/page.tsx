@@ -15,7 +15,7 @@ import type { SalesSummary, StockSummary } from "@/lib/apiTypes";
 import { formatDate, toLocalISODate } from "@/lib/dateUtils";
 import { money } from "@/lib/format";
 import { pctLabel, periodParams, type DashboardPeriod } from "@/lib/reports";
-import { AlertTriangle, Banknote, HandCoins, Package, Plus, Receipt, TrendingUp, Undo2, Wallet, Wallet2 } from "lucide-react";
+import { AlertTriangle, Banknote, CreditCard, HandCoins, Package, Plus, Receipt, TrendingUp, Undo2, Wallet, Wallet2 } from "lucide-react";
 import { getAssetPath } from "@/lib/assets";
 import { CashStatusCard } from "@/components/cash/CashStatus";
 
@@ -109,9 +109,9 @@ export default function DashboardPage() {
           />
           <KpiCard
             label="Neto"
-            hint="Ventas menos gastos del período. El porcentaje es el neto sobre las ventas."
+            hint="Ventas menos gastos y comisiones de tarjeta del período. El porcentaje es el neto sobre las ventas."
             value={r ? money(r.net) : ph}
-            delta="ventas menos gastos"
+            delta="ventas menos gastos y comisiones"
             badgeText={r && r.netMarginPct !== null ? pctLabel(r.netMarginPct) : undefined}
             badgeType={r && r.net < 0 ? "danger" : "success"}
             icon={<Wallet2 className="w-5 h-5" />}
@@ -121,7 +121,7 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <KpiCard
             label="Cobrado"
-            hint="Dinero que entró por pagos de clientes en el período (de ventas y de cuenta corriente), según la fecha de cada pago."
+            hint="Dinero que entró por pagos de clientes en el período (de ventas y de cuenta corriente), según la fecha de cada pago. Los cobros con tarjeta que cobran comisión cuentan por lo cobrado, el día que se acreditaron."
             value={r ? money(r.cash.collected) : ph}
             delta={r && r.cash.refunded > 0 ? `base caja · reintegros ${money(r.cash.refunded)} (se restan en Caja neta)` : "base caja"}
             icon={<Banknote className="w-5 h-5" />}
@@ -135,9 +135,9 @@ export default function DashboardPage() {
           />
           <KpiCard
             label="Caja neta"
-            hint="Cobrado menos reintegros a clientes menos pagado: cuánto dinero dejó la operación del período."
+            hint="Cobrado menos reintegros a clientes, menos pagado, menos comisiones de tarjeta: cuánto dinero dejó la operación del período."
             value={r ? money(r.cash.net) : ph}
-            delta="cobrado menos pagado"
+            delta={r && r.cash.cardFees > 0 ? `comisiones de tarjeta ${money(r.cash.cardFees)}` : "cobrado menos pagado"}
             badgeText={r && r.cash.net < 0 ? "negativa" : undefined}
             badgeType="danger"
             icon={<Wallet className="w-5 h-5" />}
@@ -157,6 +157,9 @@ export default function DashboardPage() {
             />
           )}
         </div>
+
+        <Section title="Comisiones de tarjeta" subtitle="Por fecha de cobro: lo que se quedó el procesador y lo que falta acreditar" />
+        <CardFees fees={r?.cardFees ?? null} ph={ph} />
 
         <Section title="Devoluciones" subtitle="Devoluciones y cambios del período" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -212,6 +215,67 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
+    </>
+  );
+}
+
+/** Totals plus one row per fee-charging method, exactly as the report returns them. */
+function CardFees({ fees, ph }: { fees: SalesSummary["cardFees"] | null; ph: string }) {
+  return (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <KpiCard
+          label="Comisiones"
+          hint="Diferencia entre lo cobrado con tarjeta y lo que acreditó el banco, en los cobros ya acreditados. Se resta del neto."
+          value={fees ? money(fees.total) : ph}
+          delta="cobrado menos recibido"
+          icon={<CreditCard className="w-5 h-5" />}
+        />
+        <KpiCard
+          label="Pendiente de acreditar"
+          hint="Lo cobrado con tarjeta que todavía no tiene cargado lo que acreditó el banco."
+          value={fees ? money(fees.pending) : ph}
+          delta="cobrado, falta cargar lo recibido"
+          badgeText={fees && fees.pending > 0 ? "pendiente" : undefined}
+          badgeType="warning"
+          icon={<Banknote className="w-5 h-5" />}
+        />
+      </div>
+      {fees && (fees.byMethod.length > 0 || fees.pending > 0) && (
+        <div className="bg-white rounded-2xl border border-[#E7DFD2] shadow-xs overflow-hidden text-xs">
+          {fees.byMethod.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[520px]">
+                <thead className="bg-[#FBF8F2] text-[11px] text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
+                  <tr>
+                    <th className="text-left font-semibold px-4 sm:px-6 py-3">MEDIO</th>
+                    <th className="text-right font-semibold px-3 py-3">COBRADO</th>
+                    <th className="text-right font-semibold px-3 py-3">RECIBIDO</th>
+                    <th className="text-right font-semibold px-3 py-3">COMISIÓN</th>
+                    <th className="text-right font-semibold px-4 sm:px-6 py-3">PENDIENTE</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F7F3EC] text-[#231E1A]">
+                  {fees.byMethod.map((m) => (
+                    <tr key={m.paymentMethodId}>
+                      <td className="px-4 sm:px-6 py-3 font-semibold">{m.name}</td>
+                      <td className="px-3 py-3 text-right">{money(m.charged)}</td>
+                      <td className="px-3 py-3 text-right">{money(m.received)}</td>
+                      <td className="px-3 py-3 text-right font-bold">{money(m.fee)}</td>
+                      <td className="px-4 sm:px-6 py-3 text-right text-[#D98A2B]">{money(m.pending)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {fees.pending > 0 && (
+            <div className="px-4 sm:px-6 py-3 border-t border-[#F7F3EC]">
+              <Link href="/acreditaciones" className="text-[#9C5A2E] font-semibold underline">Ver cobros pendientes de acreditar</Link>
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }

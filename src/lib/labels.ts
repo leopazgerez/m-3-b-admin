@@ -1,5 +1,5 @@
 import type {
-  AccountEntryType, AccountType, AdjustmentType, CashMovementType, CashSessionRowKind, CashSessionStatus, CostSource, ExpenseKind, ExpenseStatus, InstallmentStatus, MovementType,
+  AccountEntryType, Accreditation, AccountType, AdjustmentType, CashMovementType, CashSessionRowKind, CashSessionStatus, CostSource, ExpenseKind, ExpenseStatus, InstallmentStatus, MovementType,
   PaymentStatus, SaleType, StockStatus, SupplierType,
 } from "./apiTypes";
 
@@ -56,6 +56,12 @@ export const cashSessionStatusLabel: Record<CashSessionStatus, string> = {
 
 export const cashSessionRowKindLabel: Record<CashSessionRowKind, string> = {
   PAYMENT: "Cobro", REFUND: "Reintegro", EXPENSE_PAYMENT: "Pago de gasto", MOVEMENT: "Movimiento",
+  CARD_PAYMENT: "Cobro con tarjeta", ACCREDITATION: "Acreditación de tarjeta",
+};
+
+/** NONE has no label: the method doesn't charge a fee. */
+export const accreditationLabel: Record<Exclude<Accreditation, "NONE">, string> = {
+  PENDING: "A acreditar", ACCREDITED: "Acreditado",
 };
 
 export const cashMovementTypeLabel: Record<CashMovementType, string> = {

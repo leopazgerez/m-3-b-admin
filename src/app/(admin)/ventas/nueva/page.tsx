@@ -16,7 +16,7 @@ import type {
   Customer, FinancialAccount, PaymentMethod, Product, RegisterSaleRequest, Sale, SaleType, Variant,
 } from "@/lib/apiTypes";
 import CustomerPicker from "./CustomerPicker";
-import PaymentsPanel, { methodOf, type PaymentRow } from "./PaymentsPanel";
+import PaymentsPanel, { methodOf, paymentAmounts, type PaymentRow } from "./PaymentsPanel";
 import ConfirmationView from "./ConfirmationView";
 import ProductSearch from "./ProductSearch";
 import {
@@ -88,11 +88,15 @@ export default function NuevaVentaPosPage() {
   const credit = creditBalance > 0 ? Number(creditValue) || 0 : 0;
   const discount: DiscountInput =
     !isGift && Number(discountValue) > 0 ? { kind: discountKind, value: Number(discountValue) } : null;
+  const lines = cart.map((l) => ({ unitPrice: isGift ? 0 : l.price, quantity: l.quantity })); // gifts are priced at zero
+  // what the payments must cover: an untyped payment follows it as the cart, discount or credit change
+  const due = estimateSale(lines, discount, [{ amount: credit, surchargePct: 0 }]).remaining;
+  const amounts = paymentAmounts(payments, due);
   const est = estimateSale(
-    cart.map((l) => ({ unitPrice: isGift ? 0 : l.price, quantity: l.quantity })), // gifts are priced at zero
+    lines,
     discount,
     isGift ? [] : [
-      ...payments.map((p) => ({ amount: Number(p.amount) || 0, surchargePct: methodOf(methods.options, p)?.surchargePct ?? 0 })),
+      ...payments.map((p, i) => ({ amount: amounts[i], surchargePct: methodOf(methods.options, p)?.surchargePct ?? 0 })),
       { amount: credit, surchargePct: 0 },
     ],
   );
@@ -122,9 +126,9 @@ export default function NuevaVentaPosPage() {
         : [],
       payments: isGift
         ? []
-        : payments.map((p) => ({
+        : payments.map((p, i) => ({
           paymentMethodId: Number(p.methodId),
-          amount: Number(p.amount),
+          amount: amounts[i],
           ...(p.accountId ? { accountId: Number(p.accountId) } : {}),
         })),
     };
@@ -294,7 +298,7 @@ export default function NuevaVentaPosPage() {
                   )}
                   {cashClosed
                     ? <p className="text-[11px] text-[#C9BCA9]">Caja cerrada: no se pueden cargar pagos.</p>
-                    : <PaymentsPanel rows={payments} onChange={setPayments} methods={methods.options} accounts={accounts.options} remaining={est.remaining} />}
+                    : <PaymentsPanel rows={payments} onChange={setPayments} methods={methods.options} accounts={accounts.options} amounts={amounts} />}
                 </>
               )}
 

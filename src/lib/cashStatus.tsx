@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { api, ApiError, API_WRITE_EVENT } from "./api";
-import { useApiResource } from "./useApi";
+import { api, ApiError } from "./api";
+import { useApiResource, useReloadOnWrite } from "./useApi";
 import type { CashSession } from "./apiTypes";
 
 /** GET /cash-sessions/current; 404 (no OPEN or PENDING_COUNT session) → null. */
@@ -54,16 +54,13 @@ export function CashStatusProvider({ children }: { children: React.ReactNode }) 
     reload();
   }, [pathname, reload]);
 
+  useReloadOnWrite(reload);
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === "visible" && Date.now() - fetchedAt.current > FOCUS_REFRESH_MS) reload();
     };
-    window.addEventListener(API_WRITE_EVENT, reload);
     document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      window.removeEventListener(API_WRITE_EVENT, reload);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [reload]);
 
   // the automatic close: check a few seconds after it (a same closesAt never re-arms, so no loop if the server lags)

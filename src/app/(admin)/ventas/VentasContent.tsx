@@ -6,6 +6,8 @@ import { useSearchParams } from "next/navigation";
 import Topbar from "@/components/layout/Topbar";
 import { ApiErrorBanner, Badge, ConfirmDeleteModal, Modal, Pager } from "@/components/ui";
 import FilterPanel from "@/components/ui/FilterPanel";
+import { AccreditationBadge, AccreditationModal, AccreditationSummary } from "@/components/payments/Accreditation";
+import { coversOtherSales, isAccreditable } from "@/lib/accreditation";
 import { api, ApiError } from "@/lib/api";
 import { useApiResource, usePagedList } from "@/lib/useApi";
 import { instantRangeCriteria, type Criterion } from "@/lib/apiQuery";
@@ -41,6 +43,7 @@ export default function VentasContent() {
   const [editing, setEditing] = useState<Sale | null>(null);
   const [notes, setNotes] = useState("");
   const [cancelling, setCancelling] = useState<Sale | null>(null);
+  const [accrediting, setAccrediting] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [editError, setEditError] = useState<unknown>(null);
   const [cancelError, setCancelError] = useState<unknown>(null);
@@ -321,12 +324,31 @@ export default function VentasContent() {
             )}
 
             {detail.payments.length > 0 && (
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold">Pagos</span>
+              <div className="flex flex-col gap-1.5">
+                <span className="font-semibold">Pagos <span className="font-normal text-[#A89C8C]">· lo aplicado a esta venta</span></span>
                 {detail.payments.map((p) => (
-                  <div key={p.paymentId} className="flex justify-between text-[#7A6F63]">
-                    <span>{p.paymentMethodName}</span>
-                    <span>{money(p.amount)}</span>
+                  <div key={p.paymentId} className="flex flex-col gap-0.5 text-[#7A6F63]">
+                    <div className="flex justify-between items-center gap-3">
+                      <span className="flex items-center gap-2 flex-wrap">
+                        {p.paymentMethodName}
+                        <AccreditationBadge a={p.accreditation} />
+                        {isAccreditable(p.accreditation) && (
+                          <button type="button" onClick={() => setAccrediting(p.paymentId)}
+                            className="text-[#9C5A2E] font-semibold underline cursor-pointer">
+                            {p.accreditation === "PENDING" ? "Acreditar" : "Editar"}
+                          </button>
+                        )}
+                      </span>
+                      <span>{money(p.amount)}</span>
+                    </div>
+                    {p.accreditation === "ACCREDITED" && (
+                      <span className="text-[11px] text-[#A89C8C]">
+                        <AccreditationSummary p={p} />
+                        {coversOtherSales(p) && (
+                          <> · del pago #{p.paymentId} completo, que también cubre otras ventas</>
+                        )}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -373,6 +395,10 @@ export default function VentasContent() {
           </div>
         )}
       </Modal>
+
+      {accrediting !== null && (
+        <AccreditationModal paymentId={accrediting} onClose={() => setAccrediting(null)} onDone={detailRes.reload} />
+      )}
 
       <Modal isOpen={!!editing} onClose={closeEdit} title={editing ? `Notas de la venta #${editing.id}` : "Notas"}>
         <form onSubmit={handleSaveNotes} className="space-y-4">

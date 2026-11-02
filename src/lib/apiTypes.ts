@@ -15,6 +15,8 @@ export type InstallmentStatus = "PAID" | "OVERDUE" | "PENDING";
 export type PaymentStatus = "PENDING" | "PARTIAL" | "PAID" | "N/A" | "CANCELLED";
 export type AccountEntryType = "SALE" | "PAYMENT" | "RETURN" | "REFUND";
 export type RemainderAction = "REFUND" | "CREDIT";
+/** NONE: its method doesn't charge a fee; PENDING: waiting for what the bank credited. */
+export type Accreditation = "NONE" | "PENDING" | "ACCREDITED";
 
 // ── Auth ── (UserResponse, LoginResponse)
 export interface CurrentUser { id: number; email: string; fullName: string }
@@ -107,7 +109,12 @@ export interface AccountEntry {
   type: AccountEntryType; id: number; at: string; description: string; debit: number; credit: number; balance: number;
 }
 export interface PaymentAllocation { saleId: number; amount: number }
-export interface Payment {
+/** receivedAmount, fee (= amount − receivedAmount) and accreditedAt: null unless ACCREDITED. */
+export interface AccreditationFields {
+  chargesFee: boolean; accreditation: Accreditation; receivedAmount: number | null; fee: number | null;
+  accreditedAt: string | null;
+}
+export interface Payment extends AccreditationFields {
   id: number; customerId: number | null; customerName: string | null; amount: number; paymentMethodId: number;
   paymentMethodName: string; accountId: number | null; accountName: string | null; paidAt: string;
   notes: string | null; allocations: PaymentAllocation[];
@@ -116,13 +123,13 @@ export interface Payment {
 export interface PaymentFields {
   amount: number; paymentMethodId: number; accountId?: number; paidAt?: string; notes?: string; saleId?: number;
 }
-/** surchargePct: 10 = 10%. */
+/** surchargePct: 10 = 10%. chargesFee: its payments start pending accreditation. */
 export interface PaymentMethod {
   id: number; code: string; name: string; surchargePct: number; defaultAccountId: number | null;
-  defaultAccountName: string | null;
+  defaultAccountName: string | null; chargesFee: boolean;
 }
-/** Create: all required. PATCH: absent keeps the value. */
-export interface PaymentMethodFields { name?: string; surchargePct?: number; defaultAccountId?: number }
+/** Create: all required but chargesFee (absent = false). PATCH: absent keeps the value. */
+export interface PaymentMethodFields { name?: string; surchargePct?: number; defaultAccountId?: number; chargesFee?: boolean }
 export interface FinancialAccount { id: number; name: string; type: AccountType }
 export interface FinancialAccountFields { name?: string; type?: AccountType }
 
@@ -132,7 +139,8 @@ export interface SaleLine {
   subtotal: number; returnedQuantity: number;
 }
 export interface SaleAdjustment { type: AdjustmentType; amount: number; appliedAt: string; notes: string | null }
-export interface SalePaymentLine { paymentId: number; amount: number; paymentMethodName: string }
+/** amount: this sale's part of the payment; receivedAmount and fee are the whole payment's. */
+export interface SalePaymentLine extends AccreditationFields { paymentId: number; amount: number; paymentMethodName: string }
 export interface Sale {
   id: number; customerId: number | null; customerName: string | null; soldAt: string; type: SaleType;
   notes: string | null; lines: SaleLine[]; adjustments: SaleAdjustment[]; grossTotal: number;
@@ -230,8 +238,15 @@ export interface SalesSummary {
   sales: { count: number; total: number; netTotal: number; cost: number; grossProfit: number; grossMarginPct: number | null };
   returns: { count: number; total: number; restockedCost: number; lossCost: number };
   expenses: { total: number };
+  /** net already subtracts cardFees.total */
   net: number; netMarginPct: number | null;
-  cash: { collected: number; refunded: number; paid: number; net: number };
+  /** by charge date: total = fees of accredited payments, pending = charged still awaiting accreditation */
+  cardFees: { total: number; pending: number; byMethod: CardFeesLine[] };
+  /** collected counts card payments on their accreditation date; net = collected − refunded − paid − cardFees */
+  cash: { collected: number; refunded: number; paid: number; cardFees: number; net: number };
+}
+export interface CardFeesLine {
+  paymentMethodId: number; name: string; charged: number; received: number; fee: number; pending: number;
 }
 export interface MonthlyBalance { month: string; income: number; expenses: number }
 export interface CategorySalesLine { categoryId: number | null; name: string; units: number; total: number; pct: number | null }
@@ -248,7 +263,11 @@ export interface Alerts { stock: AlertStock[]; installments: AlertInstallment[] 
 
 // ── Cash sessions ── (Slice 5: CashSessionView, CashMovementView)
 export type CashSessionStatus = "OPEN" | "PENDING_COUNT" | "CLOSED";
-export type CashSessionRowKind = "PAYMENT" | "REFUND" | "EXPENSE_PAYMENT" | "MOVEMENT";
+/**
+ * CARD_PAYMENT: a fee-charging payment recorded here; it adds no money to this session (amount = charged, 0 where a
+ * pending one was voided). ACCREDITATION: its bank credit (amount = received into toAccountId, id = the payment's).
+ */
+export type CashSessionRowKind = "PAYMENT" | "REFUND" | "EXPENSE_PAYMENT" | "MOVEMENT" | "CARD_PAYMENT" | "ACCREDITATION";
 export type CashMovementType = "INCOME" | "WITHDRAWAL" | "TRANSFER";
 export interface CashSessionLine {
   accountId: number; name: string; accountType: AccountType; deleted: boolean;

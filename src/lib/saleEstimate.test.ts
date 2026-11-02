@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { round2, estimateSale } from "./saleEstimate.ts";
+import { round2, estimateSale, fillPayments } from "./saleEstimate.ts";
 
 test("round2 HALF_UP", () => {
   assert.equal(round2(1.005), 1.01); assert.equal(round2(10.555), 10.56); assert.equal(round2(2.675), 2.68);
@@ -14,4 +14,12 @@ test("estimateSale con % y recargo", () => {
 test("estimateSale sin descuento ni pagos", () => {
   assert.deepEqual(estimateSale([{ unitPrice: 50, quantity: 1 }], null, []),
     { gross: 50, discount: 0, surcharge: 0, totalDue: 50, paidBase: 0, remaining: 50 });
+});
+test("fillPayments: el pago sin tipear sigue al saldo", () => {
+  assert.deepEqual(fillPayments([null], 0), [0]);
+  assert.deepEqual(fillPayments([null], 30000), [30000]);
+  assert.deepEqual(fillPayments([10000, null], 30000), [10000, 20000]);
+  assert.deepEqual(fillPayments([null, null], 50), [50, 0]);
+  assert.deepEqual(fillPayments([40000, null], 30000), [40000, 0]);
+  assert.deepEqual(fillPayments([0.1, null], 0.3), [0.1, 0.2]);
 });

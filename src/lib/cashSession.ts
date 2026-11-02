@@ -34,6 +34,10 @@ export const signedAmount = (r: CashSessionRow) => (r.voidedHere ? -r.amount : r
 export const voidedMovementIds = (rows: CashSessionRow[]) =>
   new Set(rows.filter((o) => o.kind === "MOVEMENT" && o.voidedHere).map((o) => o.id));
 
+/** Payments whose bank credit was recorded in these rows: their CARD_PAYMENT row was accredited here. */
+export const accreditedPaymentIds = (rows: CashSessionRow[]) =>
+  new Set(rows.filter((o) => o.kind === "ACCREDITATION").map((o) => o.id));
+
 /** Anular: a manual movement that is not a void itself and has not been voided in the session. */
 export const canVoid = (r: CashSessionRow, voided: Set<number>) =>
   r.kind === "MOVEMENT" && !r.voidedHere && !voided.has(r.id);

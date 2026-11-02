@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, ApiError, type Page } from "./api";
+import { api, ApiError, API_WRITE_EVENT, type Page } from "./api";
 import type { ListQuery } from "./apiQuery";
 
 interface Result<T> { key: string; data: T | null; error: ApiError | null }
@@ -59,4 +59,12 @@ export function usePagedList<T>(path: string, query: Omit<ListQuery, "cursor" | 
 export function useOptions<T>(path: string, q: Omit<ListQuery, "cursor" | "before" | "length"> = {}) {
   const { data, loading, error, reload } = useLoad(() => api.getAll<T>(path, q), path + JSON.stringify(q));
   return { options: data ?? [], loading, error, reload };
+}
+
+/** Calls reload after every API write anywhere (state derived from the backend may have changed). */
+export function useReloadOnWrite(reload: () => void) {
+  useEffect(() => {
+    window.addEventListener(API_WRITE_EVENT, reload);
+    return () => window.removeEventListener(API_WRITE_EVENT, reload);
+  }, [reload]);
 }

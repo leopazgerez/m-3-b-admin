@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canVoid, liveDifference, movementBody, parseAmount, signedAmount, toAmounts, toLocalDateTimeInput, voidedMovementIds } from "./cashSession.ts";
+import { accreditedPaymentIds, canVoid, liveDifference, movementBody, parseAmount, signedAmount, toAmounts, toLocalDateTimeInput, voidedMovementIds } from "./cashSession.ts";
 import type { CashSessionRow } from "./apiTypes.ts";
 
 const row = (over: Partial<CashSessionRow>) => ({
@@ -54,4 +54,8 @@ test("movementBody", () => {
   const past = movementBody({ ...d, movedAt: "2026-10-29T09:15" }, now) as { body: { movedAt: string } };
   assert.equal(past.body.movedAt, new Date(2026, 9, 29, 9, 15).toISOString());
   assert.equal(toLocalDateTimeInput(now), "2026-10-29T15:00");
+});
+test("accreditedPaymentIds", () => {
+  const ids = accreditedPaymentIds([row({ kind: "CARD_PAYMENT", id: 1 }), row({ kind: "ACCREDITATION", id: 1 }), row({ kind: "CARD_PAYMENT", id: 2 })]);
+  assert.deepEqual([...ids], [1]);
 });

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowLeftRight, Calculator, CheckCircle2, History, LockOpen } from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, BadgeDollarSign, Calculator, CheckCircle2, History, LockOpen } from "lucide-react";
+import { usePendingAccreditations } from "@/lib/pendingAccreditations";
 import Topbar from "@/components/layout/Topbar";
 import { ApiErrorBanner, ConfirmDeleteModal, Modal } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -46,6 +47,7 @@ export default function CajaContent() {
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
   const disabled = busy || cash.loading;
+  const pendingAccreditations = usePendingAccreditations();
 
   const open = async (body: { initialBalances?: AccountAmount[] }) => {
     setError(null);
@@ -81,7 +83,13 @@ export default function CajaContent() {
       <Topbar title="Caja" subtitle="Apertura, movimientos y cierre de la jornada" />
 
       <main className="p-4 sm:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl w-full min-w-0">
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          {!!pendingAccreditations && (
+            <Link href="/acreditaciones" className={secondaryBtn}>
+              <BadgeDollarSign className="w-4 h-4 text-[#D98A2B]" />
+              <span>{pendingAccreditations} cobro{pendingAccreditations === 1 ? "" : "s"} con tarjeta a acreditar</span>
+            </Link>
+          )}
           <Link href="/caja/historial" className={secondaryBtn}>
             <History className="w-4 h-4 text-[#9C5A2E]" />
             <span>Historial de jornadas</span>

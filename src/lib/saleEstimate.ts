@@ -48,3 +48,13 @@ export function estimateSale(
   const remaining = round2(gross - discountAmount - paidBase);
   return { gross, discount: discountAmount, surcharge, totalDue, paidBase, remaining };
 }
+
+/**
+ * Amount of each payment part: a typed one (a number) as is; the untyped one (null) takes what `due` still lacks after
+ * the typed ones, never below 0, so it follows the cart until the user types it. Only the first untyped part fills.
+ */
+export function fillPayments(typed: (number | null)[], due: number): number[] {
+  const rest = Math.max(0, round2(due - typed.reduce<number>((s, a) => s + (a ?? 0), 0)));
+  const first = typed.indexOf(null);
+  return typed.map((a, i) => a ?? (i === first ? rest : 0));
+}

@@ -4,7 +4,7 @@ import { Ban } from "lucide-react";
 import { Badge } from "@/components/ui";
 import { money } from "@/lib/format";
 import { formatInstant } from "@/lib/dateUtils";
-import { canVoid, signedAmount, voidedMovementIds } from "@/lib/cashSession";
+import { accreditedPaymentIds, canVoid, signedAmount, voidedMovementIds } from "@/lib/cashSession";
 import { accountTypeLabel, cashSessionRowKindLabel } from "@/lib/labels";
 import type { CashSession, CashSessionRow } from "@/lib/apiTypes";
 import { diffCls, diffText, opt } from "@/components/cash/ui";
@@ -73,10 +73,13 @@ export function AccountsTable({ s }: { s: CashSession }) {
 /** "Operaciones de la jornada": every money row of the session; voids show negative. onVoid → Anular on movements. */
 export function RowsTable({ s, onVoid }: { s: CashSession; onVoid?: (r: CashSessionRow) => void }) {
   const voided = voidedMovementIds(s.rows);
+  const accreditedHere = accreditedPaymentIds(s.rows);
   const name = (id: number | null) => s.accounts.find((a) => a.accountId === id)?.name ?? `Cuenta #${id}`;
   // money only enters (no from), only leaves (no to), or moves between two accounts
   const action = (r: CashSessionRow) =>
-    r.fromAccountId === null ? `Ingreso hacia ${name(r.toAccountId)}`
+    r.kind === "CARD_PAYMENT"
+      ? `${accreditedHere.has(r.id) ? "Acreditado en esta jornada" : "A acreditar o acreditado más tarde"}: no es dinero de esta jornada`
+      : r.fromAccountId === null ? `Ingreso hacia ${name(r.toAccountId)}`
       : r.toAccountId === null ? `Egreso desde ${name(r.fromAccountId)}`
         : `Pase de ${name(r.fromAccountId)} a ${name(r.toAccountId)}`;
 
@@ -91,6 +94,7 @@ export function RowsTable({ s, onVoid }: { s: CashSession; onVoid?: (r: CashSess
         <div className="divide-y divide-[#F7F3EC]">
           {s.rows.map((r) => {
             const amount = signedAmount(r);
+            const card = r.kind === "CARD_PAYMENT"; // money that doesn't enter this session
             return (
               <div key={`${r.kind}-${r.id}-${r.voidedHere}`}
                 className="px-4 sm:px-6 py-3 flex flex-wrap sm:flex-nowrap items-center gap-x-4 gap-y-1.5">
@@ -101,7 +105,8 @@ export function RowsTable({ s, onVoid }: { s: CashSession; onVoid?: (r: CashSess
                 </div>
                 <div className="flex-1 min-w-0 text-[#7A6F63]">{action(r)}</div>
                 <div className="sm:w-36 shrink-0 text-[#A89C8C]">{formatInstant(r.at)}</div>
-                <div className={`ml-auto sm:w-28 shrink-0 text-right font-heading font-bold text-sm ${amount < 0 ? "text-[#C0492F]" : "text-[#231E1A]"}`}>
+                <div title={card ? "Lo cobrado: no suma a las cuentas de esta jornada" : undefined}
+                  className={`ml-auto sm:w-28 shrink-0 text-right font-heading text-sm ${card ? "text-[#A89C8C]" : amount < 0 ? "font-bold text-[#C0492F]" : "font-bold text-[#231E1A]"}`}>
                   {money(amount)}
                 </div>
                 {onVoid && (

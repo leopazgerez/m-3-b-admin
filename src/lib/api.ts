@@ -95,8 +95,8 @@ function params(p?: Record<string, string | number | undefined>): URLSearchParam
   return out;
 }
 
-async function getPage<T>(path: string, q: ListQuery = {}): Promise<Page<T>> {
-  const r = (await request("GET", path, toSearchParams(q))) as RawPage<T>;
+async function getPage<T>(path: string, q: ListQuery = {}, notify?: Notify): Promise<Page<T>> {
+  const r = (await request("GET", path, toSearchParams(q), undefined, notify)) as RawPage<T>;
   return { items: r.data, nextCursor: r.nextCursor, prevCursor: r.prevCursor, total: r.total };
 }
 
@@ -110,6 +110,8 @@ export const api = {
     unwrap<T>(await request("POST", path, undefined, body, notify)),
   patch: async <T>(path: string, body: unknown, notify?: Notify) =>
     unwrap<T>(await request("PATCH", path, undefined, body, notify)),
+  put: async <T>(path: string, body: unknown, notify?: Notify) =>
+    unwrap<T>(await request("PUT", path, undefined, body, notify)),
   del: async (path: string, notify?: Notify): Promise<void> => {
     await request("DELETE", path, undefined, undefined, notify);
   },

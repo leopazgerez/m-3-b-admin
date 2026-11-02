@@ -4,7 +4,7 @@ import Topbar from "@/components/layout/Topbar";
 import { useEffect, useState } from "react";
 import { CreditCard, Landmark, Plus, Trash2, Pencil } from "lucide-react";
 import Link from "next/link";
-import { ApiErrorBanner, ConfirmDeleteModal, Modal, Pager } from "@/components/ui";
+import { ApiErrorBanner, Badge, ConfirmDeleteModal, Modal, Pager } from "@/components/ui";
 import { api } from "@/lib/api";
 import { usePagedList, useOptions } from "@/lib/useApi";
 import { accountTypeLabel } from "@/lib/labels";
@@ -34,6 +34,7 @@ export default function ConfigVentaPage() {
   const [mName, setMName] = useState("");
   const [mPct, setMPct] = useState("0");
   const [mAccount, setMAccount] = useState("");
+  const [mFee, setMFee] = useState(false);
   const [aName, setAName] = useState("");
   const [aType, setAType] = useState<AccountType>("CASH");
 
@@ -70,6 +71,7 @@ export default function ConfigVentaPage() {
     setMName(m && m !== "new" ? m.name : "");
     setMPct(m && m !== "new" ? String(m.surchargePct) : "0");
     setMAccount(m && m !== "new" && m.defaultAccountId != null ? String(m.defaultAccountId) : "");
+    setMFee(m && m !== "new" ? m.chargesFee : false);
     setEditMethod(m);
   };
   const openAccount = (a: Editing<FinancialAccount>) => {
@@ -87,6 +89,7 @@ export default function ConfigVentaPage() {
     if (!cur || mName.trim() !== cur.name) body.name = mName.trim();
     if (!cur || Number(mPct) !== cur.surchargePct) body.surchargePct = Number(mPct);
     if (!cur || Number(mAccount) !== cur.defaultAccountId) body.defaultAccountId = Number(mAccount);
+    if (cur ? mFee !== cur.chargesFee : mFee) body.chargesFee = mFee;
     if (cur && Object.keys(body).length === 0) return setEditMethod(null);
     setFormError(null);
     write(
@@ -173,11 +176,12 @@ export default function ConfigVentaPage() {
           </div>
           <ApiErrorBanner error={methods.error} onRetry={methods.reload} />
           <div className="overflow-x-auto w-full">
-            <div className="min-w-[560px]">
+            <div className="min-w-[700px]">
               <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-y border-[#E7DFD2]">
                 <div className="flex-1 min-w-[150px]">MEDIO</div>
                 <div className="w-24 shrink-0 text-center">RECARGO</div>
                 <div className="w-44 shrink-0">CUENTA POR DEFECTO</div>
+                <div className="w-32 shrink-0 text-center">COMISIÓN</div>
                 <div className="w-24 shrink-0 text-center">ACCIONES</div>
               </div>
               <div className="divide-y divide-[#F7F3EC]">
@@ -192,6 +196,7 @@ export default function ConfigVentaPage() {
                       </div>
                       <div className="w-24 shrink-0 text-center text-[#231E1A]">{m.surchargePct}%</div>
                       <div className="w-44 shrink-0 text-[#7A6F63] truncate">{m.defaultAccountName ?? "—"}</div>
+                      <div className="w-32 shrink-0 text-center">{m.chargesFee ? <Badge variant="warning">Cobra comisión</Badge> : <span className="text-[#A89C8C]">—</span>}</div>
                       <div className="w-24 shrink-0 flex items-center justify-center">
                         <button disabled={busy} onClick={() => openMethod(m)} title="Editar medio" className={`${iconBtn} text-[#A89C8C] hover:text-[#9C5A2E]`}>
                           <Pencil className="w-4 h-4" />
@@ -283,6 +288,13 @@ export default function ConfigVentaPage() {
                 <option key={a.id} value={a.id}>{a.name}</option>
               ))}
             </select>
+          </label>
+          <label className="flex items-start gap-2.5 text-xs text-[#231E1A] cursor-pointer">
+            <input type="checkbox" checked={mFee} onChange={(e) => setMFee(e.target.checked)} className="mt-0.5 accent-[#9C5A2E]" />
+            <span className="flex flex-col gap-0.5">
+              <span className="font-semibold">Cobra comisión</span>
+              <span className="text-[#7A6F63]">Los cobros quedan pendientes hasta cargar lo que acreditó el banco</span>
+            </span>
           </label>
           <ApiErrorBanner error={accountOptions.error} onRetry={accountOptions.reload} />
           <ApiErrorBanner error={formError} />

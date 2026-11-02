@@ -18,7 +18,7 @@ import type {
   Customer, FinancialAccount, PaymentMethod, Product, RegisterReturnRequest, RemainderAction, ReturnView, Sale,
   StockRow, Variant,
 } from "@/lib/apiTypes";
-import PaymentsPanel, { methodOf, type PaymentRow } from "../../ventas/nueva/PaymentsPanel";
+import PaymentsPanel, { methodOf, paymentAmounts, type PaymentRow } from "../../ventas/nueva/PaymentsPanel";
 import ProductSearch from "../../ventas/nueva/ProductSearch";
 import { AlertCircle, ArrowLeft, Minus, Plus, Repeat, Trash2, Undo2 } from "lucide-react";
 
@@ -127,13 +127,17 @@ export default function NuevaDevolucionContent() {
   const returnValue = estimateReturnValue(picked.map((l) => ({ unitPrice: l.unitPrice, quantity: picks[l.id].quantity })));
   const hasExchange = cart.length > 0;
   const discount: DiscountInput = hasExchange && Number(discountValue) > 0 ? { kind: discountKind, value: Number(discountValue) } : null;
-  const ex = estimateSale(
-    cart.map((l) => ({ unitPrice: l.price, quantity: l.quantity })),
-    discount,
-    hasExchange ? payments.map((p) => ({ amount: Number(p.amount) || 0, surchargePct: methodOf(methods.options, p)?.surchargePct ?? 0 })) : [],
-  );
+  const lines = cart.map((l) => ({ unitPrice: l.price, quantity: l.quantity }));
   // value pays the original sale's debt (or all the customer's debt), then what the exchange still owes
   const debt = customer.data?.outstanding ?? sale.outstanding;
+  // what the payments must cover: the exchange less the value left after the debt; an untyped payment follows it
+  const due = Math.max(0, round2(estimateSale(lines, discount, []).remaining - Math.max(0, returnValue - debt)));
+  const amounts = paymentAmounts(payments, due);
+  const ex = estimateSale(
+    lines,
+    discount,
+    hasExchange ? payments.map((p, i) => ({ amount: amounts[i], surchargePct: methodOf(methods.options, p)?.surchargePct ?? 0 })) : [],
+  );
   const leftover = round2(returnValue - debt - Math.max(0, ex.remaining));
   const sendRemainder = serverLeftover || leftover > 0;
   const canCredit = sale.customerId !== null;
@@ -167,9 +171,9 @@ export default function NuevaDevolucionContent() {
         adjustments: ex.discount > 0
           ? [{ type: "DISCOUNT" as const, amount: -ex.discount, notes: discount?.kind === "percent" ? `Descuento ${discount.value}%` : "Descuento" }]
           : [],
-        payments: payments.map((p) => ({
+        payments: payments.map((p, i) => ({
           paymentMethodId: Number(p.methodId),
-          amount: Number(p.amount),
+          amount: amounts[i],
           ...(p.accountId ? { accountId: Number(p.accountId) } : {}),
         })),
       },
@@ -373,7 +377,7 @@ export default function NuevaDevolucionContent() {
             <div className={`rounded-xl ${bad("payments")}`}>
               <ApiErrorBanner error={methods.error ?? accounts.error} onRetry={() => { methods.reload(); accounts.reload(); }} />
               <PaymentsPanel rows={payments} onChange={setPayments} methods={methods.options} accounts={accounts.options}
-                remaining={Math.max(0, round2(ex.remaining - Math.max(0, returnValue - debt)))} />
+                amounts={amounts} />
               <p className="text-[10px] text-[#A89C8C] mt-1">Pagos: lo que el cliente paga además del valor devuelto.</p>
             </div>
           )}
