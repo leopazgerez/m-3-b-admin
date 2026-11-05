@@ -2,6 +2,7 @@
 
 import { AuthGuard } from "@/lib/auth";
 import { SocketProvider } from "@/lib/socketProvider";
+import AssistantLauncher from "@/components/assistant/AssistantLauncher";
 import { SidebarProvider } from "@/components/layout/SidebarContext";
 import Sidebar from "@/components/layout/Sidebar";
 import { CashStatusProvider } from "@/lib/cashStatus";
@@ -30,6 +31,7 @@ export default function AdminLayout({
       </SidebarProvider>
       </PendingAccreditationsProvider>
       </CashStatusProvider>
+        <AssistantLauncher />
       </SocketProvider>
     </AuthGuard>
   );
