@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { api } from "./api";
 import type { CurrentUser, LoginResponse } from "./apiTypes";
 import { clearSession, getSession, saveSession } from "./session";
+import { socket } from "./socket";
 import { useApiResource } from "./useApi";
 import { ApiErrorBanner } from "@/components/ui";
 
@@ -16,6 +17,7 @@ export async function login(email: string, password: string): Promise<void> {
 }
 
 export function logout(): void {
+  socket.stop();
   clearSession();
 }
 

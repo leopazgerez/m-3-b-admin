@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthGuard } from "@/lib/auth";
+import { SocketProvider } from "@/lib/socketProvider";
 import { SidebarProvider } from "@/components/layout/SidebarContext";
 import Sidebar from "@/components/layout/Sidebar";
 import { CashStatusProvider } from "@/lib/cashStatus";
@@ -13,6 +14,7 @@ export default function AdminLayout({
 }) {
   return (
     <AuthGuard>
+      <SocketProvider>
       <CashStatusProvider>
       <PendingAccreditationsProvider>
       <SidebarProvider>
@@ -28,6 +30,7 @@ export default function AdminLayout({
       </SidebarProvider>
       </PendingAccreditationsProvider>
       </CashStatusProvider>
+      </SocketProvider>
     </AuthGuard>
   );
 }
