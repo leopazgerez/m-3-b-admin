@@ -32,10 +32,10 @@ export interface Notify { success?: string; silent?: boolean; quiet?: boolean; i
 export const API_WRITE_EVENT = "m3b:api-write";
 
 /** Counts the call for the global loader; a failed write shows an error toast unless silent. */
-async function request(method: string, path: string, query?: URLSearchParams, body?: unknown, notify: Notify = {}): Promise<unknown> {
+async function request(method: string, path: string, query?: URLSearchParams, body?: unknown, notify: Notify = {}, asBlob = false): Promise<unknown> {
   if (!notify.quiet) feedback.begin();
   try {
-    const parsed = await send(method, path, query, body);
+    const parsed = await send(method, path, query, body, asBlob);
     if (notify.success) feedback.success(notify.success);
     return parsed;
   } catch (e) {
@@ -56,11 +56,14 @@ export function expireSession(): void {
   window.location.href = `${env.basePath}/login/`;
 }
 
-/** Every m3b-api body is {start, length, total, data, ...}; returns the parsed body as-is (204 → undefined). */
-async function send(method: string, path: string, query?: URLSearchParams, body?: unknown): Promise<unknown> {
+/**
+ * Every m3b-api body is {start, length, total, data, ...}; returns the parsed body as-is (204 → undefined).
+ * asBlob: a file download (a PDF); errors still come as the JSON ErrorResponse.
+ */
+async function send(method: string, path: string, query?: URLSearchParams, body?: unknown, asBlob = false): Promise<unknown> {
   const qs = query?.toString();
   const url = `${env.apiUrl}${path}${qs ? `?${qs}` : ""}`;
-  const headers: Record<string, string> = { Accept: "application/json" };
+  const headers: Record<string, string> = { Accept: asBlob ? "*/*" : "application/json" };
   const isForm = body instanceof FormData;
   // FormData: the browser sets the multipart Content-Type with its boundary
   if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
@@ -75,6 +78,7 @@ async function send(method: string, path: string, query?: URLSearchParams, body?
   }
 
   if (res.status === 204) return undefined;
+  if (res.ok && asBlob) return res.blob();
   const text = await res.text();
   let parsed: unknown = undefined;
   try {
@@ -112,6 +116,8 @@ export const api = {
   getPage,
   getAll: <T>(path: string, q: Omit<ListQuery, "cursor" | "before" | "length"> = {}) =>
     collectAll<T>((cursor) => getPage<T>(path, { ...q, length: 200, cursor })),
+  /** A file behind auth (fetch with the Bearer token; the caller makes an object URL). */
+  getBlob: async (path: string, notify?: Notify) => (await request("GET", path, undefined, undefined, notify, true)) as Blob,
   post: async <T>(path: string, body?: unknown, notify?: Notify) =>
     unwrap<T>(await request("POST", path, undefined, body, notify)),
   patch: async <T>(path: string, body: unknown, notify?: Notify) =>

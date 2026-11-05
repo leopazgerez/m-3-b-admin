@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { AlertCircle, CheckCircle2, FileText, Loader2, UploadCloud, X } from "lucide-react";
 import Topbar from "@/components/layout/Topbar";
-import { ApiErrorBanner, ConfirmDeleteModal, Modal } from "@/components/ui";
+import { ApiErrorBanner, ConfirmDeleteModal, Modal, PendingApi } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 import type { GuideSectionView } from "@/lib/apiTypes";
 import { formatInstant } from "@/lib/dateUtils";
@@ -19,26 +19,35 @@ type Editing = "new" | GuideSectionView | null;
 type FormError = { field?: "name" | "file"; message: string } | null;
 
 export default function GuideSectionsManager() {
-  const { sections, loading, error, reload, get, create, update, remove } = useGuideSections();
+  const { sections, loading, error, reload, getFile, create, update, remove } = useGuideSections();
   const [editing, setEditing] = useState<Editing>(null);
   const [viewing, setViewing] = useState<GuideSectionView | null>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [viewError, setViewError] = useState<unknown>(null);
   const [deleting, setDeleting] = useState<GuideSectionView | null>(null);
 
-  // the section whose content is being fetched; a response for any other (closed, or replaced by a later click) is dropped
+  // the section whose PDF is being fetched; a response for any other (closed, or replaced by a later click) is dropped
   const viewingId = useRef<number | null>(null);
   const openView = async (s: GuideSectionView) => {
     viewingId.current = s.id;
     setViewError(null);
+    setPdfUrl(null);
     setViewing(s);
     try {
-      const full = await get(s.id);
-      if (viewingId.current === s.id) setViewing(full);
+      // the file needs the Bearer token, so it can't be a plain <iframe src>: fetch it and show it from memory
+      const blob = await getFile(s.id);
+      if (viewingId.current !== s.id) return;
+      setPdfUrl(URL.createObjectURL(blob.type === "application/pdf" ? blob : new Blob([blob], { type: "application/pdf" })));
     } catch (e) {
       if (viewingId.current === s.id) setViewError(e);
     }
   };
-  const closeView = () => { viewingId.current = null; setViewing(null); };
+  const closeView = () => {
+    viewingId.current = null;
+    if (pdfUrl) URL.revokeObjectURL(pdfUrl);
+    setPdfUrl(null);
+    setViewing(null);
+  };
 
   return (
     <>
@@ -95,11 +104,21 @@ export default function GuideSectionsManager() {
         />
       )}
 
-      <Modal isOpen={viewing !== null} onClose={closeView} title={viewing?.name ?? ""} maxWidth="max-w-3xl">
-        {viewError ? <ApiErrorBanner error={viewError} /> : (
-          <pre className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap font-body text-xs text-[#231E1A]">
-            {viewing?.content ?? "Cargando…"}
-          </pre>
+      <Modal isOpen={viewing !== null} onClose={closeView} title={viewing?.name ?? ""} maxWidth="max-w-4xl">
+        {viewError instanceof ApiError && viewError.status === 404 ? (
+          <PendingApi title="Ver el PDF original" endpoint={`GET /api/guide/sections/${viewing?.id}/file`} />
+        ) : viewError ? (
+          <ApiErrorBanner error={viewError} />
+        ) : pdfUrl ? (
+          <div className="flex flex-col gap-2">
+            <iframe src={pdfUrl} title={viewing?.name ?? "PDF"} className="h-[70vh] w-full rounded-xl border border-[#E7DFD2]" />
+            <div className="flex justify-end gap-4 text-xs">
+              <a href={pdfUrl} target="_blank" rel="noreferrer" className={btn}>Abrir en otra pestaña</a>
+              <a href={pdfUrl} download={`${viewing?.name ?? "seccion"}.pdf`} className={btn}>Descargar</a>
+            </div>
+          </div>
+        ) : (
+          <p className="flex h-[70vh] items-center justify-center gap-2 text-xs text-[#7A6F63]"><Loader2 className="h-4 w-4 animate-spin" /> Cargando PDF…</p>
         )}
       </Modal>
 

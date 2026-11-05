@@ -214,7 +214,7 @@ export function useGuideSections() {
     loading,
     error,
     reload,
-    get: assistantApi.getSection,
+    getFile: assistantApi.getSectionFile,
     create: write(assistantApi.createSection),
     update: write(assistantApi.updateSection),
     remove: write(assistantApi.deleteSection),

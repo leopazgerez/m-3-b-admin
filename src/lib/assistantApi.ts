@@ -21,6 +21,8 @@ export const assistantApi = {
 
   listSections: () => api.getOne<GuideSectionView[]>("/guide/sections"),
   getSection: (id: number) => api.getOne<GuideSectionView>(`/guide/sections/${id}`),
+  /** The uploaded PDF itself. */
+  getSectionFile: (id: number) => api.getBlob(`/guide/sections/${id}/file`),
   createSection: (name: string, file: File) =>
     api.postForm<GuideSectionView>("/guide/sections", sectionForm({ name, file }), { success: "Sección cargada", silent: true, isolated: true }),
   updateSection: (id: number, p: { name?: string; file?: File }) =>
