@@ -314,3 +314,15 @@ export interface CashMovement {
   toAccountId: number | null; toAccountName: string | null;
   amount: number; movedAt: string; reason: string; cashSessionId: number | null;
 }
+
+// ── Asistente de IA (chat de datos y guía de usuario) ──
+export interface ChatSummary { id: number; title: string | null; createdAt: string; updatedAt: string }
+export interface MessageView { id: number; role: "USER" | "ASSISTANT"; content: string; createdAt: string }
+export interface ChatView { id: number; title: string | null; createdAt: string; messages: MessageView[] }
+/** content is null in the list */
+export interface GuideSectionView { id: number; name: string; characters: number; updatedAt: string; content: string | null }
+export interface AskAccepted { requestId: string }
+export type AssistantSource = "chat" | "guide";
+export interface AssistantDelta { source: AssistantSource; requestId: string; chatId: number | null; text: string }
+export interface AssistantDone { source: AssistantSource; requestId: string; chatId: number | null; messageId: number | null; sections: string[] }
+export interface AssistantError { source: AssistantSource; requestId: string; chatId: number | null; message: string }

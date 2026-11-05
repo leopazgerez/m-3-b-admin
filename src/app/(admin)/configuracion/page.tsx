@@ -2,7 +2,7 @@
 
 import Topbar from "@/components/layout/Topbar";
 import { PendingApi } from "@/components/ui";
-import { Tag, CreditCard, ReceiptText } from "lucide-react";
+import { Tag, CreditCard, ReceiptText, BookOpen } from "lucide-react";
 import Link from "next/link";
 
 export default function ConfiguracionPage() {
@@ -40,10 +40,16 @@ export default function ConfiguracionPage() {
           >
             Gastos (Categorías)
           </Link>
+          <Link
+            href="/configuracion/guia"
+            className="px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap"
+          >
+            Guía de usuario
+          </Link>
         </div>
 
         {/* Quick summary cards for submenus */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <Link
             href="/configuracion/producto"
             className="bg-white rounded-2xl border border-[#E7DFD2] p-5 flex items-center justify-between shadow-xs hover:border-[#9C5A2E] transition-all group"
@@ -96,6 +102,24 @@ export default function ConfiguracionPage() {
                 </span>
                 <span className="text-[11px] text-[#7A6F63]">
                   Categorías de gasto
+                </span>
+              </div>
+            </div>
+          </Link>
+          <Link
+            href="/configuracion/guia"
+            className="bg-white rounded-2xl border border-[#E7DFD2] p-5 flex items-center justify-between shadow-xs hover:border-[#9C5A2E] transition-all group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#EADBC6] text-[#7A3F1F] flex items-center justify-center">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-heading font-bold text-sm text-[#231E1A] group-hover:text-[#9C5A2E] transition-colors">
+                  Guía de usuario
+                </span>
+                <span className="text-[11px] text-[#7A6F63]">
+                  Manual que usa el asistente
                 </span>
               </div>
             </div>

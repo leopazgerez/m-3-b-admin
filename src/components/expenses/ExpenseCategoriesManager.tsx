@@ -112,6 +112,7 @@ export default function ExpenseCategoriesManager() {
           >
             Gastos (Categorías)
           </Link>
+          <Link href="/configuracion/guia" className={tab}>Guía de usuario</Link>
         </div>
 
         <div className="bg-white rounded-2xl border border-[#E7DFD2] p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">

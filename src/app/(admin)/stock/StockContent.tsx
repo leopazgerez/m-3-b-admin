@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -25,7 +25,7 @@ import { ApiErrorBanner, Pager, StatusBadge } from "@/components/ui";
 import FilterPanel from "@/components/ui/FilterPanel";
 import { feedback } from "@/lib/feedback";
 import { api } from "@/lib/api";
-import { useApiResource, useOptions, usePagedList } from "@/lib/useApi";
+import { useApiResource, useDebounced, useOptions, usePagedList } from "@/lib/useApi";
 import { instantRangeCriteria, type Criterion } from "@/lib/apiQuery";
 import { movementTypeLabel, stockStatusLabel } from "@/lib/labels";
 import { money, variantLabel } from "@/lib/format";
@@ -45,15 +45,6 @@ const searchCls =
 
 // positive integer from a query param, else undefined (old links carried string ids)
 const idParam = (v: string | null) => (v && /^\d+$/.test(v) ? Number(v) : undefined);
-
-function useDebounced(value: string) {
-  const [debounced, setDebounced] = useState("");
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value.trim()), 300);
-    return () => clearTimeout(t);
-  }, [value]);
-  return debounced;
-}
 
 type Sort = { by: string; dir: "asc" | "desc" };
 

@@ -24,17 +24,18 @@ interface RawPage<T> { data: T[]; nextCursor: string | null; prevCursor: string 
 /**
  * Writes: success → a toast saying what was done; silent → no error toast (the caller handles it).
  * quiet → no global loader (background checks the user didn't ask for).
+ * isolated → the write can't change other screens' data (assistant chats, guide): no API_WRITE_EVENT.
  */
-export interface Notify { success?: string; silent?: boolean; quiet?: boolean }
+export interface Notify { success?: string; silent?: boolean; quiet?: boolean; isolated?: boolean }
 
 /** Fired on window after every write settles (ok or not): state derived from the backend may have changed. */
 export const API_WRITE_EVENT = "m3b:api-write";
 
 /** Counts the call for the global loader; a failed write shows an error toast unless silent. */
-async function request(method: string, path: string, query?: URLSearchParams, body?: unknown, notify: Notify = {}): Promise<unknown> {
+async function request(method: string, path: string, query?: URLSearchParams, body?: unknown, notify: Notify = {}, asBlob = false): Promise<unknown> {
   if (!notify.quiet) feedback.begin();
   try {
-    const parsed = await send(method, path, query, body);
+    const parsed = await send(method, path, query, body, asBlob);
     if (notify.success) feedback.success(notify.success);
     return parsed;
   } catch (e) {
@@ -43,27 +44,41 @@ async function request(method: string, path: string, query?: URLSearchParams, bo
     throw e;
   } finally {
     if (!notify.quiet) feedback.end();
-    if (method !== "GET") window.dispatchEvent(new Event(API_WRITE_EVENT));
+    if (method !== "GET" && !notify.isolated) window.dispatchEvent(new Event(API_WRITE_EVENT));
   }
 }
 
-/** Every m3b-api body is {start, length, total, data, ...}; returns the parsed body as-is (204 → undefined). */
-async function send(method: string, path: string, query?: URLSearchParams, body?: unknown): Promise<unknown> {
+/** Drops the session and goes to /login (a 401, or the socket closed with 1008). */
+export function expireSession(): void {
+  clearSession();
+  // outside React, and a full reload drops any in-memory state of the expired session
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+  window.location.href = `${env.basePath}/login/`;
+}
+
+/**
+ * Every m3b-api body is {start, length, total, data, ...}; returns the parsed body as-is (204 → undefined).
+ * asBlob: a file download (a PDF); errors still come as the JSON ErrorResponse.
+ */
+async function send(method: string, path: string, query?: URLSearchParams, body?: unknown, asBlob = false): Promise<unknown> {
   const qs = query?.toString();
   const url = `${env.apiUrl}${path}${qs ? `?${qs}` : ""}`;
-  const headers: Record<string, string> = { Accept: "application/json" };
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const headers: Record<string, string> = { Accept: asBlob ? "*/*" : "application/json" };
+  const isForm = body instanceof FormData;
+  // FormData: the browser sets the multipart Content-Type with its boundary
+  if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   const token = getSession()?.accessToken;
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let res: Response;
   try {
-    res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    res = await fetch(url, { method, headers, body: body === undefined || isForm ? (body as FormData | undefined) : JSON.stringify(body) });
   } catch {
     throw new ApiError(0, `No se pudo conectar con la API (${env.apiUrl})`);
   }
 
   if (res.status === 204) return undefined;
+  if (res.ok && asBlob) return res.blob();
   const text = await res.text();
   let parsed: unknown = undefined;
   try {
@@ -73,12 +88,7 @@ async function send(method: string, path: string, query?: URLSearchParams, body?
   }
 
   if (!res.ok) {
-    if (res.status === 401 && path !== "/auth/login") {
-      clearSession();
-      // outside React, and a full reload drops any in-memory state of the expired session
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.href = `${env.basePath}/login/`;
-    }
+    if (res.status === 401 && path !== "/auth/login") expireSession();
     const { message, field, details } = errorInfo(res.status, parsed);
     throw new ApiError(res.status, message, field, details);
   }
@@ -106,12 +116,18 @@ export const api = {
   getPage,
   getAll: <T>(path: string, q: Omit<ListQuery, "cursor" | "before" | "length"> = {}) =>
     collectAll<T>((cursor) => getPage<T>(path, { ...q, length: 200, cursor })),
+  /** A file behind auth (fetch with the Bearer token; the caller makes an object URL). */
+  getBlob: async (path: string, notify?: Notify) => (await request("GET", path, undefined, undefined, notify, true)) as Blob,
   post: async <T>(path: string, body?: unknown, notify?: Notify) =>
     unwrap<T>(await request("POST", path, undefined, body, notify)),
   patch: async <T>(path: string, body: unknown, notify?: Notify) =>
     unwrap<T>(await request("PATCH", path, undefined, body, notify)),
   put: async <T>(path: string, body: unknown, notify?: Notify) =>
     unwrap<T>(await request("PUT", path, undefined, body, notify)),
+  postForm: async <T>(path: string, form: FormData, notify?: Notify) =>
+    unwrap<T>(await request("POST", path, undefined, form, notify)),
+  putForm: async <T>(path: string, form: FormData, notify?: Notify) =>
+    unwrap<T>(await request("PUT", path, undefined, form, notify)),
   del: async (path: string, notify?: Notify): Promise<void> => {
     await request("DELETE", path, undefined, undefined, notify);
   },
