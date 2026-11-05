@@ -70,3 +70,29 @@ export function chatMessages(server: MessageView[], turn: Turn | null): MessageV
     { id: turn.messageId ?? -2, role: "ASSISTANT", content: turn.text, createdAt },
   ];
 }
+
+export const MAX_QUESTION = 2000;
+export const MAX_SECTION_NAME = 120;
+/** Above this the server may drop the connection instead of answering, so it's checked before uploading. */
+export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+export function validateQuestion(q: string): string | null {
+  if (!q.trim()) return "Escribí una pregunta.";
+  if (q.length > MAX_QUESTION) return `La pregunta puede tener hasta ${MAX_QUESTION} caracteres.`;
+  return null;
+}
+
+/** requireBoth: a new section needs name and file; a replacement needs at least one. */
+export function validateSectionInput(
+  name: string | undefined, file: File | undefined, requireBoth: boolean,
+): { field: "name" | "file"; message: string } | null {
+  if (name !== undefined || requireBoth) {
+    if (!name?.trim()) return { field: "name", message: "El nombre es obligatorio." };
+    if (name.length > MAX_SECTION_NAME) return { field: "name", message: `El nombre puede tener hasta ${MAX_SECTION_NAME} caracteres.` };
+  }
+  if (file) {
+    if (file.size > MAX_FILE_BYTES) return { field: "file", message: "El archivo supera los 10 MB." };
+  } else if (requireBoth) return { field: "file", message: "Elegí un archivo PDF." };
+  if (!requireBoth && name === undefined && !file) return { field: "name", message: "Cambiá el nombre o elegí un archivo." };
+  return null;
+}

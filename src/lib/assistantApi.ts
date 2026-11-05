@@ -1,9 +1,7 @@
 import { api } from "./api";
 import type { AskAccepted, ChatSummary, ChatView, GuideSectionView } from "./apiTypes";
 
-export const MAX_QUESTION = 2000;
-export const MAX_SECTION_NAME = 120;
-export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+export { MAX_FILE_BYTES, MAX_QUESTION, MAX_SECTION_NAME } from "./assistantTurn";
 
 function sectionForm(p: { name?: string; file?: File }): FormData {
   const f = new FormData();

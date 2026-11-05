@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   acceptAsk, applyEvent, beginAsk, chatMessages, initialTurnState, interrupt, isBusy,
-  type AssistantEvent, type TurnCtx,
+  validateQuestion, validateSectionInput, type AssistantEvent, type TurnCtx,
 } from "./assistantTurn.ts";
 import type { MessageView } from "./apiTypes.ts";
 
@@ -79,4 +79,20 @@ test("chatMessages agrega lo optimista y no duplica lo ya recargado", () => {
   const d = apply(s, done("r1"));
   const server = [m1, { ...m1, id: 41 }, { ...m1, id: 42, role: "ASSISTANT" as const }];
   assert.deepEqual(chatMessages(server, d.turn), server);
+});
+
+test("validateQuestion", () => {
+  assert.notEqual(validateQuestion("  "), null);
+  assert.notEqual(validateQuestion("a".repeat(2001)), null);
+  assert.equal(validateQuestion("a".repeat(2000)), null);
+});
+test("validateSectionInput", () => {
+  const file = { size: 1000 } as File;
+  assert.equal(validateSectionInput("x", { size: 10 * 1024 * 1024 + 1 } as File, true)?.field, "file");
+  assert.equal(validateSectionInput("x", { size: 10 * 1024 * 1024 } as File, true), null);
+  assert.equal(validateSectionInput("", file, true)?.field, "name");
+  assert.equal(validateSectionInput("a".repeat(121), file, true)?.field, "name");
+  assert.equal(validateSectionInput("x", undefined, true)?.field, "file");
+  assert.notEqual(validateSectionInput(undefined, undefined, false), null);
+  assert.equal(validateSectionInput("nuevo", undefined, false), null);
 });
