@@ -1,5 +1,5 @@
 import type {
-  AccountEntryType, Accreditation, AccountType, AdjustmentType, CashMovementType, CashSessionRowKind, CashSessionStatus, CostSource, ExpenseKind, ExpenseStatus, InstallmentStatus, MovementType,
+  AccountEntryType, Accreditation, AccountType, AdjustmentType, CashMovementType, CashSessionRowKind, CashSessionStatus, CostSource, ExpenseCategoryType, ExpenseKind, ExpenseStatus, InstallmentStatus, MovementType,
   PaymentStatus, SaleType, StockStatus, SupplierType,
 } from "./apiTypes";
 
@@ -28,6 +28,16 @@ export const accountTypeLabel: Record<AccountType, string> = {
 
 export const costSourceLabel: Record<CostSource, string> = {
   INITIAL: "Inicial", MANUAL: "Manual", PURCHASE_RECEIPT: "Compra",
+};
+
+export const expenseCategoryTypeLabel: Record<ExpenseCategoryType, string> = {
+  OPERATING: "Operativo", MERCHANDISE: "Mercadería", INVESTMENT: "Inversión", PERSONAL: "Personal",
+};
+export const expenseCategoryTypeHelp: Record<ExpenseCategoryType, string> = {
+  OPERATING: "Se gasta para que el local funcione y se consume en el mes (envíos, packaging, alquiler, luz)",
+  MERCHANDISE: "Se compra para revender (mates, bombillas, regalería)",
+  INVESTMENT: "Se usa durante años (heladera, vitrina, compu)",
+  PERSONAL: "Gastos propios del dueño",
 };
 
 export const expenseKindLabel: Record<ExpenseKind, string> = { FIXED: "Fijo", VARIABLE: "Variable" };

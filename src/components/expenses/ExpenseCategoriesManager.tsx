@@ -7,7 +7,8 @@ import Topbar from "@/components/layout/Topbar";
 import { ApiErrorBanner, ConfirmDeleteModal, Modal, Pager } from "@/components/ui";
 import { api } from "@/lib/api";
 import { usePagedList } from "@/lib/useApi";
-import type { CategoryFields, ExpenseCategory } from "@/lib/apiTypes";
+import type { CategoryFields, ExpenseCategory, ExpenseCategoryType } from "@/lib/apiTypes";
+import { expenseCategoryTypeHelp, expenseCategoryTypeLabel } from "@/lib/labels";
 
 const inputCls =
   "bg-[#FBF8F2] border border-[#E7DFD2] rounded-xl px-4 py-2.5 text-xs text-[#231E1A] outline-none focus:border-[#9C5A2E] focus:bg-white min-w-0";
@@ -28,8 +29,7 @@ export default function ExpenseCategoriesManager() {
 
   const [fName, setFName] = useState("");
   const [fDescription, setFDescription] = useState("");
-  const [fBusiness, setFBusiness] = useState(true);
-  const [fCapex, setFCapex] = useState(false);
+  const [fType, setFType] = useState<ExpenseCategoryType>("OPERATING");
 
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchTerm.trim()), 300);
@@ -59,8 +59,7 @@ export default function ExpenseCategoriesManager() {
     setFormError(null);
     setFName(c && c !== "new" ? c.name : "");
     setFDescription(c && c !== "new" ? (c.description ?? "") : "");
-    setFBusiness(c && c !== "new" ? c.isBusiness : true);
-    setFCapex(c && c !== "new" ? c.isCapex : false);
+    setFType(c && c !== "new" ? c.type : "OPERATING");
     setEditing(c);
   };
 
@@ -76,8 +75,7 @@ export default function ExpenseCategoriesManager() {
     } else if (desc !== (cur.description ?? "")) {
       body.description = desc || null; // null clears it
     }
-    if (!cur || fBusiness !== cur.isBusiness) body.isBusiness = fBusiness;
-    if (!cur || fCapex !== cur.isCapex) body.isCapex = fCapex;
+    if (!cur || fType !== cur.type) body.type = fType;
     if (cur && Object.keys(body).length === 0) return setEditing(null);
     setFormError(null);
     write(
@@ -152,9 +150,10 @@ export default function ExpenseCategoriesManager() {
         <div className="bg-white rounded-2xl border border-[#E7DFD2] shadow-xs overflow-hidden flex flex-col w-full min-w-0">
           <ApiErrorBanner error={list.error} onRetry={list.reload} />
           <div className="overflow-x-auto w-full">
-            <div className="min-w-[780px]">
+            <div className="min-w-[880px]">
               <div className="bg-[#FBF8F2] px-6 py-3.5 flex items-center gap-4 text-[11px] font-semibold text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
                 <div className="w-56 shrink-0">CATEGORÍA / RUBRO</div>
+                <div className="w-28 shrink-0">TIPO</div>
                 <div className="flex-1 min-w-[260px]">QUÉ REPRESENTA (DESCRIPCIÓN)</div>
                 <div className="w-44 shrink-0 text-center">MOVIMIENTOS ASOCIADOS</div>
                 <div className="w-24 shrink-0 text-center">ACCIONES</div>
@@ -177,13 +176,12 @@ export default function ExpenseCategoriesManager() {
                         <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs bg-[#9C5A2E] text-white">
                           <Tag className="w-4 h-4" />
                         </div>
-                        <div className="flex flex-col min-w-0">
-                          <span className="font-bold text-[#231E1A] text-sm truncate">{cat.name}</span>
-                          <span className="text-[10px] text-[#A89C8C]">
-                            {cat.isBusiness ? "Del negocio" : "Personal"}
-                            {cat.isCapex ? " · Inversión" : ""}
-                          </span>
-                        </div>
+                        <span className="font-bold text-[#231E1A] text-sm truncate">{cat.name}</span>
+                      </div>
+                      <div className="w-28 shrink-0">
+                        <span title={expenseCategoryTypeHelp[cat.type]} className="inline-flex px-2.5 py-1 rounded-full text-[11px] font-medium border bg-[#FBF8F2] text-[#5A5040] border-[#E7DFD2]">
+                          {expenseCategoryTypeLabel[cat.type]}
+                        </span>
                       </div>
                       <div className="flex-1 min-w-[260px] text-[#5A5040] text-xs leading-relaxed pr-4">
                         {cat.description || <span className="text-[#A89C8C] italic">Sin descripción registrada</span>}
@@ -227,14 +225,26 @@ export default function ExpenseCategoriesManager() {
             Descripción (opcional)
             <textarea rows={3} value={fDescription} onChange={(e) => setFDescription(e.target.value)} className={`${inputCls} resize-none leading-relaxed`} />
           </label>
-          <label className="flex items-center gap-2 text-[#231E1A]">
-            <input type="checkbox" checked={fBusiness} onChange={(e) => setFBusiness(e.target.checked)} />
-            Gasto del negocio
-          </label>
-          <label className="flex items-center gap-2 text-[#231E1A]">
-            <input type="checkbox" checked={fCapex} onChange={(e) => setFCapex(e.target.checked)} />
-            Inversión (CAPEX)
-          </label>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-[#7A6F63] mb-1">Tipo de gasto</legend>
+            {(Object.keys(expenseCategoryTypeLabel) as ExpenseCategoryType[]).map((t) => (
+              <label
+                key={t}
+                className={`flex items-start gap-2.5 border rounded-xl px-3 py-2.5 cursor-pointer ${fType === t ? "border-[#9C5A2E] bg-[#FBF8F2]" : "border-[#E7DFD2]"}`}
+              >
+                <input type="radio" name="type" value={t} checked={fType === t} onChange={() => setFType(t)} className="mt-0.5" />
+                <span className="flex flex-col">
+                  <span className="font-semibold text-[#231E1A]">{expenseCategoryTypeLabel[t]}</span>
+                  <span className="text-[#7A6F63]">{expenseCategoryTypeHelp[t]}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          {editing && editing !== "new" && fType !== editing.type && (
+            <p className="bg-[#FBEFD9] text-[#7A3F1F] border border-[#EADBC6] rounded-xl px-3 py-2.5">
+              Esto cambia cómo se calculan los reportes de todos los gastos de esta categoría, incluidos los anteriores.
+            </p>
+          )}
           <ApiErrorBanner error={formError} />
           <div className="flex justify-end gap-3">
             <button type="button" onClick={() => setEditing(null)} className="px-4 py-2 rounded-xl text-[#7A6F63] hover:bg-[#FBF8F2] cursor-pointer">

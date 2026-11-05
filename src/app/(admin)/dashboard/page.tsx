@@ -15,7 +15,7 @@ import type { SalesSummary, StockSummary } from "@/lib/apiTypes";
 import { formatDate, toLocalISODate } from "@/lib/dateUtils";
 import { money } from "@/lib/format";
 import { pctLabel, periodParams, type DashboardPeriod } from "@/lib/reports";
-import { AlertTriangle, Banknote, CreditCard, HandCoins, Package, Plus, Receipt, TrendingUp, Undo2, Wallet, Wallet2 } from "lucide-react";
+import { AlertTriangle, Banknote, HandCoins, Package, Plus, Receipt, TrendingUp, Undo2, UserRound, Wallet, Wallet2 } from "lucide-react";
 import { getAssetPath } from "@/lib/assets";
 import { CashStatusCard } from "@/components/cash/CashStatus";
 
@@ -82,8 +82,8 @@ export default function DashboardPage() {
 
         {/* KPIs */}
         {report.error && params && <ApiErrorBanner error={report.error} onRetry={report.reload} />}
-        <Section title="Resultado del período" subtitle="Ventas, ganancia, gastos y neto" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <Section title="Resultado del período" subtitle="Ventas, ganancia y movimiento de plata" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <KpiCard
             label="Ventas netas"
             hint="Total de las ventas no anuladas hechas en el período (con descuentos y recargos), menos lo devuelto. Cuenta la venta el día que se hizo, aunque todavía no esté cobrada."
@@ -100,30 +100,43 @@ export default function DashboardPage() {
             badgeType={r && r.sales.grossProfit < 0 ? "danger" : "success"}
             icon={<TrendingUp className="w-5 h-5" />}
           />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           <KpiCard
-            label="Gastos"
-            hint="Total de los gastos con fecha en el período, estén pagados o no. Los gastos eliminados no cuentan."
-            value={r ? money(r.expenses.total) : ph}
-            delta="egresos del período"
-            icon={<Wallet className="w-5 h-5" />}
-          />
-          <KpiCard
-            label="Neto"
-            hint="Ventas menos gastos y comisiones de tarjeta del período. El porcentaje es el neto sobre las ventas."
+            label="Ganancia del mes"
+            hint="Dice si el negocio ganó: ganancia bruta menos los gastos operativos y las comisiones de tarjeta del período. Las compras de mercadería, las inversiones y los gastos personales no restan. El porcentaje es la ganancia sobre las ventas."
             value={r ? money(r.net) : ph}
-            delta="ventas menos gastos y comisiones"
+            delta={r ? `gastos operativos ${money(r.expenses.operating)} · comisiones ${money(r.cardFees.total)}` : "ganancia bruta menos gastos operativos"}
             badgeText={r && r.netMarginPct !== null ? pctLabel(r.netMarginPct) : undefined}
             badgeType={r && r.net < 0 ? "danger" : "success"}
             icon={<Wallet2 className="w-5 h-5" />}
           />
+          <KpiCard
+            label="Retiros del dueño"
+            hint="Gastos del período en categorías de tipo Personal: lo que el dueño sacó para sí. No resta de la ganancia; comparalo con la ganancia del mes para ver si se saca más de lo que el negocio gana."
+            value={r ? money(r.expenses.personal) : ph}
+            delta={r && r.net > 0 ? `${Math.round((r.expenses.personal / r.net) * 100)}% de la ganancia del mes` : "gastos personales del período"}
+            badgeText={r && r.expenses.personal > 0 && r.expenses.personal > r.net ? "más que la ganancia" : undefined}
+            badgeType="warning"
+            icon={<UserRound className="w-5 h-5" />}
+          />
+          <KpiCard
+            label="Caja del mes"
+            hint="Cuánta plata se movió: lo cobrado menos reintegros a clientes, menos lo pagado (cuotas por fecha de pago), menos comisiones de tarjeta."
+            value={r ? money(r.cash.net) : ph}
+            delta={r ? `cobrado ${money(r.cash.collected)} · pagado ${money(r.cash.paid)}` : "cobrado menos pagado"}
+            badgeText={r && r.cash.net < 0 ? "negativa" : undefined}
+            badgeType="danger"
+            icon={<Wallet className="w-5 h-5" />}
+          />
         </div>
         <Section title="Dinero y stock" subtitle="Lo que entró y salió de las cuentas, y el estado del inventario" />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           <KpiCard
             label="Cobrado"
             hint="Dinero que entró por pagos de clientes en el período (de ventas y de cuenta corriente), según la fecha de cada pago. Los cobros con tarjeta que cobran comisión cuentan por lo cobrado, el día que se acreditaron."
             value={r ? money(r.cash.collected) : ph}
-            delta={r && r.cash.refunded > 0 ? `base caja · reintegros ${money(r.cash.refunded)} (se restan en Caja neta)` : "base caja"}
+            delta={r && r.cash.refunded > 0 ? `base caja · reintegros ${money(r.cash.refunded)} (se restan en Caja del mes)` : "base caja"}
             icon={<Banknote className="w-5 h-5" />}
           />
           <KpiCard
@@ -132,15 +145,6 @@ export default function DashboardPage() {
             value={r ? money(r.cash.paid) : ph}
             delta="base caja"
             icon={<HandCoins className="w-5 h-5" />}
-          />
-          <KpiCard
-            label="Caja neta"
-            hint="Cobrado menos reintegros a clientes, menos pagado, menos comisiones de tarjeta: cuánto dinero dejó la operación del período."
-            value={r ? money(r.cash.net) : ph}
-            delta={r && r.cash.cardFees > 0 ? `comisiones de tarjeta ${money(r.cash.cardFees)}` : "cobrado menos pagado"}
-            badgeText={r && r.cash.net < 0 ? "negativa" : undefined}
-            badgeType="danger"
-            icon={<Wallet className="w-5 h-5" />}
           />
           {summary.error ? (
             <ApiErrorBanner error={summary.error} onRetry={summary.reload} />
@@ -157,9 +161,6 @@ export default function DashboardPage() {
             />
           )}
         </div>
-
-        <Section title="Comisiones de tarjeta" subtitle="Por fecha de cobro: lo que se quedó el procesador y lo que falta acreditar" />
-        <CardFees fees={r?.cardFees ?? null} ph={ph} />
 
         <Section title="Devoluciones" subtitle="Devoluciones y cambios del período" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -215,67 +216,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </main>
-    </>
-  );
-}
-
-/** Totals plus one row per fee-charging method, exactly as the report returns them. */
-function CardFees({ fees, ph }: { fees: SalesSummary["cardFees"] | null; ph: string }) {
-  return (
-    <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <KpiCard
-          label="Comisiones"
-          hint="Diferencia entre lo cobrado con tarjeta y lo que acreditó el banco, en los cobros ya acreditados. Se resta del neto."
-          value={fees ? money(fees.total) : ph}
-          delta="cobrado menos recibido"
-          icon={<CreditCard className="w-5 h-5" />}
-        />
-        <KpiCard
-          label="Pendiente de acreditar"
-          hint="Lo cobrado con tarjeta que todavía no tiene cargado lo que acreditó el banco."
-          value={fees ? money(fees.pending) : ph}
-          delta="cobrado, falta cargar lo recibido"
-          badgeText={fees && fees.pending > 0 ? "pendiente" : undefined}
-          badgeType="warning"
-          icon={<Banknote className="w-5 h-5" />}
-        />
-      </div>
-      {fees && (fees.byMethod.length > 0 || fees.pending > 0) && (
-        <div className="bg-white rounded-2xl border border-[#E7DFD2] shadow-xs overflow-hidden text-xs">
-          {fees.byMethod.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px]">
-                <thead className="bg-[#FBF8F2] text-[11px] text-[#A89C8C] tracking-wide border-b border-[#E7DFD2]">
-                  <tr>
-                    <th className="text-left font-semibold px-4 sm:px-6 py-3">MEDIO</th>
-                    <th className="text-right font-semibold px-3 py-3">COBRADO</th>
-                    <th className="text-right font-semibold px-3 py-3">RECIBIDO</th>
-                    <th className="text-right font-semibold px-3 py-3">COMISIÓN</th>
-                    <th className="text-right font-semibold px-4 sm:px-6 py-3">PENDIENTE</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F7F3EC] text-[#231E1A]">
-                  {fees.byMethod.map((m) => (
-                    <tr key={m.paymentMethodId}>
-                      <td className="px-4 sm:px-6 py-3 font-semibold">{m.name}</td>
-                      <td className="px-3 py-3 text-right">{money(m.charged)}</td>
-                      <td className="px-3 py-3 text-right">{money(m.received)}</td>
-                      <td className="px-3 py-3 text-right font-bold">{money(m.fee)}</td>
-                      <td className="px-4 sm:px-6 py-3 text-right text-[#D98A2B]">{money(m.pending)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {fees.pending > 0 && (
-            <div className="px-4 sm:px-6 py-3 border-t border-[#F7F3EC]">
-              <Link href="/acreditaciones" className="text-[#9C5A2E] font-semibold underline">Ver cobros pendientes de acreditar</Link>
-            </div>
-          )}
-        </div>
-      )}
     </>
   );
 }

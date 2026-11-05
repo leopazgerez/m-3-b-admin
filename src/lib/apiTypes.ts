@@ -183,11 +183,12 @@ export interface RegisterReturnRequest {
 }
 
 // ── Expenses ── (expense CategoryView, ExpenseRow, ExpenseView, ExpenseSummary)
+export type ExpenseCategoryType = "OPERATING" | "MERCHANDISE" | "INVESTMENT" | "PERSONAL";
 export interface ExpenseCategory {
-  id: number; name: string; description: string | null; isBusiness: boolean; isCapex: boolean; expenseCount: number;
+  id: number; name: string; description: string | null; type: ExpenseCategoryType; expenseCount: number;
 }
-/** POST: name required; isBusiness defaults to true, isCapex to false. PATCH: null clears description. */
-export interface CategoryFields { name?: string; description?: string | null; isBusiness?: boolean; isCapex?: boolean }
+/** POST: name required; type defaults to OPERATING. PATCH: null clears description; changing type reclassifies past expenses in reports. */
+export interface CategoryFields { name?: string; description?: string | null; type?: ExpenseCategoryType }
 export interface ExpenseRow {
   id: number; categoryId: number; categoryName: string; kind: ExpenseKind; supplierId: number | null;
   supplierName: string | null; description: string; incurredOn: string; restockId: number | null; total: number;
@@ -216,7 +217,7 @@ export interface ExpensePaymentFields {
   paymentMethodId: number; accountId?: number; paidAt?: string; amount?: number; notes?: string;
 }
 export interface ExpenseSummaryLine {
-  categoryId: number; name: string; isBusiness: boolean; total: number; paid: number; pending: number; pct: number;
+  categoryId: number; name: string; type: ExpenseCategoryType; total: number; paid: number; pending: number; pct: number;
 }
 export interface ExpenseSummary {
   from: string | null; to: string | null; total: number; paid: number; pending: number; categories: ExpenseSummaryLine[];
@@ -237,8 +238,9 @@ export interface SalesSummary {
   /** netTotal: sales minus returns */
   sales: { count: number; total: number; netTotal: number; cost: number; grossProfit: number; grossMarginPct: number | null };
   returns: { count: number; total: number; restockedCost: number; lossCost: number };
-  expenses: { total: number };
-  /** net already subtracts cardFees.total */
+  /** by incurredOn; total = sum of the four. Only operating is subtracted from net. */
+  expenses: { total: number; operating: number; merchandise: number; investment: number; personal: number };
+  /** net = grossProfit − expenses.operating − cardFees.total */
   net: number; netMarginPct: number | null;
   /** by charge date: total = fees of accredited payments, pending = charged still awaiting accreditation */
   cardFees: { total: number; pending: number; byMethod: CardFeesLine[] };
