@@ -20,7 +20,14 @@ let retry: ReturnType<typeof setTimeout> | undefined;
 
 function setStatus(s: SocketStatus) {
   status = s;
-  statusListeners.forEach((l) => l());
+  notify(statusListeners);
+}
+
+/** One failing listener doesn't skip the rest. */
+function notify(listeners: Set<() => void>) {
+  for (const l of listeners) {
+    try { l(); } catch (e) { console.error("socket listener failed", e); }
+  }
 }
 
 function connect() {
@@ -28,10 +35,10 @@ function connect() {
   const token = getSession()?.accessToken;
   if (!token) { stopped = true; expireSession(); return; }
   setStatus("connecting");
-  const sock = new WebSocket(socketUrl(env.apiUrl));
+  const sock = new WebSocket(socketUrl(env.apiUrl, window.location.href));
   ws = sock;
   sock.onopen = () => sock.send(JSON.stringify({ type: "auth", token }));
-  sock.onmessage = (ev) => { if (typeof ev.data === "string") dispatcher.dispatch(ev.data); };
+  sock.onmessage = (ev) => { if (ws === sock && typeof ev.data === "string") dispatcher.dispatch(ev.data); };
   sock.onclose = (ev) => {
     if (ws !== sock) return;
     ws = null;
@@ -45,7 +52,7 @@ function connect() {
 dispatcher.on("auth.ok", () => {
   attempt = 0;
   setStatus("open");
-  if (authedOnce) reconnectListeners.forEach((l) => l());
+  if (authedOnce) notify(reconnectListeners);
   authedOnce = true;
 });
 

@@ -12,18 +12,18 @@ function sectionForm(p: { name?: string; file?: File }): FormData {
 
 /** Ask endpoints answer 202 {requestId}; the answer streams over the socket. Their errors are shown in the panel (silent). */
 export const assistantApi = {
-  createChat: () => api.post<ChatSummary>("/chats", undefined, { quiet: true }),
-  deleteChat: (id: number) => api.del(`/chats/${id}`, { success: "Chat eliminado" }),
+  createChat: () => api.post<ChatSummary>("/chats", undefined, { quiet: true, isolated: true }),
+  deleteChat: (id: number) => api.del(`/chats/${id}`, { success: "Chat eliminado", isolated: true }),
   getChat: (id: number) => api.getOne<ChatView>(`/chats/${id}`, undefined, { quiet: true }),
   askChat: (id: number, question: string) =>
-    api.post<AskAccepted>(`/chats/${id}/messages`, { question }, { silent: true, quiet: true }),
-  askGuide: (question: string) => api.post<AskAccepted>("/guide/ask", { question }, { silent: true, quiet: true }),
+    api.post<AskAccepted>(`/chats/${id}/messages`, { question }, { silent: true, quiet: true, isolated: true }),
+  askGuide: (question: string) => api.post<AskAccepted>("/guide/ask", { question }, { silent: true, quiet: true, isolated: true }),
 
   listSections: () => api.getOne<GuideSectionView[]>("/guide/sections"),
   getSection: (id: number) => api.getOne<GuideSectionView>(`/guide/sections/${id}`),
   createSection: (name: string, file: File) =>
-    api.postForm<GuideSectionView>("/guide/sections", sectionForm({ name, file }), { success: "Sección cargada", silent: true }),
+    api.postForm<GuideSectionView>("/guide/sections", sectionForm({ name, file }), { success: "Sección cargada", silent: true, isolated: true }),
   updateSection: (id: number, p: { name?: string; file?: File }) =>
-    api.putForm<GuideSectionView>(`/guide/sections/${id}`, sectionForm(p), { success: "Sección actualizada", silent: true }),
-  deleteSection: (id: number) => api.del(`/guide/sections/${id}`, { success: "Sección eliminada" }),
+    api.putForm<GuideSectionView>(`/guide/sections/${id}`, sectionForm(p), { success: "Sección actualizada", silent: true, isolated: true }),
+  deleteSection: (id: number) => api.del(`/guide/sections/${id}`, { success: "Sección eliminada", isolated: true }),
 };

@@ -41,7 +41,7 @@ export function applyEvent(s: TurnState, ev: AssistantEvent, ctx: TurnCtx): Turn
   const t = s.turn;
   if (t && t.status === "streaming" && t.requestId === p.requestId) {
     switch (ev.type) {
-      case "assistant.delta": return { ...s, turn: { ...t, text: t.text + ev.payload.text } };
+      case "assistant.delta": return { ...s, turn: { ...t, text: t.text + (ev.payload.text ?? "") } };
       case "assistant.done": return { ...s, turn: { ...t, status: "done", messageId: ev.payload.messageId, sections: ev.payload.sections } };
       case "assistant.error": return { ...s, turn: { ...t, status: "error", error: ev.payload.message } };
     }
@@ -52,7 +52,8 @@ export function applyEvent(s: TurnState, ev: AssistantEvent, ctx: TurnCtx): Turn
 
 /** The socket dropped mid-answer: its remaining events are lost. */
 export function interrupt(s: TurnState, message: string): TurnState {
-  if (s.awaiting) return failAsk(s);
+  // POST still in flight: releasing now would allow a second question; ask() checks for reconnects itself
+  if (s.awaiting) return s;
   if (s.turn?.status === "streaming") return { ...s, turn: { ...s.turn, status: "error", error: message } };
   return s;
 }
@@ -62,13 +63,28 @@ export const isBusy = (s: TurnState): boolean => s.awaiting || s.turn?.status ==
 /** Persisted messages plus the turn in flight (optimistic). A failed turn isn't stored by the backend, so it shows nothing. */
 export function chatMessages(server: MessageView[], turn: Turn | null): MessageView[] {
   if (!turn || turn.status === "error") return server;
-  if (turn.status === "done" && turn.messageId != null && server.some((m) => m.id === turn.messageId)) return server;
+  if (turn.status === "done" && (server.some((m) => m.id === turn.messageId) || savedAnswer(server, turn.question))) return server;
   const createdAt = new Date().toISOString();
+  const tail = server[server.length - 1];
+  const questionSaved = tail?.role === "USER" && tail.content === turn.question; // a reload mid-answer already has it
   return [
     ...server,
-    { id: -1, role: "USER", content: turn.question, createdAt },
+    ...(questionSaved ? [] : [{ id: -1, role: "USER" as const, content: turn.question, createdAt }]),
     { id: turn.messageId ?? -2, role: "ASSISTANT", content: turn.text, createdAt },
   ];
+}
+
+/** The persisted answer to question, when the chat ends with that question and its answer. */
+function savedAnswer(server: MessageView[], question: string): MessageView | null {
+  const [q, a] = server.slice(-2);
+  return q?.role === "USER" && q.content === question && a?.role === "ASSISTANT" ? a : null;
+}
+
+/** After a reconnect: if the server already saved the answer (its done was lost in the gap), the turn is over. */
+export function settleFromServer(s: TurnState, server: MessageView[]): TurnState {
+  if (s.turn?.status !== "streaming") return s;
+  const a = savedAnswer(server, s.turn.question);
+  return a ? { ...s, turn: { ...s.turn, status: "done", text: a.content, messageId: a.id, sections: [] } } : s;
 }
 
 export const MAX_QUESTION = 2000;

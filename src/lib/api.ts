@@ -24,8 +24,9 @@ interface RawPage<T> { data: T[]; nextCursor: string | null; prevCursor: string 
 /**
  * Writes: success → a toast saying what was done; silent → no error toast (the caller handles it).
  * quiet → no global loader (background checks the user didn't ask for).
+ * isolated → the write can't change other screens' data (assistant chats, guide): no API_WRITE_EVENT.
  */
-export interface Notify { success?: string; silent?: boolean; quiet?: boolean }
+export interface Notify { success?: string; silent?: boolean; quiet?: boolean; isolated?: boolean }
 
 /** Fired on window after every write settles (ok or not): state derived from the backend may have changed. */
 export const API_WRITE_EVENT = "m3b:api-write";
@@ -43,7 +44,7 @@ async function request(method: string, path: string, query?: URLSearchParams, bo
     throw e;
   } finally {
     if (!notify.quiet) feedback.end();
-    if (method !== "GET") window.dispatchEvent(new Event(API_WRITE_EVENT));
+    if (method !== "GET" && !notify.isolated) window.dispatchEvent(new Event(API_WRITE_EVENT));
   }
 }
 

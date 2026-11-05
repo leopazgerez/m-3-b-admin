@@ -7,6 +7,7 @@ test("socketUrl", () => {
   assert.equal(socketUrl("https://x.com/api"), "wss://x.com/ws");
   assert.equal(socketUrl("https://x.com/v1/api"), "wss://x.com/v1/ws");
   assert.equal(socketUrl("https://x.com"), "wss://x.com/ws");
+  assert.equal(socketUrl("/api", "https://admin.x.com/m-3-b-admin/ventas/"), "wss://admin.x.com/ws");
 });
 test("closeAction", () => {
   assert.equal(closeAction(1008, false), "login");

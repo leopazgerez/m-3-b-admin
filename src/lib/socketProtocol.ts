@@ -3,9 +3,9 @@
 export type CloseAction = "none" | "login" | "reconnect";
 export interface ServerMessage { type: string; payload: unknown }
 
-/** http(s)://host/…/api → ws(s)://host/…/ws */
-export function socketUrl(apiUrl: string): string {
-  const u = new URL(apiUrl);
+/** http(s)://host/…/api → ws(s)://host/…/ws. A relative apiUrl ("/api") resolves against base (the page URL). */
+export function socketUrl(apiUrl: string, base?: string): string {
+  const u = new URL(apiUrl, base);
   const scheme = u.protocol === "https:" ? "wss:" : "ws:";
   const path = u.pathname.replace(/\/+$/, "").replace(/\/api$/, "");
   return `${scheme}//${u.host}${path}/ws`;

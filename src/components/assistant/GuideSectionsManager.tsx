@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import Topbar from "@/components/layout/Topbar";
 import { ApiErrorBanner, ConfirmDeleteModal, Modal } from "@/components/ui";
@@ -23,11 +23,20 @@ export default function GuideSectionsManager() {
   const [viewError, setViewError] = useState<unknown>(null);
   const [deleting, setDeleting] = useState<GuideSectionView | null>(null);
 
+  // the section whose content is being fetched; a response for any other (closed, or replaced by a later click) is dropped
+  const viewingId = useRef<number | null>(null);
   const openView = async (s: GuideSectionView) => {
+    viewingId.current = s.id;
     setViewError(null);
     setViewing(s);
-    try { setViewing(await get(s.id)); } catch (e) { setViewError(e); }
+    try {
+      const full = await get(s.id);
+      if (viewingId.current === s.id) setViewing(full);
+    } catch (e) {
+      if (viewingId.current === s.id) setViewError(e);
+    }
   };
+  const closeView = () => { viewingId.current = null; setViewing(null); };
 
   return (
     <>
@@ -84,7 +93,7 @@ export default function GuideSectionsManager() {
         />
       )}
 
-      <Modal isOpen={viewing !== null} onClose={() => setViewing(null)} title={viewing?.name ?? ""} maxWidth="max-w-3xl">
+      <Modal isOpen={viewing !== null} onClose={closeView} title={viewing?.name ?? ""} maxWidth="max-w-3xl">
         {viewError ? <ApiErrorBanner error={viewError} /> : (
           <pre className="max-h-[60vh] overflow-y-auto whitespace-pre-wrap font-body text-xs text-[#231E1A]">
             {viewing?.content ?? "Cargando…"}

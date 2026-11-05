@@ -68,3 +68,13 @@ export function useReloadOnWrite(reload: () => void) {
     return () => window.removeEventListener(API_WRITE_EVENT, reload);
   }, [reload]);
 }
+
+/** value, trimmed, once it stopped changing for ms (search boxes: one request per pause, not per keystroke). */
+export function useDebounced(value: string, ms = 300): string {
+  const [debounced, setDebounced] = useState(value.trim());
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value.trim()), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return debounced;
+}

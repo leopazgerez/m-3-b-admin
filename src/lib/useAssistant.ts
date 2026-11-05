@@ -1,21 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ApiError } from "./api";
 import { assistantApi } from "./assistantApi";
 import type { AssistantSource, ChatSummary, ChatView, GuideSectionView, MessageView } from "./apiTypes";
 import {
-  acceptAsk, applyEvent, askBlocker, beginAsk, chatMessages, failAsk, initialTurnState, interrupt, isBusy, validateQuestion,
+  acceptAsk, applyEvent, askBlocker, beginAsk, chatMessages, failAsk, initialTurnState, interrupt, isBusy, settleFromServer, validateQuestion,
   type AssistantEvent, type Turn, type TurnState,
 } from "./assistantTurn";
 import { socket } from "./socket";
-import { useApiResource, usePagedList } from "./useApi";
+import { useApiResource, useDebounced, usePagedList } from "./useApi";
 
 export { validateQuestion, validateSectionInput } from "./assistantTurn";
 
 const EVENT_TYPES = ["assistant.delta", "assistant.done", "assistant.error"] as const;
 const LOST_CONNECTION = "Se perdió la conexión; volvé a preguntar.";
 const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+/** A turn with no new text for this long after a reconnect is given up (its done/error was lost in the gap). */
+const STALL_MS = 30000;
+
+/** True while the socket is authenticated: answers can arrive. */
+export function useSocketConnected(): boolean {
+  return useSyncExternalStore(socket.subscribe, () => socket.status() === "open", () => false);
+}
+
+/** The question of a turn that failed after its 202 (the backend didn't keep it), so the input can get it back. */
+const failedQuestion = (t: Turn | null) => (t?.status === "error" ? { id: t.requestId, text: t.question } : null);
 
 /**
  * The turn state of one conversation, fed by the socket. The ref mirrors the state so socket handlers and ask()
@@ -47,29 +57,28 @@ function useTurnStream(source: AssistantSource, chatIdRef: { current: number | n
   return { state, ref, commit, reconnects };
 }
 
+/** search is debounced here, so it can be bound straight to the input. */
 export function useChats(search: string) {
-  const list = usePagedList<ChatSummary>("/chats", { search: search.trim() || undefined, length: 20 });
+  const debounced = useDebounced(search);
+  const list = usePagedList<ChatSummary>("/chats", { search: debounced || undefined, length: 20 });
   const { reload } = list;
-  const create = useCallback(async () => {
-    const chat = await assistantApi.createChat();
-    reload();
-    return chat;
-  }, [reload]);
   const remove = useCallback(async (id: number) => {
     await assistantApi.deleteChat(id);
     reload();
   }, [reload]);
-  return { ...list, create, remove };
+  return { ...list, remove };
 }
 
 /** id null = a chat not created yet: the first ask() creates it and reports the id through onCreated. */
 export function useChat(id: number | null, onCreated?: (id: number) => void): {
-  chat: ChatView | null; messages: MessageView[]; loading: boolean; loadError: ApiError | null;
-  busy: boolean; askError: string | null; ask(question: string): Promise<boolean>; reload(): void;
+  chat: ChatView | null; messages: MessageView[]; loadError: ApiError | null; connected: boolean;
+  busy: boolean; askError: string | null; failed: { id: string; text: string } | null;
+  ask(question: string): Promise<boolean>; reload(): void;
 } {
   const idRef = useRef(id);
-  useEffect(() => { idRef.current = id; });
-  const { data, error, loading, reload } = useApiResource(
+  // a chat created by ask() is known here before the parent passes its id down; never go back to null
+  useEffect(() => { if (id !== null) idRef.current = id; });
+  const { data, error, reload } = useApiResource(
     () => (id === null ? Promise.resolve(null) : assistantApi.getChat(id)), [id]);
   const [askError, setAskError] = useState<string | null>(null);
 
@@ -80,11 +89,26 @@ export function useChat(id: number | null, onCreated?: (id: number) => void): {
     return next.reload ? { ...next, reload: false } : next;
   });
 
-  // events sent while disconnected were lost; the server kept whatever was saved
-  useEffect(() => socket.onReconnect(() => {
-    if (!ref.current.awaiting) commit(initialTurnState);
+  // Events sent while disconnected were lost, but the answer may still be generating (its next events reach the new
+  // socket). Keep the turn, finish it if the server already saved the answer, and give it up only if it stalls.
+  const resync = useCallback(async () => {
+    const chatId = idRef.current;
+    if (chatId !== null) {
+      try { commit(settleFromServer(ref.current, (await assistantApi.getChat(chatId)).messages)); } catch { /* reload shows it */ }
+    }
     reload();
-  }), [ref, commit, reload]);
+    const watch = (requestId: string, length: number) => setTimeout(() => {
+      const t = ref.current.turn;
+      if (t?.requestId !== requestId || t.status !== "streaming") return;
+      if (t.text.length !== length) { watch(requestId, t.text.length); return; }
+      commit(interrupt(ref.current, LOST_CONNECTION));
+      reload();
+    }, STALL_MS);
+    const t = ref.current.turn;
+    if (t?.status === "streaming") watch(t.requestId, t.text.length);
+  }, [ref, commit, reload]);
+
+  useEffect(() => socket.onReconnect(() => { void resync(); }), [resync]);
 
   const ask = useCallback(async (question: string) => {
     const invalid = validateQuestion(question);
@@ -95,41 +119,48 @@ export function useChat(id: number | null, onCreated?: (id: number) => void): {
     setAskError(null);
     commit(beginAsk(ref.current));
     const seen = reconnects.current;
+    let created: number | null = null;
     try {
       let chatId = idRef.current;
       if (chatId === null) {
-        chatId = (await assistantApi.createChat()).id;
+        chatId = created = (await assistantApi.createChat()).id;
         idRef.current = chatId;
-        onCreated?.(chatId);
       }
       const { requestId } = await assistantApi.askChat(chatId, question.trim());
       commit(acceptAsk(ref.current, requestId, question.trim(), { source: "chat", chatId }));
-      if (reconnects.current !== seen) { commit(initialTurnState); reload(); return true; }
-      if (ref.current.turn?.status === "done") reload(); // the whole answer came before the 202
+      if (reconnects.current !== seen) void resync();
+      else if (ref.current.turn?.status === "done") reload(); // the whole answer came before the 202
       return true;
     } catch (e) {
       commit(failAsk(ref.current));
       setAskError(message(e));
       return false;
+    } finally {
+      // only now, so the chat's first GET doesn't race the question POST
+      if (created !== null) onCreated?.(created);
     }
-  }, [ref, commit, reconnects, onCreated, reload]);
+  }, [ref, commit, reconnects, onCreated, reload, resync]);
 
   const busy = isBusy(state);
   const turnError = !busy && state.turn?.status === "error" ? state.turn.error ?? null : null;
   return {
     chat: data,
     messages: chatMessages(data?.messages ?? [], state.turn),
-    loading,
     loadError: error,
+    connected: useSocketConnected(),
     busy,
     askError: askError ?? turnError,
+    failed: failedQuestion(state.turn),
     ask,
     reload,
   };
 }
 
 /** Independent questions, nothing persisted: the turns live only while this hook is mounted. */
-export function useGuideAsk(): { turns: Turn[]; busy: boolean; askError: string | null; ask(question: string): Promise<boolean> } {
+export function useGuideAsk(): {
+  turns: Turn[]; connected: boolean; busy: boolean; askError: string | null; failed: { id: string; text: string } | null;
+  ask(question: string): Promise<boolean>;
+} {
   const noChat = useRef<number | null>(null);
   const [history, setHistory] = useState<Turn[]>([]);
   const [askError, setAskError] = useState<string | null>(null);
@@ -160,7 +191,15 @@ export function useGuideAsk(): { turns: Turn[]; busy: boolean; askError: string 
     }
   }, [ref, commit, reconnects]);
 
-  return { turns: state.turn ? [...history, state.turn] : history, busy: isBusy(state), askError, ask };
+  const connected = useSocketConnected();
+  return {
+    turns: state.turn ? [...history, state.turn] : history,
+    connected,
+    busy: isBusy(state),
+    askError,
+    failed: failedQuestion(state.turn),
+    ask,
+  };
 }
 
 export function useGuideSections() {

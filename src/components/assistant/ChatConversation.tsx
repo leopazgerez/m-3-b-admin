@@ -7,7 +7,7 @@ import Markdown from "./Markdown";
 import ViewHeader from "./ViewHeader";
 
 export default function ChatConversation({ id, onCreated, onBack }: { id: number | null; onCreated: (id: number) => void; onBack: () => void }) {
-  const { chat, messages, loadError, busy, askError, ask, reload } = useChat(id, onCreated);
+  const { chat, messages, loadError, connected, busy, askError, failed, ask, reload } = useChat(id, onCreated);
   return (
     <div className="flex h-full flex-col">
       <ViewHeader title={chat?.title ?? "Chat nuevo"} onBack={onBack} />
@@ -23,7 +23,7 @@ export default function ChatConversation({ id, onCreated, onBack }: { id: number
           </div>
         ))}
       </div>
-      <Composer busy={busy} error={askError} onAsk={ask} />
+      <Composer busy={busy} connected={connected} error={askError} restore={failed} onAsk={ask} />
     </div>
   );
 }

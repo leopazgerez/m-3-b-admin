@@ -36,7 +36,7 @@ export default function AssistantLauncher() {
       <ChatConversation
         key={view.key}
         id={view.chat}
-        onCreated={(id) => setView({ chat: id, key: view.key })}
+        onCreated={(id) => setView((v) => (typeof v === "object" && v.key === view.key ? { chat: id, key: v.key } : v))}
         onBack={() => setView("chats")}
       />
     );

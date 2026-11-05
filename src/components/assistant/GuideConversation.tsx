@@ -6,7 +6,7 @@ import Markdown from "./Markdown";
 import ViewHeader from "./ViewHeader";
 
 export default function GuideConversation({ onBack }: { onBack: () => void }) {
-  const { turns, busy, askError, ask } = useGuideAsk();
+  const { turns, connected, busy, askError, failed, ask } = useGuideAsk();
   return (
     <div className="flex h-full flex-col">
       <ViewHeader title="Guía de usuario" onBack={onBack} />
@@ -24,7 +24,7 @@ export default function GuideConversation({ onBack }: { onBack: () => void }) {
           </div>
         ))}
       </div>
-      <Composer busy={busy} error={askError} onAsk={ask} />
+      <Composer busy={busy} connected={connected} error={askError} restore={failed} onAsk={ask} />
     </div>
   );
 }

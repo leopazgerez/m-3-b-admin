@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   acceptAsk, applyEvent, beginAsk, chatMessages, initialTurnState, interrupt, isBusy,
-  askBlocker, validateQuestion, validateSectionInput, type AssistantEvent, type TurnCtx,
+  askBlocker, settleFromServer, validateQuestion, validateSectionInput, type AssistantEvent, type TurnCtx,
 } from "./assistantTurn.ts";
 import type { MessageView } from "./apiTypes.ts";
 
@@ -101,4 +101,33 @@ test("askBlocker: sin socket autenticado no se pregunta (la respuesta se perder�
   assert.notEqual(askBlocker(initialTurnState, false), null);
   assert.equal(askBlocker(initialTurnState, true), null);
   assert.notEqual(askBlocker(streaming(), true), null);
+});
+
+test("interrupt mientras el POST está en vuelo no libera (lo resuelve ask)", () => {
+  const s = beginAsk(initialTurnState);
+  assert.equal(interrupt(s, "x"), s);
+  assert.equal(isBusy(interrupt(s, "x")), true);
+});
+const q: MessageView = { id: 41, role: "USER", content: "¿Cuánto vendí?", createdAt: "2026-11-05T10:01:00Z" };
+const a: MessageView = { id: 50, role: "ASSISTANT", content: "Vendiste $10", createdAt: "2026-11-05T10:01:05Z" };
+test("chatMessages: si el servidor ya guardó la pregunta, no la duplica", () => {
+  const s = apply(streaming(), delta("r1", "Ven"));
+  const msgs = chatMessages([m1, q], s.turn);
+  assert.deepEqual(msgs.map((m) => m.role), ["USER", "USER", "ASSISTANT"]);
+  assert.equal(msgs[1], q);
+});
+test("chatMessages: done sin messageId con el par ya recargado no duplica", () => {
+  const s = apply(streaming(), delta("r1", "Vendiste $10"), done("r1", 7, null));
+  assert.deepEqual(chatMessages([m1, q, a], s.turn), [m1, q, a]);
+});
+test("settleFromServer: si el servidor ya tiene la respuesta, el turno termina", () => {
+  const s = settleFromServer(apply(streaming(), delta("r1", "Ven")), [m1, q, a]);
+  assert.equal(s.turn?.status, "done");
+  assert.equal(s.turn?.messageId, 50);
+  assert.equal(isBusy(s), false);
+});
+test("settleFromServer: sin respuesta guardada sigue en curso", () => {
+  const s0 = apply(streaming(), delta("r1", "Ven"));
+  assert.equal(settleFromServer(s0, [m1, q]), s0);
+  assert.equal(settleFromServer(s0, [m1]), s0);
 });
