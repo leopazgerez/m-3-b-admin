@@ -42,7 +42,9 @@ export default function ChatList({ onOpen, onBack }: { onOpen: (id: number | nul
           </div>
         ))}
       </div>
-      <Pager hasPrev={hasPrev} hasNext={hasNext} onPrev={prev} onNext={next} total={total} loading={loading} flush />
+      <div className="px-3 pb-2">
+        <Pager hasPrev={hasPrev} hasNext={hasNext} onPrev={prev} onNext={next} total={total} loading={loading} flush />
+      </div>
       <ConfirmDeleteModal
         isOpen={toDelete !== null}
         onClose={() => setToDelete(null)}
