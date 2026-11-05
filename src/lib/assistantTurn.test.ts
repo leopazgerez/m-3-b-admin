@@ -131,3 +131,9 @@ test("settleFromServer: sin respuesta guardada sigue en curso", () => {
   assert.equal(settleFromServer(s0, [m1, q]), s0);
   assert.equal(settleFromServer(s0, [m1]), s0);
 });
+
+test("validateSectionInput: solo PDF", () => {
+  assert.equal(validateSectionInput("x", { size: 10, name: "foto.png", type: "image/png" } as File, true)?.field, "file");
+  assert.equal(validateSectionInput("x", { size: 10, name: "manual.PDF", type: "" } as File, true), null);
+  assert.equal(validateSectionInput("x", { size: 10, name: "manual", type: "application/pdf" } as File, true), null);
+});

@@ -107,6 +107,7 @@ export function validateSectionInput(
     if (name.length > MAX_SECTION_NAME) return { field: "name", message: `El nombre puede tener hasta ${MAX_SECTION_NAME} caracteres.` };
   }
   if (file) {
+    if (!isPdf(file)) return { field: "file", message: "El archivo tiene que ser un PDF." };
     if (file.size > MAX_FILE_BYTES) return { field: "file", message: "El archivo supera los 10 MB." };
   } else if (requireBoth) return { field: "file", message: "Elegí un archivo PDF." };
   if (!requireBoth && name === undefined && !file) return { field: "name", message: "Cambiá el nombre o elegí un archivo." };
@@ -118,4 +119,10 @@ export function askBlocker(s: TurnState, socketOpen: boolean): string | null {
   if (isBusy(s)) return "Esperá a que termine la respuesta en curso.";
   if (!socketOpen) return "Sin conexión con el asistente; probá en unos segundos.";
   return null;
+}
+
+/** By MIME type, or by extension when the browser reports none. The server still checks the content. */
+function isPdf(file: File): boolean {
+  if (file.type) return file.type === "application/pdf";
+  return !file.name || /\.pdf$/i.test(file.name);
 }
