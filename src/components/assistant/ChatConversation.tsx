@@ -3,6 +3,7 @@
 import { ApiErrorBanner } from "@/components/ui";
 import { useChat } from "@/lib/useAssistant";
 import Composer from "./Composer";
+import Markdown from "./Markdown";
 import ViewHeader from "./ViewHeader";
 
 export default function ChatConversation({ id, onCreated, onBack }: { id: number | null; onCreated: (id: number) => void; onBack: () => void }) {
@@ -16,9 +17,9 @@ export default function ChatConversation({ id, onCreated, onBack }: { id: number
         {messages.map((m) => (
           <div
             key={m.id}
-            className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-3 py-2 text-sm ${m.role === "USER" ? "self-end bg-[#9C5A2E] text-white" : "self-start bg-[#FBF8F2] text-[#231E1A]"}`}
+            className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${m.role === "USER" ? "self-end whitespace-pre-wrap bg-[#9C5A2E] text-white" : "self-start bg-[#FBF8F2] text-[#231E1A]"}`}
           >
-            {m.content || (busy ? "escribiendo…" : "")}
+            {m.role === "USER" ? m.content : m.content ? <Markdown text={m.content} /> : busy ? "escribiendo…" : ""}
           </div>
         ))}
       </div>
