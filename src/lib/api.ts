@@ -47,18 +47,28 @@ async function request(method: string, path: string, query?: URLSearchParams, bo
   }
 }
 
+/** Drops the session and goes to /login (a 401, or the socket closed with 1008). */
+export function expireSession(): void {
+  clearSession();
+  // outside React, and a full reload drops any in-memory state of the expired session
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+  window.location.href = `${env.basePath}/login/`;
+}
+
 /** Every m3b-api body is {start, length, total, data, ...}; returns the parsed body as-is (204 → undefined). */
 async function send(method: string, path: string, query?: URLSearchParams, body?: unknown): Promise<unknown> {
   const qs = query?.toString();
   const url = `${env.apiUrl}${path}${qs ? `?${qs}` : ""}`;
   const headers: Record<string, string> = { Accept: "application/json" };
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  const isForm = body instanceof FormData;
+  // FormData: the browser sets the multipart Content-Type with its boundary
+  if (body !== undefined && !isForm) headers["Content-Type"] = "application/json";
   const token = getSession()?.accessToken;
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let res: Response;
   try {
-    res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+    res = await fetch(url, { method, headers, body: body === undefined || isForm ? (body as FormData | undefined) : JSON.stringify(body) });
   } catch {
     throw new ApiError(0, `No se pudo conectar con la API (${env.apiUrl})`);
   }
@@ -73,12 +83,7 @@ async function send(method: string, path: string, query?: URLSearchParams, body?
   }
 
   if (!res.ok) {
-    if (res.status === 401 && path !== "/auth/login") {
-      clearSession();
-      // outside React, and a full reload drops any in-memory state of the expired session
-      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-      window.location.href = `${env.basePath}/login/`;
-    }
+    if (res.status === 401 && path !== "/auth/login") expireSession();
     const { message, field, details } = errorInfo(res.status, parsed);
     throw new ApiError(res.status, message, field, details);
   }
@@ -112,6 +117,10 @@ export const api = {
     unwrap<T>(await request("PATCH", path, undefined, body, notify)),
   put: async <T>(path: string, body: unknown, notify?: Notify) =>
     unwrap<T>(await request("PUT", path, undefined, body, notify)),
+  postForm: async <T>(path: string, form: FormData, notify?: Notify) =>
+    unwrap<T>(await request("POST", path, undefined, form, notify)),
+  putForm: async <T>(path: string, form: FormData, notify?: Notify) =>
+    unwrap<T>(await request("PUT", path, undefined, form, notify)),
   del: async (path: string, notify?: Notify): Promise<void> => {
     await request("DELETE", path, undefined, undefined, notify);
   },
