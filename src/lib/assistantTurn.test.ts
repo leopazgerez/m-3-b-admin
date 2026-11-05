@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   acceptAsk, applyEvent, beginAsk, chatMessages, initialTurnState, interrupt, isBusy,
-  validateQuestion, validateSectionInput, type AssistantEvent, type TurnCtx,
+  askBlocker, validateQuestion, validateSectionInput, type AssistantEvent, type TurnCtx,
 } from "./assistantTurn.ts";
 import type { MessageView } from "./apiTypes.ts";
 
@@ -95,4 +95,10 @@ test("validateSectionInput", () => {
   assert.equal(validateSectionInput("x", undefined, true)?.field, "file");
   assert.notEqual(validateSectionInput(undefined, undefined, false), null);
   assert.equal(validateSectionInput("nuevo", undefined, false), null);
+});
+
+test("askBlocker: sin socket autenticado no se pregunta (la respuesta se perdería)", () => {
+  assert.notEqual(askBlocker(initialTurnState, false), null);
+  assert.equal(askBlocker(initialTurnState, true), null);
+  assert.notEqual(askBlocker(streaming(), true), null);
 });

@@ -5,7 +5,7 @@ import type { ApiError } from "./api";
 import { assistantApi } from "./assistantApi";
 import type { AssistantSource, ChatSummary, ChatView, GuideSectionView, MessageView } from "./apiTypes";
 import {
-  acceptAsk, applyEvent, beginAsk, chatMessages, failAsk, initialTurnState, interrupt, isBusy, validateQuestion,
+  acceptAsk, applyEvent, askBlocker, beginAsk, chatMessages, failAsk, initialTurnState, interrupt, isBusy, validateQuestion,
   type AssistantEvent, type Turn, type TurnState,
 } from "./assistantTurn";
 import { socket } from "./socket";
@@ -65,7 +65,7 @@ export function useChats(search: string) {
 /** id null = a chat not created yet: the first ask() creates it and reports the id through onCreated. */
 export function useChat(id: number | null, onCreated?: (id: number) => void): {
   chat: ChatView | null; messages: MessageView[]; loading: boolean; loadError: ApiError | null;
-  busy: boolean; askError: string | null; ask(question: string): Promise<void>; reload(): void;
+  busy: boolean; askError: string | null; ask(question: string): Promise<boolean>; reload(): void;
 } {
   const idRef = useRef(id);
   useEffect(() => { idRef.current = id; });
@@ -88,8 +88,10 @@ export function useChat(id: number | null, onCreated?: (id: number) => void): {
 
   const ask = useCallback(async (question: string) => {
     const invalid = validateQuestion(question);
-    if (invalid) { setAskError(invalid); return; }
-    if (isBusy(ref.current)) return;
+    if (invalid) { setAskError(invalid); return false; }
+    if (isBusy(ref.current)) return false;
+    const blocked = askBlocker(ref.current, socket.status() === "open");
+    if (blocked) { setAskError(blocked); return false; }
     setAskError(null);
     commit(beginAsk(ref.current));
     const seen = reconnects.current;
@@ -102,11 +104,13 @@ export function useChat(id: number | null, onCreated?: (id: number) => void): {
       }
       const { requestId } = await assistantApi.askChat(chatId, question.trim());
       commit(acceptAsk(ref.current, requestId, question.trim(), { source: "chat", chatId }));
-      if (reconnects.current !== seen) { commit(initialTurnState); reload(); return; }
+      if (reconnects.current !== seen) { commit(initialTurnState); reload(); return true; }
       if (ref.current.turn?.status === "done") reload(); // the whole answer came before the 202
+      return true;
     } catch (e) {
       commit(failAsk(ref.current));
       setAskError(message(e));
+      return false;
     }
   }, [ref, commit, reconnects, onCreated, reload]);
 
@@ -125,7 +129,7 @@ export function useChat(id: number | null, onCreated?: (id: number) => void): {
 }
 
 /** Independent questions, nothing persisted: the turns live only while this hook is mounted. */
-export function useGuideAsk(): { turns: Turn[]; busy: boolean; askError: string | null; ask(question: string): Promise<void> } {
+export function useGuideAsk(): { turns: Turn[]; busy: boolean; askError: string | null; ask(question: string): Promise<boolean> } {
   const noChat = useRef<number | null>(null);
   const [history, setHistory] = useState<Turn[]>([]);
   const [askError, setAskError] = useState<string | null>(null);
@@ -135,8 +139,10 @@ export function useGuideAsk(): { turns: Turn[]; busy: boolean; askError: string 
 
   const ask = useCallback(async (question: string) => {
     const invalid = validateQuestion(question);
-    if (invalid) { setAskError(invalid); return; }
-    if (isBusy(ref.current)) return;
+    if (invalid) { setAskError(invalid); return false; }
+    if (isBusy(ref.current)) return false;
+    const blocked = askBlocker(ref.current, socket.status() === "open");
+    if (blocked) { setAskError(blocked); return false; }
     setAskError(null);
     commit(beginAsk(ref.current));
     const seen = reconnects.current;
@@ -146,9 +152,11 @@ export function useGuideAsk(): { turns: Turn[]; busy: boolean; askError: string 
       if (previous) setHistory((h) => [...h, previous]);
       commit(acceptAsk(ref.current, requestId, question.trim(), { source: "guide", chatId: null }));
       if (reconnects.current !== seen) commit(interrupt(ref.current, LOST_CONNECTION));
+      return true;
     } catch (e) {
       commit(failAsk(ref.current));
       setAskError(message(e));
+      return false;
     }
   }, [ref, commit, reconnects]);
 

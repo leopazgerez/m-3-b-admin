@@ -96,3 +96,10 @@ export function validateSectionInput(
   if (!requireBoth && name === undefined && !file) return { field: "name", message: "Cambiá el nombre o elegí un archivo." };
   return null;
 }
+
+/** Why a question can't be sent now, or null. Without an authenticated socket the streamed answer would be lost. */
+export function askBlocker(s: TurnState, socketOpen: boolean): string | null {
+  if (isBusy(s)) return "Esperá a que termine la respuesta en curso.";
+  if (!socketOpen) return "Sin conexión con el asistente; probá en unos segundos.";
+  return null;
+}

@@ -4,14 +4,14 @@ import { useState } from "react";
 import { MAX_QUESTION } from "@/lib/assistantTurn";
 
 /** Question input shared by chat and guide. Disabled while an answer is in progress. */
-export default function Composer({ busy, error, onAsk }: { busy: boolean; error: string | null; onAsk: (q: string) => Promise<void> }) {
+export default function Composer({ busy, error, onAsk }: { busy: boolean; error: string | null; onAsk: (q: string) => Promise<boolean> }) {
   const [text, setText] = useState("");
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
     const q = text;
     setText("");
-    await onAsk(q);
+    if (!(await onAsk(q))) setText(q); // not accepted (validation, 503, no socket): keep what was typed
   };
   return (
     <form onSubmit={submit} className="border-t border-[#E7DFD2] p-3 flex flex-col gap-2">
