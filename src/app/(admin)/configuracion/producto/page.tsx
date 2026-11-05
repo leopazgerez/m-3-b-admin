@@ -106,6 +106,12 @@ export default function ConfigProductoPage() {
           >
             Gastos (Categorías)
           </Link>
+          <Link
+            href="/configuracion/guia"
+            className="px-4 py-1.5 rounded-lg text-xs font-medium text-[#7A6F63] hover:text-[#231E1A] hover:bg-[#FBF8F2] transition-colors whitespace-nowrap"
+          >
+            Guía de usuario
+          </Link>
         </div>
 
         {/* Create Category Form Card */}

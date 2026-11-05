@@ -22,8 +22,8 @@ export const assistantApi = {
   listSections: () => api.getOne<GuideSectionView[]>("/guide/sections"),
   getSection: (id: number) => api.getOne<GuideSectionView>(`/guide/sections/${id}`),
   createSection: (name: string, file: File) =>
-    api.postForm<GuideSectionView>("/guide/sections", sectionForm({ name, file }), { success: "Sección cargada" }),
+    api.postForm<GuideSectionView>("/guide/sections", sectionForm({ name, file }), { success: "Sección cargada", silent: true }),
   updateSection: (id: number, p: { name?: string; file?: File }) =>
-    api.putForm<GuideSectionView>(`/guide/sections/${id}`, sectionForm(p), { success: "Sección actualizada" }),
+    api.putForm<GuideSectionView>(`/guide/sections/${id}`, sectionForm(p), { success: "Sección actualizada", silent: true }),
   deleteSection: (id: number) => api.del(`/guide/sections/${id}`, { success: "Sección eliminada" }),
 };

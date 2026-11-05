@@ -20,6 +20,7 @@ import {
   Truck,
   Vault,
   BadgeDollarSign,
+  BookOpen,
 } from "lucide-react";
 import { useState } from "react";
 import { getAssetPath } from "@/lib/assets";
@@ -265,6 +266,18 @@ export default function Sidebar() {
                 >
                   <ReceiptText className="w-4 h-4 text-[#D98A2B]" />
                   <span>Gastos</span>
+                </Link>
+                <Link
+                  href="/configuracion/guia"
+                  onClick={closeSidebar}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-xs transition-all ${
+                    pathname === "/configuracion/guia"
+                      ? "bg-[#9C5A2E] text-[#F5EAD6] font-semibold"
+                      : "text-[#C9BCA9] hover:text-[#F5EAD6] hover:bg-[#322A23]"
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4 text-[#A89C8C]" />
+                  <span>Guía de usuario</span>
                 </Link>
                 <Link
                   href="/configuracion"
